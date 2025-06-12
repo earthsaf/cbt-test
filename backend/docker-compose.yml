@@ -1,0 +1,32 @@
+version: '3.8'
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: cbt
+      POSTGRES_USER: cbtuser
+      POSTGRES_PASSWORD: cbtpass
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+  backend:
+    build: .
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=cbt
+      - DB_USER=cbtuser
+      - DB_PASS=cbtpass
+      - JWT_SECRET=your_jwt_secret
+      - TELEGRAM_BOT_TOKEN=your_telegram_token
+      - MAIL_HOST=smtp.example.com
+      - MAIL_PORT=587
+      - MAIL_USER=your_email@example.com
+      - MAIL_PASS=your_email_password
+    ports:
+      - "4000:4000"
+    depends_on:
+      - db
+volumes:
+  pgdata: 

@@ -1,0 +1,81 @@
+openapi: 3.0.0
+info:
+  title: CBT System API
+  version: 1.0.0
+paths:
+  /auth/login:
+    post:
+      summary: User login
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+                role:
+                  type: string
+      responses:
+        '200':
+          description: JWT token
+  /exams:
+    get:
+      summary: List exams
+      responses:
+        '200':
+          description: List of exams
+  /exams/{id}/questions:
+    get:
+      summary: Get exam questions
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: List of questions
+  /exams/{id}/autosave:
+    post:
+      summary: Autosave answers
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                answers:
+                  type: object
+      responses:
+        '200':
+          description: OK
+  /exams/{id}/submit:
+    post:
+      summary: Submit answers
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                answers:
+                  type: object
+      responses:
+        '200':
+          description: OK 
