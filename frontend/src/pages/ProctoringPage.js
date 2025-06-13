@@ -1,9 +1,17 @@
+// Only accessible by invigilators. Proctoring interface for a specific exam.
 import React, { useEffect, useState } from 'react';
 import io from 'socket.io-client';
+import { useNavigate } from 'react-router-dom';
 
 function ProctoringPage() {
   const [screens, setScreens] = useState([]);
   const [alerts, setAlerts] = useState([]);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const r = localStorage.getItem('role');
+    if (r !== 'invigilator') navigate('/login');
+  }, [navigate]);
 
   useEffect(() => {
     const socket = io('ws://localhost:4000');

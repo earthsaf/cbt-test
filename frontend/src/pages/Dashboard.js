@@ -4,35 +4,63 @@ import api from '../services/api';
 import { AppBar, Toolbar, Typography, Tabs, Tab, Box, Card, CardContent, Button, Grid, Accordion, AccordionSummary, AccordionDetails } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 
-const sections = ['Home', 'Available Tests', 'Missed Tests', 'Completed Tests', 'Results', 'History'];
+// Only accessible by students. Student dashboard for exams, results, and profile.
+
+const sections = ['Home', 'Available Tests', 'Missed Tests', 'Completed Tests', 'Results', 'History', 'Profile'];
 
 function Dashboard() {
   const [tab, setTab] = useState(0);
   const [exams, setExams] = useState([]);
   const [role, setRole] = useState('student');
   const [history, setHistory] = useState([]);
+  const [profile, setProfile] = useState({ name: '', email: '' });
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileMsg, setProfileMsg] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
     // Fetch user role from token or API
-    setRole(localStorage.getItem('role') || 'student');
+    const r = localStorage.getItem('role') || 'student';
+    setRole(r);
+    if (r === 'admin') navigate('/admin');
+    if (r === 'teacher') navigate('/teacher');
+    if (r === 'invigilator') navigate('/proctor');
     api.get('/exams').then(res => setExams(res.data)).catch(() => setExams([]));
     api.get('/exams/history').then(res => setHistory(res.data)).catch(() => setHistory([]));
-  }, []);
+    if (tab === 6) {
+      setProfileLoading(true);
+      api.get('/admin/profile', { headers: { Authorization: 'Bearer ' + localStorage.getItem('token') } })
+        .then(res => setProfile({ name: res.data.user.name || '', email: res.data.user.email || '' }))
+        .catch(() => setProfile({ name: '', email: '' }))
+        .finally(() => setProfileLoading(false));
+    }
+  }, [tab, navigate]);
 
   // Dummy data for missed/completed
   const missed = exams.filter(e => e.status === 'missed');
   const completed = exams.filter(e => e.status === 'completed');
   const available = exams.filter(e => e.status === 'available');
 
+  const handleProfileChange = e => setProfile({ ...profile, [e.target.name]: e.target.value });
+  const handleProfileSave = async e => {
+    e.preventDefault();
+    setProfileMsg('');
+    setProfileLoading(true);
+    try {
+      await api.put('/admin/profile', profile, { headers: { Authorization: 'Bearer ' + localStorage.getItem('token') } });
+      setProfileMsg('Profile updated!');
+    } catch {
+      setProfileMsg('Failed to update profile');
+    }
+    setProfileLoading(false);
+  };
+
   return (
     <Box sx={{ flexGrow: 1 }}>
       <AppBar position="static">
         <Toolbar>
           <Typography variant="h6" sx={{ flexGrow: 1 }}>CBT System</Typography>
-          {role === 'admin' && <Button color="inherit" onClick={() => navigate('/admin')}>Admin Panel</Button>}
-          {role === 'teacher' && <Button color="inherit" onClick={() => navigate('/admin')}>Teacher Panel</Button>}
-          {role === 'invigilator' && <Button color="inherit" onClick={() => navigate('/proctor')}>Invigilator Panel</Button>}
+          {/* No panel buttons for students */}
         </Toolbar>
       </AppBar>
       <Tabs value={tab} onChange={(_, v) => setTab(v)} centered>
@@ -123,6 +151,20 @@ function Dashboard() {
               </Accordion>
             ))}
           </Box>
+        )}
+        {tab === 6 && (
+          <Card sx={{ maxWidth: 400, margin: 'auto' }}>
+            <CardContent>
+              <Typography variant="h6">Profile</Typography>
+              <form onSubmit={handleProfileSave}>
+                <input name="name" placeholder="Name" value={profile.name} onChange={handleProfileChange} style={{ width: '100%', marginBottom: 12 }} />
+                <input name="email" placeholder="Email" value={profile.email} onChange={handleProfileChange} style={{ width: '100%', marginBottom: 12 }} />
+                <input name="password" type="password" placeholder="New Password" onChange={handleProfileChange} style={{ width: '100%', marginBottom: 12 }} />
+                <Button type="submit" variant="contained" disabled={profileLoading}>Save</Button>
+                {profileMsg && <Typography sx={{ mt: 1 }} color={profileMsg.includes('updated') ? 'success.main' : 'error'}>{profileMsg}</Typography>}
+              </form>
+            </CardContent>
+          </Card>
         )}
       </Box>
     </Box>

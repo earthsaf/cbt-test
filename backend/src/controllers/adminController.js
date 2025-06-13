@@ -1,5 +1,6 @@
-const { User, Class, Exam, Question, Answer, Session, Log } = require('../models');
+const { User, Class, Exam, Question, Answer, Session, Log, Subject, TeacherClassSubject } = require('../models');
 const { getSocketIO } = require('../services/proctoring');
+const { Op } = require('sequelize');
 
 exports.manageUsers = async (req, res) => {
   const users = await User.findAll({ include: Class });
@@ -45,19 +46,19 @@ exports.editUser = async (req, res) => {
 
 // Edit question (live)
 exports.editQuestion = async (req, res) => {
+  const { id } = req.params;
   const { text, options, answer } = req.body;
-  const question = await Question.findOne({ where: { id: req.params.questionId, examId: req.params.examId } });
+  const question = await Question.findByPk(id);
   if (!question) return res.status(404).json({ error: 'Question not found' });
   if (text) question.text = text;
   if (options) question.options = options;
   if (answer) question.answer = answer;
-  question.version += 1;
   await question.save();
   await Log.create({ userId: req.user.id, action: 'editQuestion', details: JSON.stringify({ questionId: question.id }) });
   // Emit live update to students
   const io = getSocketIO();
   if (io) {
-    io.emit(`question-update-exam-${req.params.examId}`, {
+    io.emit(`question-update-exam-${question.examId}`, {
       questionId: question.id,
       text: question.text,
       options: question.options,
@@ -104,4 +105,130 @@ exports.exportExamResults = async (req, res) => {
   res.header('Content-Type', 'text/csv');
   res.attachment('results.csv');
   res.send(csv);
+};
+
+// Create user (admin only)
+exports.createUser = async (req, res) => {
+  const { username, password, role, name, email, classId } = req.body;
+  if (!['student', 'teacher'].includes(role)) return res.status(400).json({ error: 'Invalid role' });
+  const exists = await User.findOne({ where: { username } });
+  if (exists) return res.status(400).json({ error: 'Username already exists' });
+  const bcrypt = require('bcrypt');
+  const passwordHash = await bcrypt.hash(password, 10);
+  const user = await User.create({ username, passwordHash, role, name, email, classId });
+  res.json({ ok: true, user });
+};
+
+// Generate/view invigilator code for an exam
+exports.setInvigilatorCode = async (req, res) => {
+  const { examId } = req.body;
+  const code = Math.random().toString(36).substr(2, 8).toUpperCase();
+  const exam = await Exam.findByPk(examId);
+  if (!exam) return res.status(404).json({ error: 'Exam not found' });
+  exam.invigilatorCode = code;
+  await exam.save();
+  res.json({ ok: true, code });
+};
+exports.getInvigilatorCode = async (req, res) => {
+  const { examId } = req.query;
+  const exam = await Exam.findByPk(examId);
+  if (!exam) return res.status(404).json({ error: 'Exam not found' });
+  res.json({ code: exam.invigilatorCode });
+};
+
+// Profile endpoints
+exports.getProfile = async (req, res) => {
+  const user = await User.findByPk(req.user.id);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  res.json({ user });
+};
+exports.updateProfile = async (req, res) => {
+  const { name, email, password } = req.body;
+  const user = await User.findByPk(req.user.id);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  if (name) user.name = name;
+  if (email) user.email = email;
+  if (password) {
+    const bcrypt = require('bcrypt');
+    user.passwordHash = await bcrypt.hash(password, 10);
+  }
+  await user.save();
+  res.json({ ok: true, user });
+};
+
+exports.listSubjects = async (req, res) => {
+  const subjects = await Subject.findAll();
+  res.json(subjects);
+};
+exports.addSubject = async (req, res) => {
+  const { name } = req.body;
+  if (!name) return res.status(400).json({ error: 'Name required' });
+  const exists = await Subject.findOne({ where: { name } });
+  if (exists) return res.status(400).json({ error: 'Subject already exists' });
+  const subject = await Subject.create({ name });
+  res.json({ ok: true, subject });
+};
+exports.deleteSubject = async (req, res) => {
+  const { id } = req.params;
+  await Subject.destroy({ where: { id } });
+  res.json({ ok: true });
+};
+
+exports.listTeacherAssignments = async (req, res) => {
+  const assignments = await TeacherClassSubject.findAll({
+    include: [
+      { model: User, as: 'teacher', attributes: ['id', 'username', 'name'] },
+      { model: Class, attributes: ['id', 'name'] },
+      { model: Subject, attributes: ['id', 'name'] },
+    ],
+  });
+  res.json(assignments);
+};
+exports.assignTeacher = async (req, res) => {
+  const { teacherId, classId, subjectId } = req.body;
+  if (!teacherId || !classId || !subjectId) return res.status(400).json({ error: 'All fields required' });
+  const exists = await TeacherClassSubject.findOne({ where: { teacherId, classId, subjectId } });
+  if (exists) return res.status(400).json({ error: 'Assignment already exists' });
+  const assignment = await TeacherClassSubject.create({ teacherId, classId, subjectId });
+  res.json({ ok: true, assignment });
+};
+exports.removeTeacherAssignment = async (req, res) => {
+  const { id } = req.params;
+  await TeacherClassSubject.destroy({ where: { id } });
+  res.json({ ok: true });
+};
+
+exports.uploadQuestions = async (req, res) => {
+  // TODO: Implement file parsing and question creation
+  const { assignmentId } = req.body;
+  // req.file contains the uploaded file (if using multer)
+  res.json({ ok: true, message: 'Upload received (not implemented)' });
+};
+
+exports.listAssignmentQuestions = async (req, res) => {
+  const { assignmentId } = req.params;
+  const assignment = await TeacherClassSubject.findByPk(assignmentId);
+  if (!assignment) return res.status(404).json({ error: 'Assignment not found' });
+  // Find all exams for this class/subject/teacher
+  // For simplicity, assume one exam per assignment (or extend as needed)
+  const exam = await Exam.findOne({ where: { classId: assignment.classId, subjectId: assignment.subjectId, createdBy: assignment.teacherId } });
+  if (!exam) return res.json([]);
+  const questions = await Question.findAll({ where: { examId: exam.id } });
+  res.json(questions);
+};
+
+exports.deleteQuestion = async (req, res) => {
+  const { id } = req.params;
+  await Question.destroy({ where: { id } });
+  res.json({ ok: true });
+};
+
+exports.deleteAssignmentQuestions = async (req, res) => {
+  const { assignmentId } = req.params;
+  const assignment = await TeacherClassSubject.findByPk(assignmentId);
+  if (!assignment) return res.status(404).json({ error: 'Assignment not found' });
+  const exam = await Exam.findOne({ where: { classId: assignment.classId, subjectId: assignment.subjectId, createdBy: assignment.teacherId } });
+  if (!exam) return res.json({ ok: true });
+  await Question.destroy({ where: { examId: exam.id } });
+  res.json({ ok: true });
 }; 

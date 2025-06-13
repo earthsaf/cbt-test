@@ -6,6 +6,7 @@ module.exports = (sequelize) => {
     startTime: { type: DataTypes.DATE },
     durationMinutes: { type: DataTypes.INTEGER },
     status: { type: DataTypes.STRING },
+    invigilatorCode: { type: DataTypes.STRING },
   });
   return Exam;
 }; 

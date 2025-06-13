@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
@@ -7,33 +7,66 @@ function LoginPage() {
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('student');
   const [error, setError] = useState('');
+  const [examId, setExamId] = useState('');
+  const [invigilatorCode, setInvigilatorCode] = useState('');
+  const [exams, setExams] = useState([]);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (role === 'invigilator') {
+      axios.get('/api/admin/exams', { headers: { Authorization: '' } })
+        .then(res => setExams(res.data))
+        .catch(() => setExams([]));
+    }
+  }, [role]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const res = await axios.post('/api/auth/login', { username, password, role });
+      let payload;
+      if (role === 'invigilator') {
+        payload = { role, examId, invigilatorCode };
+      } else {
+        payload = { username, password, role };
+      }
+      const res = await axios.post('/api/auth/login', payload);
       localStorage.setItem('token', res.data.token);
-      navigate('/dashboard');
+      localStorage.setItem('role', role);
+      if (role === 'admin') navigate('/admin');
+      else if (role === 'teacher') navigate('/teacher');
+      else if (role === 'invigilator') navigate('/proctor');
+      else navigate('/dashboard');
     } catch (err) {
       setError('Login failed');
     }
   };
 
   return (
-    <div style={{ maxWidth: 400, margin: 'auto', padding: 32 }}>
+    <div style={{ maxWidth: 400, margin: 'auto', padding: 32, background: '#f9f9f9', borderRadius: 8 }}>
       <h2>Login</h2>
       <form onSubmit={handleSubmit}>
-        <input placeholder="Username" value={username} onChange={e => setUsername(e.target.value)} required />
-        <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} required />
-        <select value={role} onChange={e => setRole(e.target.value)}>
+        <select value={role} onChange={e => setRole(e.target.value)} style={{ marginBottom: 12 }}>
           <option value="student">Student</option>
           <option value="teacher">Teacher</option>
           <option value="admin">Admin</option>
           <option value="invigilator">Invigilator</option>
         </select>
-        <button type="submit">Login</button>
-        {error && <div style={{ color: 'red' }}>{error}</div>}
+        {role === 'invigilator' ? (
+          <>
+            <select value={examId} onChange={e => setExamId(e.target.value)} required style={{ marginBottom: 12 }}>
+              <option value="">Select Exam</option>
+              {exams.map(exam => <option key={exam.id} value={exam.id}>{exam.title}</option>)}
+            </select>
+            <input placeholder="Invigilator Code" value={invigilatorCode} onChange={e => setInvigilatorCode(e.target.value)} required style={{ marginBottom: 12 }} />
+          </>
+        ) : (
+          <>
+            <input placeholder="Username" value={username} onChange={e => setUsername(e.target.value)} required style={{ marginBottom: 12 }} />
+            <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} required style={{ marginBottom: 12 }} />
+          </>
+        )}
+        <button type="submit" style={{ width: '100%', padding: 8, background: '#1976d2', color: '#fff', border: 'none', borderRadius: 4 }}>Login</button>
+        {error && <div style={{ color: 'red', marginTop: 8 }}>{error}</div>}
       </form>
     </div>
   );

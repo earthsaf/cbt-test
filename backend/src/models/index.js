@@ -20,6 +20,16 @@ const Answer = require('./answer')(sequelize);
 const Session = require('./session')(sequelize);
 const Log = require('./log')(sequelize);
 const ProctoringEvent = require('./proctoringEvent')(sequelize);
+const Subject = require('./class')(sequelize).Subject || require('./subject')(sequelize);
+const TeacherClassSubject = sequelize.define('TeacherClassSubject', {
+  id: { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
+});
+TeacherClassSubject.belongsTo(User, { as: 'teacher', foreignKey: 'teacherId' });
+TeacherClassSubject.belongsTo(Class, { foreignKey: 'classId' });
+TeacherClassSubject.belongsTo(Subject, { foreignKey: 'subjectId' });
+User.belongsToMany(Class, { through: TeacherClassSubject, as: 'TeachingClasses', foreignKey: 'teacherId' });
+User.belongsToMany(Subject, { through: TeacherClassSubject, as: 'TeachingSubjects', foreignKey: 'teacherId' });
+Class.belongsToMany(Subject, { through: TeacherClassSubject, as: 'ClassSubjects', foreignKey: 'classId' });
 
 // Associations
 User.belongsTo(Class);
@@ -47,4 +57,6 @@ module.exports = {
   Session,
   Log,
   ProctoringEvent,
+  Subject,
+  TeacherClassSubject,
 }; 

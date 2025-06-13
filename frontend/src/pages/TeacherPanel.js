@@ -1,0 +1,188 @@
+// Only accessible by teachers. Teacher dashboard for managing their exams, students, and analytics.
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import api from '../services/api';
+import { AppBar, Tabs, Tab, Box, Typography, Card, CardContent, Button, Grid, Snackbar, Alert, Select, MenuItem, TextField } from '@mui/material';
+
+const tabs = ['My Assignments', 'My Students', 'Analytics'];
+
+function TeacherPanel() {
+  const [tab, setTab] = useState(0);
+  const [assignments, setAssignments] = useState([]);
+  const [students, setStudents] = useState([]);
+  const [analytics, setAnalytics] = useState({ results: [], highest: 0, lowest: 0, avg: 0 });
+  const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
+  const [selectedAssignment, setSelectedAssignment] = useState('');
+  const [file, setFile] = useState(null);
+  const [questions, setQuestions] = useState([]);
+  const [editingQuestion, setEditingQuestion] = useState(null);
+  const [editText, setEditText] = useState('');
+  const [editOptions, setEditOptions] = useState({ a: '', b: '', c: '', d: '' });
+  const [editAnswer, setEditAnswer] = useState('');
+  const navigate = useNavigate();
+  const teacherId = parseInt(localStorage.getItem('userId'));
+
+  useEffect(() => {
+    const r = localStorage.getItem('role');
+    if (r !== 'teacher') navigate('/login');
+    api.get('/admin/teacher-assignments').then(res => {
+      setAssignments(res.data.filter(a => a.teacher?.id === teacherId));
+    }).catch(() => setAssignments([]));
+    api.get('/admin/users').then(res => setStudents(res.data.filter(u => u.role === 'student'))).catch(() => setStudents([]));
+  }, [navigate, teacherId]);
+
+  const handleUpload = async (e) => {
+    e.preventDefault();
+    if (!selectedAssignment || !file) return;
+    const formData = new FormData();
+    formData.append('assignmentId', selectedAssignment);
+    formData.append('file', file);
+    try {
+      await api.post('/admin/upload-questions', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+      setSnack({ open: true, message: 'Questions uploaded!', severity: 'success' });
+      setFile(null);
+      setSelectedAssignment('');
+    } catch {
+      setSnack({ open: true, message: 'Upload failed', severity: 'error' });
+    }
+  };
+
+  const fetchAnalytics = async (assignmentId) => {
+    const assignment = assignments.find(a => a.id === assignmentId);
+    if (!assignment) return setSnack({ open: true, message: 'Select an assignment', severity: 'info' });
+    // TODO: Fetch real analytics from backend
+    setSnack({ open: true, message: `Analytics for ${assignment.Class?.name} - ${assignment.Subject?.name} (not implemented)`, severity: 'info' });
+  };
+
+  const fetchQuestions = async (assignmentId) => {
+    if (!assignmentId) return setQuestions([]);
+    const res = await api.get(`/admin/assignment-questions/${assignmentId}`);
+    setQuestions(res.data);
+  };
+
+  useEffect(() => {
+    if (selectedAssignment) fetchQuestions(selectedAssignment);
+    else setQuestions([]);
+  }, [selectedAssignment]);
+
+  const handleEdit = (q) => {
+    setEditingQuestion(q.id);
+    setEditText(q.text);
+    setEditOptions(q.options || { a: '', b: '', c: '', d: '' });
+    setEditAnswer(q.answer || '');
+  };
+
+  const handleEditSave = async () => {
+    await api.put(`/admin/questions/${editingQuestion}`, {
+      text: editText,
+      options: editOptions,
+      answer: editAnswer,
+    });
+    setEditingQuestion(null);
+    fetchQuestions(selectedAssignment);
+    setSnack({ open: true, message: 'Question updated', severity: 'success' });
+  };
+
+  const handleDelete = async (id) => {
+    await api.delete(`/admin/questions/${id}`);
+    fetchQuestions(selectedAssignment);
+    setSnack({ open: true, message: 'Question deleted', severity: 'success' });
+  };
+
+  const handleDeleteAll = async () => {
+    await api.delete(`/admin/assignment-questions/${selectedAssignment}`);
+    fetchQuestions(selectedAssignment);
+    setSnack({ open: true, message: 'All questions deleted', severity: 'success' });
+  };
+
+  return (
+    <Box sx={{ flexGrow: 1, p: 3 }}>
+      <AppBar position="static" color="default">
+        <Tabs value={tab} onChange={(_, v) => setTab(v)}>
+          {tabs.map((t, i) => <Tab label={t} key={i} />)}
+        </Tabs>
+      </AppBar>
+      <Box sx={{ mt: 3 }}>
+        {tab === 0 && (
+          <Box>
+            <Typography variant="h6">My Assignments</Typography>
+            <ul>
+              {assignments.map(a => (
+                <li key={a.id}>{a.Class?.name} - {a.Subject?.name}</li>
+              ))}
+            </ul>
+            <form onSubmit={handleUpload} style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+              <Select value={selectedAssignment} onChange={e => setSelectedAssignment(e.target.value)} displayEmpty style={{ minWidth: 200 }}>
+                <MenuItem value="">Select Class & Subject</MenuItem>
+                {assignments.map(a => (
+                  <MenuItem value={a.id} key={a.id}>{a.Class?.name} - {a.Subject?.name}</MenuItem>
+                ))}
+              </Select>
+              <input type="file" onChange={e => setFile(e.target.files[0])} />
+              <Button type="submit" variant="contained">Upload Questions</Button>
+            </form>
+          </Box>
+        )}
+        {tab === 1 && (
+          <Box>
+            <Typography variant="h6">My Students</Typography>
+            <ul>
+              {students.map(s => <li key={s.id}>{s.username} ({s.email})</li>)}
+            </ul>
+          </Box>
+        )}
+        {tab === 2 && (
+          <Box>
+            <Typography variant="h6">Analytics</Typography>
+            <Select value={selectedAssignment} onChange={e => setSelectedAssignment(e.target.value)} displayEmpty style={{ minWidth: 200, marginBottom: 8 }}>
+              <MenuItem value="">Select Assignment</MenuItem>
+              {assignments.map(a => (
+                <MenuItem value={a.id} key={a.id}>{a.Class?.name} - {a.Subject?.name}</MenuItem>
+              ))}
+            </Select>
+            <Button onClick={() => fetchAnalytics(selectedAssignment)}>View Analytics</Button>
+          </Box>
+        )}
+      </Box>
+      {/* Preview and edit questions */}
+      {questions.length > 0 && (
+        <Box sx={{ mt: 3 }}>
+          <Typography variant="h6">Preview Questions</Typography>
+          <Button color="error" onClick={handleDeleteAll} sx={{ mb: 2 }}>Delete All</Button>
+          {questions.map(q => (
+            <Card key={q.id} sx={{ mb: 2 }}>
+              <CardContent>
+                {editingQuestion === q.id ? (
+                  <>
+                    <TextField label="Question" fullWidth value={editText} onChange={e => setEditText(e.target.value)} sx={{ mb: 1 }} />
+                    {['a', 'b', 'c', 'd'].map(opt => (
+                      <TextField key={opt} label={opt.toUpperCase()} value={editOptions[opt]} onChange={e => setEditOptions({ ...editOptions, [opt]: e.target.value })} sx={{ mr: 1, mb: 1 }} />
+                    ))}
+                    <TextField label="Answer" value={editAnswer} onChange={e => setEditAnswer(e.target.value)} sx={{ mb: 1 }} />
+                    <Button onClick={handleEditSave} variant="contained" sx={{ mr: 1 }}>Save</Button>
+                    <Button onClick={() => setEditingQuestion(null)}>Cancel</Button>
+                  </>
+                ) : (
+                  <>
+                    <Typography><b>{q.text}</b></Typography>
+                    <Typography>a. {q.options?.a}  b. {q.options?.b}  c. {q.options?.c}  d. {q.options?.d}</Typography>
+                    <Typography>Answer: {q.answer}</Typography>
+                    <Button onClick={() => handleEdit(q)} sx={{ mr: 1 }}>Edit</Button>
+                    <Button color="error" onClick={() => handleDelete(q.id)}>Delete</Button>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </Box>
+      )}
+      <Snackbar open={snack.open} autoHideDuration={3000} onClose={() => setSnack({ ...snack, open: false })}>
+        <Alert onClose={() => setSnack({ ...snack, open: false })} severity={snack.severity} sx={{ width: '100%' }}>
+          {snack.message}
+        </Alert>
+      </Snackbar>
+    </Box>
+  );
+}
+
+export default TeacherPanel; 

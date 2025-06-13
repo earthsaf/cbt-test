@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard';
 import ExamPage from './pages/ExamPage';
 import AdminPanel from './pages/AdminPanel';
 import ProctoringPage from './pages/ProctoringPage';
+import TeacherPanel from './pages/TeacherPanel';
 
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
         <Route path="/exam/:examId" element={<ExamPage />} />
         <Route path="/admin" element={<AdminPanel />} />
         <Route path="/proctor" element={<ProctoringPage />} />
+        <Route path="/teacher" element={<TeacherPanel />} />
       </Routes>
     </Router>
   );

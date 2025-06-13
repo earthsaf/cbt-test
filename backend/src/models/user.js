@@ -6,6 +6,8 @@ module.exports = (sequelize) => {
     passwordHash: { type: DataTypes.STRING, allowNull: false },
     role: { type: DataTypes.ENUM('student', 'teacher', 'admin', 'invigilator'), allowNull: false },
     telegramId: { type: DataTypes.STRING },
+    name: { type: DataTypes.STRING },
+    email: { type: DataTypes.STRING },
   });
   return User;
 }; 
