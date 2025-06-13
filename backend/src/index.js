@@ -20,7 +20,7 @@ setupBot();
 setupSocket(server);
 
 const PORT = process.env.PORT || 4000;
-sequelize.sync().then(async () => {
+sequelize.sync({ alter: true }).then(async () => {
   // Ensure default admin user exists
   const admin = await User.findOne({ where: { role: 'admin' } });
   if (!admin) {
