@@ -109,13 +109,13 @@ exports.exportExamResults = async (req, res) => {
 
 // Create user (admin only)
 exports.createUser = async (req, res) => {
-  const { username, password, role, name, email, classId } = req.body;
+  const { username, password, role, name, email, classId, telegramId } = req.body;
   if (!['student', 'teacher'].includes(role)) return res.status(400).json({ error: 'Invalid role' });
   const exists = await User.findOne({ where: { username } });
   if (exists) return res.status(400).json({ error: 'Username already exists' });
   const bcrypt = require('bcrypt');
   const passwordHash = await bcrypt.hash(password, 10);
-  const user = await User.create({ username, passwordHash, role, name, email, classId });
+  const user = await User.create({ username, passwordHash, role, name, email, classId, telegramId });
   res.json({ ok: true, user });
 };
 
@@ -199,9 +199,15 @@ exports.removeTeacherAssignment = async (req, res) => {
 };
 
 exports.uploadQuestions = async (req, res) => {
-  // TODO: Implement file parsing and question creation
   const { assignmentId } = req.body;
-  // req.file contains the uploaded file (if using multer)
+  const file = req.file;
+  if (!file) return res.status(400).json({ error: 'No file uploaded' });
+  const allowed = ['text/plain', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+  const ext = file.originalname.split('.').pop().toLowerCase();
+  if (!allowed.includes(file.mimetype) && ext !== 'txt' && ext !== 'docx') {
+    return res.status(400).json({ error: 'Only .txt or .docx files are allowed' });
+  }
+  // TODO: Implement file parsing and question creation
   res.json({ ok: true, message: 'Upload received (not implemented)' });
 };
 

@@ -17,13 +17,15 @@ function AdminPanel() {
   const [retakeExam, setRetakeExam] = useState({ examId: '', classId: '', userId: '' });
   const [analytics, setAnalytics] = useState({ results: [], highest: 0, lowest: 0, avg: 0 });
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
-  const [newUser, setNewUser] = useState({ username: '', password: '', role: 'student', name: '', email: '', classId: '' });
+  const [newUser, setNewUser] = useState({ username: '', password: '', role: 'student', name: '', email: '', classId: '', telegramId: '' });
   const [creatingUser, setCreatingUser] = useState(false);
   const [invigilatorCodes, setInvigilatorCodes] = useState({});
   const [subjects, setSubjects] = useState([]);
   const [newSubject, setNewSubject] = useState('');
   const [assignments, setAssignments] = useState([]);
   const [newAssignment, setNewAssignment] = useState({ teacherId: '', classId: '', subjectId: '' });
+  const [fileError, setFileError] = useState('');
+  const [file, setFile] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -98,7 +100,7 @@ function AdminPanel() {
     try {
       await api.post('/admin/users', newUser);
       setSnack({ open: true, message: 'User created', severity: 'success' });
-      setNewUser({ username: '', password: '', role: 'student', name: '', email: '', classId: '' });
+      setNewUser({ username: '', password: '', role: 'student', name: '', email: '', classId: '', telegramId: '' });
       const res = await api.get('/admin/users');
       setUsers(res.data);
     } catch {
@@ -173,6 +175,19 @@ function AdminPanel() {
     }
   };
 
+  const handleFileChange = (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    const ext = f.name.split('.').pop().toLowerCase();
+    if (ext !== 'txt' && ext !== 'docx') {
+      setFileError('Only .txt or .docx files are allowed');
+      setFile(null);
+      return;
+    }
+    setFileError('');
+    setFile(f);
+  };
+
   return (
     <Box sx={{ flexGrow: 1, p: 3 }}>
       <AppBar position="static" color="default">
@@ -189,6 +204,7 @@ function AdminPanel() {
               <TextField label="Password" value={newUser.password} onChange={e => setNewUser({ ...newUser, password: e.target.value })} required size="small" />
               <TextField label="Name" value={newUser.name} onChange={e => setNewUser({ ...newUser, name: e.target.value })} size="small" />
               <TextField label="Email" value={newUser.email} onChange={e => setNewUser({ ...newUser, email: e.target.value })} size="small" />
+              {newUser.role === 'teacher' && <TextField label="Telegram ID" value={newUser.telegramId} onChange={e => setNewUser({ ...newUser, telegramId: e.target.value })} size="small" required />}
               <Select value={newUser.role} onChange={e => setNewUser({ ...newUser, role: e.target.value })} size="small">
                 <MenuItem value="student">Student</MenuItem>
                 <MenuItem value="teacher">Teacher</MenuItem>
@@ -348,6 +364,8 @@ function AdminPanel() {
           {snack.message}
         </Alert>
       </Snackbar>
+      <input type="file" onChange={handleFileChange} />
+      {fileError && <Typography color="error">{fileError}</Typography>}
     </Box>
   );
 }

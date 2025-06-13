@@ -2,6 +2,8 @@ const express = require('express');
 const admin = require('../controllers/adminController');
 const { requireAuth } = require('../middlewares/auth');
 const { requireRole } = require('../middlewares/roles');
+const multer = require('multer');
+const upload = multer();
 const router = express.Router();
 
 router.get('/users', requireAuth, requireRole('admin'), admin.manageUsers);
@@ -35,7 +37,7 @@ router.post('/teacher-assignments', requireAuth, requireRole('admin'), admin.ass
 router.delete('/teacher-assignments/:id', requireAuth, requireRole('admin'), admin.removeTeacherAssignment);
 
 // New: Upload questions
-router.post('/upload-questions', requireAuth, admin.uploadQuestions);
+router.post('/upload-questions', requireAuth, upload.single('file'), admin.uploadQuestions);
 
 // New: Teacher-question assignment management
 router.get('/assignment-questions/:assignmentId', requireAuth, admin.listAssignmentQuestions);
