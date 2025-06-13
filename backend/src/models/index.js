@@ -20,7 +20,7 @@ const Answer = require('./answer')(sequelize);
 const Session = require('./session')(sequelize);
 const Log = require('./log')(sequelize);
 const ProctoringEvent = require('./proctoringEvent')(sequelize);
-const Subject = require('./class')(sequelize).Subject || require('./subject')(sequelize);
+const Subject = require('./subject')(sequelize);
 const TeacherClassSubject = sequelize.define('TeacherClassSubject', {
   id: { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
 });
