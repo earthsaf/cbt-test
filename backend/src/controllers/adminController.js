@@ -237,4 +237,13 @@ exports.deleteAssignmentQuestions = async (req, res) => {
   if (!exam) return res.json({ ok: true });
   await Question.destroy({ where: { examId: exam.id } });
   res.json({ ok: true });
+};
+
+exports.addClass = async (req, res) => {
+  const { name } = req.body;
+  if (!name) return res.status(400).json({ error: 'Name required' });
+  const exists = await Class.findOne({ where: { name } });
+  if (exists) return res.status(400).json({ error: 'Class already exists' });
+  const c = await Class.create({ name });
+  res.json({ ok: true, class: c });
 }; 

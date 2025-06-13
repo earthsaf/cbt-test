@@ -26,6 +26,7 @@ function AdminPanel() {
   const [newAssignment, setNewAssignment] = useState({ teacherId: '', classId: '', subjectId: '' });
   const [fileError, setFileError] = useState('');
   const [file, setFile] = useState(null);
+  const [newClass, setNewClass] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -188,6 +189,20 @@ function AdminPanel() {
     setFile(f);
   };
 
+  const handleAddClass = async (e) => {
+    e.preventDefault();
+    if (!newClass) return;
+    try {
+      await api.post('/admin/classes', { name: newClass });
+      setSnack({ open: true, message: 'Class added', severity: 'success' });
+      setNewClass('');
+      const res = await api.get('/admin/classes');
+      setClasses(res.data);
+    } catch {
+      setSnack({ open: true, message: 'Failed to add class', severity: 'error' });
+    }
+  };
+
   return (
     <Box sx={{ flexGrow: 1, p: 3 }}>
       <AppBar position="static" color="default">
@@ -232,6 +247,10 @@ function AdminPanel() {
         {tab === 1 && (
           <Box>
             <Typography variant="h6">Classes</Typography>
+            <form onSubmit={handleAddClass} style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+              <TextField value={newClass} onChange={e => setNewClass(e.target.value)} placeholder="Add class" size="small" />
+              <Button type="submit" variant="contained">Add</Button>
+            </form>
             <ul>
               {classes.map(c => <li key={c.id}>{c.name}</li>)}
             </ul>
@@ -310,6 +329,10 @@ function AdminPanel() {
               </Select>
               <Button type="submit" variant="contained">Assign</Button>
             </form>
+            <form onSubmit={handleUpload} style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+              <input type="file" onChange={handleFileChange} />
+              {fileError && <Typography color="error">{fileError}</Typography>}
+            </form>
             <ul>
               {assignments.map(a => (
                 <li key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -364,8 +387,6 @@ function AdminPanel() {
           {snack.message}
         </Alert>
       </Snackbar>
-      <input type="file" onChange={handleFileChange} />
-      {fileError && <Typography color="error">{fileError}</Typography>}
     </Box>
   );
 }

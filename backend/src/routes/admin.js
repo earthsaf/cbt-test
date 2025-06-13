@@ -45,4 +45,7 @@ router.put('/questions/:id', requireAuth, admin.editQuestion);
 router.delete('/questions/:id', requireAuth, admin.deleteQuestion);
 router.delete('/assignment-questions/:assignmentId', requireAuth, admin.deleteAssignmentQuestions);
 
+// New: Add class
+router.post('/classes', requireAuth, requireRole('admin'), admin.addClass);
+
 module.exports = router; 
