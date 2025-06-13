@@ -14,7 +14,8 @@ function LoginPage() {
 
   useEffect(() => {
     if (role === 'invigilator') {
-      axios.get('/api/admin/exams', { headers: { Authorization: '' } })
+      const apiUrl = process.env.REACT_APP_API_URL || '/api';
+      axios.get(`${apiUrl}/admin/exams`, { headers: { Authorization: '' } })
         .then(res => setExams(res.data))
         .catch(() => setExams([]));
     }
@@ -22,6 +23,7 @@ function LoginPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
     try {
       let payload;
       if (role === 'invigilator') {
@@ -29,13 +31,18 @@ function LoginPage() {
       } else {
         payload = { username, password, role };
       }
-      const res = await axios.post('/api/auth/login', payload);
-      localStorage.setItem('token', res.data.token);
-      localStorage.setItem('role', role);
-      if (role === 'admin') navigate('/admin');
-      else if (role === 'teacher') navigate('/teacher');
-      else if (role === 'invigilator') navigate('/proctor');
-      else navigate('/dashboard');
+      const apiUrl = process.env.REACT_APP_API_URL || '/api';
+      const res = await axios.post(`${apiUrl}/auth/login`, payload);
+      if (res.data && res.data.token) {
+        localStorage.setItem('token', res.data.token);
+        localStorage.setItem('role', role);
+        if (role === 'admin') navigate('/admin');
+        else if (role === 'teacher') navigate('/teacher');
+        else if (role === 'invigilator') navigate('/proctor');
+        else navigate('/dashboard');
+      } else {
+        setError('Login failed: No token received.');
+      }
     } catch (err) {
       setError('Login failed');
     }
