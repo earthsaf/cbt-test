@@ -203,6 +203,12 @@ function AdminPanel() {
     }
   };
 
+  const handleUpload = async (e) => {
+    e.preventDefault();
+    // TODO: Implement file upload logic for assignments if needed
+    setSnack({ open: true, message: 'File upload not implemented yet.', severity: 'info' });
+  };
+
   return (
     <Box sx={{ flexGrow: 1, p: 3 }}>
       <AppBar position="static" color="default">
@@ -329,10 +335,12 @@ function AdminPanel() {
               </Select>
               <Button type="submit" variant="contained">Assign</Button>
             </form>
+            {/*
             <form onSubmit={handleUpload} style={{ display: 'flex', gap: 8, marginTop: 16 }}>
               <input type="file" onChange={handleFileChange} />
               {fileError && <Typography color="error">{fileError}</Typography>}
             </form>
+            */}
             <ul>
               {assignments.map(a => (
                 <li key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
