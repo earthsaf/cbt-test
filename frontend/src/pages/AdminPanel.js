@@ -3,12 +3,14 @@ import React, { useState, useEffect } from 'react';
 import { AppBar, Tabs, Tab, Box, Typography, Card, CardContent, Button, Grid, TextField, Select, MenuItem, Snackbar, Alert } from '@mui/material';
 import { Bar } from 'react-chartjs-2';
 import api from '../services/api';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 const tabs = ['Users', 'Classes', 'Exams', 'Subjects', 'Assignments', 'Analytics'];
 
 function AdminPanel() {
-  const [tab, setTab] = useState(0);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTab = parseInt(searchParams.get('tab')) || 0;
+  const [tab, setTab] = useState(initialTab);
   const [users, setUsers] = useState([]);
   const [classes, setClasses] = useState([]);
   const [exams, setExams] = useState([]);
@@ -33,6 +35,10 @@ function AdminPanel() {
     const r = localStorage.getItem('role');
     if (r !== 'admin') navigate('/login');
   }, [navigate]);
+
+  useEffect(() => {
+    setSearchParams({ tab });
+  }, [tab, setSearchParams]);
 
   useEffect(() => {
     api.get('/admin/users').then(res => setUsers(res.data)).catch(() => setUsers([]));
