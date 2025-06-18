@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { AppBar, Tabs, Tab, Box, Typography, Card, CardContent, Button, Grid, Snackbar, Alert, Select, MenuItem, TextField } from '@mui/material';
+import { Bar } from 'react-chartjs-2';
 
 const tabs = ['My Assignments', 'My Students', 'Analytics'];
 
@@ -10,7 +11,8 @@ function TeacherPanel() {
   const [tab, setTab] = useState(0);
   const [assignments, setAssignments] = useState([]);
   const [students, setStudents] = useState([]);
-  const [analytics, setAnalytics] = useState({ results: [], highest: 0, lowest: 0, avg: 0 });
+  const [analytics, setAnalytics] = useState(null);
+  const [loadingAnalytics, setLoadingAnalytics] = useState(false);
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
   const [selectedAssignment, setSelectedAssignment] = useState('');
   const [file, setFile] = useState(null);
@@ -50,8 +52,15 @@ function TeacherPanel() {
   const fetchAnalytics = async (assignmentId) => {
     const assignment = assignments.find(a => a.id === assignmentId);
     if (!assignment) return setSnack({ open: true, message: 'Select an assignment', severity: 'info' });
-    // TODO: Fetch real analytics from backend
-    setSnack({ open: true, message: `Analytics for ${assignment.Class?.name} - ${assignment.Subject?.name} (not implemented)`, severity: 'info' });
+    setLoadingAnalytics(true);
+    try {
+      const res = await api.get(`/exams/${assignment.examId}/analytics`);
+      setAnalytics(res.data);
+    } catch {
+      setSnack({ open: true, message: 'Failed to fetch analytics', severity: 'error' });
+      setAnalytics(null);
+    }
+    setLoadingAnalytics(false);
   };
 
   const fetchQuestions = async (assignmentId) => {
@@ -140,7 +149,26 @@ function TeacherPanel() {
                 <MenuItem value={a.id} key={a.id}>{a.Class?.name} - {a.Subject?.name}</MenuItem>
               ))}
             </Select>
-            <Button onClick={() => fetchAnalytics(selectedAssignment)}>View Analytics</Button>
+            <Button onClick={() => fetchAnalytics(selectedAssignment)} disabled={!selectedAssignment || loadingAnalytics}>View Analytics</Button>
+            {loadingAnalytics && <Typography>Loading...</Typography>}
+            {analytics && (
+              <Box sx={{ mt: 3 }}>
+                <Bar data={{
+                  labels: analytics.results.map(r => r.user),
+                  datasets: [{
+                    label: 'Scores',
+                    data: analytics.results.map(r => r.score),
+                    backgroundColor: '#1976d2',
+                  }],
+                }} />
+                <Box sx={{ mt: 2 }}>
+                  <Typography>Highest: {analytics.highest}, Lowest: {analytics.lowest}, Average: {analytics.avg}</Typography>
+                  {analytics.mostFailedQuestion && (
+                    <Typography>Most Failed Question: {analytics.mostFailedQuestion.text} (Failed {analytics.mostFailedQuestion.fails} times)</Typography>
+                  )}
+                </Box>
+              </Box>
+            )}
           </Box>
         )}
       </Box>

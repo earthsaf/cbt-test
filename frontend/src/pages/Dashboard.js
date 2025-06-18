@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { AppBar, Toolbar, Typography, Tabs, Tab, Box, Card, CardContent, Button, Grid, Accordion, AccordionSummary, AccordionDetails } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import { Bar } from 'react-chartjs-2';
 
 // Only accessible by students. Student dashboard for exams, results, and profile.
 
@@ -16,6 +17,9 @@ function Dashboard() {
   const [profile, setProfile] = useState({ name: '', email: '' });
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileMsg, setProfileMsg] = useState('');
+  const [selectedExam, setSelectedExam] = useState('');
+  const [analytics, setAnalytics] = useState(null);
+  const [loadingAnalytics, setLoadingAnalytics] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -53,6 +57,18 @@ function Dashboard() {
       setProfileMsg('Failed to update profile');
     }
     setProfileLoading(false);
+  };
+
+  const fetchAnalytics = async (examId) => {
+    if (!examId) return;
+    setLoadingAnalytics(true);
+    try {
+      const res = await api.get(`/exams/${examId}/analytics`);
+      setAnalytics(res.data);
+    } catch {
+      setAnalytics(null);
+    }
+    setLoadingAnalytics(false);
   };
 
   return (
@@ -123,10 +139,34 @@ function Dashboard() {
           <Card>
             <CardContent>
               <Typography variant="h6">Results & Analytics</Typography>
-              {/* Placeholder for chart/graph */}
-              <Box sx={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Typography>Chart will appear here when data is available.</Typography>
+              <Box sx={{ mb: 2 }}>
+                <select value={selectedExam} onChange={e => setSelectedExam(e.target.value)} style={{ minWidth: 200, marginRight: 8 }}>
+                  <option value="">Select Completed Exam</option>
+                  {completed.map(exam => (
+                    <option key={exam.id} value={exam.id}>{exam.title}</option>
+                  ))}
+                </select>
+                <Button variant="contained" onClick={() => fetchAnalytics(selectedExam)} disabled={!selectedExam || loadingAnalytics}>View Analytics</Button>
               </Box>
+              {loadingAnalytics && <Typography>Loading...</Typography>}
+              {analytics && (
+                <Box>
+                  <Bar data={{
+                    labels: analytics.results.map(r => r.user),
+                    datasets: [{
+                      label: 'Scores',
+                      data: analytics.results.map(r => r.score),
+                      backgroundColor: '#1976d2',
+                    }],
+                  }} />
+                  <Box sx={{ mt: 2 }}>
+                    <Typography>Highest: {analytics.highest}, Lowest: {analytics.lowest}, Average: {analytics.avg}</Typography>
+                    {analytics.mostFailedQuestion && (
+                      <Typography>Most Failed Question: {analytics.mostFailedQuestion.text} (Failed {analytics.mostFailedQuestion.fails} times)</Typography>
+                    )}
+                  </Box>
+                </Box>
+              )}
             </CardContent>
           </Card>
         )}

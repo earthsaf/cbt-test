@@ -5,7 +5,7 @@ import { Bar } from 'react-chartjs-2';
 import api from '../services/api';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
-const tabs = ['Users', 'Classes', 'Exams', 'Subjects', 'Assignments', 'Analytics'];
+const tabs = ['Users', 'Classes', 'Exams', 'Subjects', 'Assignments'];
 
 function AdminPanel() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -355,22 +355,6 @@ function AdminPanel() {
                 </li>
               ))}
             </ul>
-          </Box>
-        )}
-        {tab === 5 && (
-          <Box>
-            <Typography variant="h6">Analytics</Typography>
-            <Bar data={{
-              labels: analytics.results.map(r => r.user),
-              datasets: [{
-                label: 'Scores',
-                data: analytics.results.map(r => r.score),
-                backgroundColor: '#1976d2',
-              }],
-            }} />
-            <Box sx={{ mt: 2 }}>
-              <Typography>Highest: {analytics.highest}, Lowest: {analytics.lowest}, Average: {analytics.avg}</Typography>
-            </Box>
           </Box>
         )}
       </Box>
