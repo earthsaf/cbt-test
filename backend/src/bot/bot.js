@@ -73,7 +73,7 @@ function setupBot() {
       return;
     }
     const assignments = await TeacherClassSubject.findAll({
-      where: { TeacherId: teacher.id },
+      where: { teacherId: teacher.id },
       include: [
         { model: Class, attributes: ['name'] },
         { model: Subject, attributes: ['name'] },
@@ -106,7 +106,7 @@ function setupBot() {
       };
       bot.sendMessage(msg.chat.id, 'How many questions do you want to upload?', {
         reply_markup: {
-          keyboard: [["20", "30", "40"], ["60", "80"]],
+          keyboard: [["20", "30", "40"], ["60", "80", "Custom"]],
           one_time_keyboard: true,
           resize_keyboard: true
         }
@@ -114,9 +114,30 @@ function setupBot() {
       return;
     }
     if (state.step === 'awaiting_question_count') {
+      if (msg.text === 'Custom') {
+        userStates[msg.from.id].step = 'awaiting_custom_count';
+        bot.sendMessage(msg.chat.id, 'Enter the number of questions (between 5 and 80):');
+        return;
+      }
       const count = parseInt(msg.text);
       if (![20, 30, 40, 60, 80].includes(count)) {
-        bot.sendMessage(msg.chat.id, 'Please select a valid number of questions.');
+        bot.sendMessage(msg.chat.id, 'Please select a valid number of questions or choose Custom.');
+        return;
+      }
+      userStates[msg.from.id] = {
+        ...state,
+        step: 'awaiting_question_text',
+        questionCount: count,
+        current: 1,
+        questions: [],
+      };
+      bot.sendMessage(msg.chat.id, `What is question 1?`);
+      return;
+    }
+    if (state.step === 'awaiting_custom_count') {
+      const count = parseInt(msg.text);
+      if (isNaN(count) || count < 5 || count > 80) {
+        bot.sendMessage(msg.chat.id, 'Please enter a valid number between 5 and 80.');
         return;
       }
       userStates[msg.from.id] = {

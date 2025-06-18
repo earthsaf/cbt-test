@@ -217,7 +217,7 @@ exports.listAssignmentQuestions = async (req, res) => {
   if (!assignment) return res.status(404).json({ error: 'Assignment not found' });
   // Find all exams for this class/subject/teacher
   // For simplicity, assume one exam per assignment (or extend as needed)
-  const exam = await Exam.findOne({ where: { ClassId: assignment.ClassId, SubjectId: assignment.SubjectId, createdBy: assignment.TeacherId } });
+  const exam = await Exam.findOne({ where: { ClassId: assignment.classId, SubjectId: assignment.subjectId, createdBy: assignment.teacherId } });
   if (!exam) return res.json([]);
   const questions = await Question.findAll({ where: { ExamId: exam.id } });
   res.json(questions);
@@ -233,7 +233,7 @@ exports.deleteAssignmentQuestions = async (req, res) => {
   const { assignmentId } = req.params;
   const assignment = await TeacherClassSubject.findByPk(assignmentId);
   if (!assignment) return res.status(404).json({ error: 'Assignment not found' });
-  const exam = await Exam.findOne({ where: { ClassId: assignment.ClassId, SubjectId: assignment.SubjectId, createdBy: assignment.TeacherId } });
+  const exam = await Exam.findOne({ where: { ClassId: assignment.classId, SubjectId: assignment.subjectId, createdBy: assignment.teacherId } });
   if (!exam) return res.json({ ok: true });
   await Question.destroy({ where: { ExamId: exam.id } });
   res.json({ ok: true });
@@ -257,13 +257,13 @@ exports.createAssignmentQuestions = async (req, res) => {
   const assignment = await TeacherClassSubject.findByPk(assignmentId);
   if (!assignment) return res.status(404).json({ error: 'Assignment not found' });
   // Find or create exam for this assignment
-  let exam = await Exam.findOne({ where: { ClassId: assignment.ClassId, SubjectId: assignment.SubjectId, createdBy: assignment.TeacherId } });
+  let exam = await Exam.findOne({ where: { ClassId: assignment.classId, SubjectId: assignment.subjectId, createdBy: assignment.teacherId } });
   if (!exam) {
     exam = await Exam.create({
-      ClassId: assignment.ClassId,
-      SubjectId: assignment.SubjectId,
-      createdBy: assignment.TeacherId,
-      title: `Exam for ${assignment.ClassId}-${assignment.SubjectId}`,
+      ClassId: assignment.classId,
+      SubjectId: assignment.subjectId,
+      createdBy: assignment.teacherId,
+      title: `Exam for ${assignment.classId}-${assignment.subjectId}`,
       status: 'draft',
     });
   }
