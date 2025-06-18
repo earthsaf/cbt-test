@@ -19,15 +19,15 @@ exports.analytics = (req, res) => res.json({ message: 'Analytics (not implemente
 // Retake exam for a class or user
 exports.retakeExam = async (req, res) => {
   const { examId, classId, userId } = req.body;
-  let where = { examId };
+  let where = { ExamId: examId };
   if (classId) {
-    const users = await User.findAll({ where: { classId } });
-    where.userId = users.map(u => u.id);
+    const users = await User.findAll({ where: { ClassId: classId } });
+    where.UserId = users.map(u => u.id);
   } else if (userId) {
-    where.userId = userId;
+    where.UserId = userId;
   }
   await Session.destroy({ where });
-  await Log.create({ userId: req.user.id, action: 'retakeExam', details: JSON.stringify({ examId, classId, userId }) });
+  await Log.create({ UserId: req.user.id, action: 'retakeExam', details: JSON.stringify({ examId, classId, userId }) });
   res.json({ ok: true, message: 'Retake triggered' });
 };
 
@@ -38,9 +38,9 @@ exports.editUser = async (req, res) => {
   if (!user) return res.status(404).json({ error: 'User not found' });
   if (name) user.username = name;
   if (email) user.email = email;
-  if (classId) user.classId = classId;
+  if (classId) user.ClassId = classId;
   await user.save();
-  await Log.create({ userId: req.user.id, action: 'editUser', details: JSON.stringify({ userId: user.id }) });
+  await Log.create({ UserId: req.user.id, action: 'editUser', details: JSON.stringify({ userId: user.id }) });
   res.json({ ok: true, user });
 };
 
@@ -72,13 +72,13 @@ exports.editQuestion = async (req, res) => {
 exports.examResults = async (req, res) => {
   const answers = await Answer.findAll({
     include: [User, Question],
-    where: { examId: req.params.examId },
+    where: { ExamId: req.params.examId },
   });
   // Calculate scores per user
   const scores = {};
   answers.forEach(a => {
-    if (!scores[a.userId]) scores[a.userId] = { user: a.User.username, score: 0 };
-    if (a.answer === a.Question.answer) scores[a.userId].score += 1;
+    if (!scores[a.UserId]) scores[a.UserId] = { user: a.User.username, score: 0 };
+    if (a.answer === a.Question.answer) scores[a.UserId].score += 1;
   });
   const resultArr = Object.values(scores);
   const highest = Math.max(...resultArr.map(r => r.score), 0);
@@ -92,7 +92,7 @@ const { Parser } = require('json2csv');
 exports.exportExamResults = async (req, res) => {
   const answers = await Answer.findAll({
     include: [User, Question],
-    where: { examId: req.params.examId },
+    where: { ExamId: req.params.examId },
   });
   const data = answers.map(a => ({
     user: a.User.username,
@@ -217,9 +217,9 @@ exports.listAssignmentQuestions = async (req, res) => {
   if (!assignment) return res.status(404).json({ error: 'Assignment not found' });
   // Find all exams for this class/subject/teacher
   // For simplicity, assume one exam per assignment (or extend as needed)
-  const exam = await Exam.findOne({ where: { classId: assignment.classId, subjectId: assignment.subjectId, createdBy: assignment.teacherId } });
+  const exam = await Exam.findOne({ where: { ClassId: assignment.ClassId, SubjectId: assignment.SubjectId, createdBy: assignment.TeacherId } });
   if (!exam) return res.json([]);
-  const questions = await Question.findAll({ where: { examId: exam.id } });
+  const questions = await Question.findAll({ where: { ExamId: exam.id } });
   res.json(questions);
 };
 
@@ -233,9 +233,9 @@ exports.deleteAssignmentQuestions = async (req, res) => {
   const { assignmentId } = req.params;
   const assignment = await TeacherClassSubject.findByPk(assignmentId);
   if (!assignment) return res.status(404).json({ error: 'Assignment not found' });
-  const exam = await Exam.findOne({ where: { classId: assignment.classId, subjectId: assignment.subjectId, createdBy: assignment.teacherId } });
+  const exam = await Exam.findOne({ where: { ClassId: assignment.ClassId, SubjectId: assignment.SubjectId, createdBy: assignment.TeacherId } });
   if (!exam) return res.json({ ok: true });
-  await Question.destroy({ where: { examId: exam.id } });
+  await Question.destroy({ where: { ExamId: exam.id } });
   res.json({ ok: true });
 };
 
@@ -257,13 +257,13 @@ exports.createAssignmentQuestions = async (req, res) => {
   const assignment = await TeacherClassSubject.findByPk(assignmentId);
   if (!assignment) return res.status(404).json({ error: 'Assignment not found' });
   // Find or create exam for this assignment
-  let exam = await Exam.findOne({ where: { classId: assignment.classId, subjectId: assignment.subjectId, createdBy: assignment.teacherId } });
+  let exam = await Exam.findOne({ where: { ClassId: assignment.ClassId, SubjectId: assignment.SubjectId, createdBy: assignment.TeacherId } });
   if (!exam) {
     exam = await Exam.create({
-      classId: assignment.classId,
-      subjectId: assignment.subjectId,
-      createdBy: assignment.teacherId,
-      title: `Exam for ${assignment.classId}-${assignment.subjectId}`,
+      ClassId: assignment.ClassId,
+      SubjectId: assignment.SubjectId,
+      createdBy: assignment.TeacherId,
+      title: `Exam for ${assignment.ClassId}-${assignment.SubjectId}`,
       status: 'draft',
     });
   }
@@ -272,7 +272,7 @@ exports.createAssignmentQuestions = async (req, res) => {
   for (const q of questions) {
     if (!q.text || !q.options || !q.answer) continue;
     created.push(await Question.create({
-      examId: exam.id,
+      ExamId: exam.id,
       text: q.text,
       options: q.options,
       answer: q.answer,

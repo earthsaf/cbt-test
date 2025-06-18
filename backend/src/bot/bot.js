@@ -73,7 +73,7 @@ function setupBot() {
       return;
     }
     const assignments = await TeacherClassSubject.findAll({
-      where: { teacherId: teacher.id },
+      where: { TeacherId: teacher.id },
       include: [
         { model: Class, attributes: ['name'] },
         { model: Subject, attributes: ['name'] },

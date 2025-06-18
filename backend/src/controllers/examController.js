@@ -7,7 +7,7 @@ exports.listExams = async (req, res) => {
 };
 
 exports.getQuestions = async (req, res) => {
-  const questions = await Question.findAll({ where: { examId: req.params.id } });
+  const questions = await Question.findAll({ where: { ExamId: req.params.id } });
   res.json(questions.map(q => ({ ...q.toJSON(), options: q.options || [] })));
 };
 
@@ -24,21 +24,21 @@ exports.submitAnswers = async (req, res) => {
 // Exam history for a user
 exports.examHistory = async (req, res) => {
   const answers = await Answer.findAll({
-    where: { userId: req.user.id },
+    where: { UserId: req.user.id },
     include: [Exam, Question],
   });
   // Group by exam
   const history = {};
   answers.forEach(a => {
-    if (!history[a.examId]) history[a.examId] = { exam: a.Exam, answers: [], score: 0, total: 0 };
-    history[a.examId].answers.push({
+    if (!history[a.ExamId]) history[a.ExamId] = { exam: a.Exam, answers: [], score: 0, total: 0 };
+    history[a.ExamId].answers.push({
       question: a.Question.text,
       yourAnswer: a.answer,
       correct: a.answer === a.Question.answer,
       correctAnswer: a.Question.answer,
     });
-    history[a.examId].total += 1;
-    if (a.answer === a.Question.answer) history[a.examId].score += 1;
+    history[a.ExamId].total += 1;
+    if (a.answer === a.Question.answer) history[a.ExamId].score += 1;
   });
   res.json(Object.values(history));
 };
@@ -47,7 +47,7 @@ exports.examHistory = async (req, res) => {
 exports.examAnalytics = async (req, res) => {
   const examId = req.params.id;
   const answers = await Answer.findAll({
-    where: { examId },
+    where: { ExamId: examId },
     include: [Question, { model: require('../models').User }],
   });
   // Calculate scores per user
@@ -55,13 +55,13 @@ exports.examAnalytics = async (req, res) => {
   const questionStats = {};
   answers.forEach(a => {
     // Score calculation
-    if (!scores[a.userId]) scores[a.userId] = { user: a.User?.username || a.userId, score: 0 };
+    if (!scores[a.UserId]) scores[a.UserId] = { user: a.User?.username || a.UserId, score: 0 };
     if (a.answer === a.Question.answer) {
-      scores[a.userId].score += 1;
+      scores[a.UserId].score += 1;
     } else {
       // Track failed questions
-      if (!questionStats[a.questionId]) questionStats[a.questionId] = { text: a.Question.text, fails: 0 };
-      questionStats[a.questionId].fails += 1;
+      if (!questionStats[a.QuestionId]) questionStats[a.QuestionId] = { text: a.Question.text, fails: 0 };
+      questionStats[a.QuestionId].fails += 1;
     }
   });
   const resultArr = Object.values(scores);
