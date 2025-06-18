@@ -246,4 +246,38 @@ exports.addClass = async (req, res) => {
   if (exists) return res.status(400).json({ error: 'Class already exists' });
   const c = await Class.create({ name });
   res.json({ ok: true, class: c });
+};
+
+exports.createAssignmentQuestions = async (req, res) => {
+  const { assignmentId } = req.params;
+  const { questions } = req.body;
+  if (!Array.isArray(questions) || questions.length === 0) {
+    return res.status(400).json({ error: 'Questions array required' });
+  }
+  const assignment = await TeacherClassSubject.findByPk(assignmentId);
+  if (!assignment) return res.status(404).json({ error: 'Assignment not found' });
+  // Find or create exam for this assignment
+  let exam = await Exam.findOne({ where: { classId: assignment.classId, subjectId: assignment.subjectId, createdBy: assignment.teacherId } });
+  if (!exam) {
+    exam = await Exam.create({
+      classId: assignment.classId,
+      subjectId: assignment.subjectId,
+      createdBy: assignment.teacherId,
+      title: `Exam for ${assignment.classId}-${assignment.subjectId}`,
+      status: 'draft',
+    });
+  }
+  // Create questions
+  const created = [];
+  for (const q of questions) {
+    if (!q.text || !q.options || !q.answer) continue;
+    created.push(await Question.create({
+      examId: exam.id,
+      text: q.text,
+      options: q.options,
+      answer: q.answer,
+      type: 'mcq',
+    }));
+  }
+  res.json({ ok: true, created: created.length });
 }; 

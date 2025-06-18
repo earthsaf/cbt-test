@@ -100,63 +100,87 @@ function setupBot() {
     if (state.step === 'awaiting_assignment') {
       const selected = state.assignments.find(a => `${a.Class.name} - ${a.Subject.name}` === msg.text);
       if (!selected) return;
-      userStates[msg.from.id] = { step: 'awaiting_file', selected };
-      bot.sendMessage(msg.chat.id, `Send the questions file for ${selected.Class.name} - ${selected.Subject.name} (.txt or .docx).`);
+      userStates[msg.from.id] = {
+        step: 'awaiting_question_count',
+        selected,
+      };
+      bot.sendMessage(msg.chat.id, 'How many questions do you want to upload?', {
+        reply_markup: {
+          keyboard: [["20", "30", "40"], ["60", "80"]],
+          one_time_keyboard: true,
+          resize_keyboard: true
+        }
+      });
       return;
     }
-    if (state.step === 'awaiting_file' && msg.document) {
-      // Download file
-      const fileId = msg.document.file_id;
-      const fileLink = await bot.getFileLink(fileId);
-      const ext = path.extname(msg.document.file_name).toLowerCase();
-      const filePath = path.join(__dirname, 'tmp', `${msg.from.id}_${Date.now()}${ext}`);
-      const writer = fs.createWriteStream(filePath);
-      const response = await fetch(fileLink);
-      response.body.pipe(writer);
-      await new Promise((resolve) => writer.on('finish', resolve));
-      let text = '';
-      if (ext === '.docx') {
-        const result = await mammoth.extractRawText({ path: filePath });
-        text = result.value;
+    if (state.step === 'awaiting_question_count') {
+      const count = parseInt(msg.text);
+      if (![20, 30, 40, 60, 80].includes(count)) {
+        bot.sendMessage(msg.chat.id, 'Please select a valid number of questions.');
+        return;
+      }
+      userStates[msg.from.id] = {
+        ...state,
+        step: 'awaiting_question_text',
+        questionCount: count,
+        current: 1,
+        questions: [],
+      };
+      bot.sendMessage(msg.chat.id, `What is question 1?`);
+      return;
+    }
+    if (state.step === 'awaiting_question_text') {
+      userStates[msg.from.id].currentText = msg.text;
+      userStates[msg.from.id].step = 'awaiting_options';
+      bot.sendMessage(msg.chat.id, 'What are the options? (e.g. a.1 b.2 c.3 d.4)');
+      return;
+    }
+    if (state.step === 'awaiting_options') {
+      userStates[msg.from.id].currentOptions = msg.text;
+      userStates[msg.from.id].step = 'awaiting_answer';
+      bot.sendMessage(msg.chat.id, 'What is the correct answer? (a/b/c/d)');
+      return;
+    }
+    if (state.step === 'awaiting_answer') {
+      const answer = msg.text.trim().toLowerCase();
+      if (!['a', 'b', 'c', 'd'].includes(answer)) {
+        bot.sendMessage(msg.chat.id, 'Please enter a valid answer (a, b, c, or d).');
+        return;
+      }
+      // Parse options
+      const opts = {};
+      const optMatch = userStates[msg.from.id].currentOptions.match(/a\.?\s*([^bcd]*)b\.?\s*([^cd]*)c\.?\s*([^d]*)d\.?\s*(.*)/i);
+      if (optMatch) {
+        opts.a = optMatch[1].trim();
+        opts.b = optMatch[2].trim();
+        opts.c = optMatch[3].trim();
+        opts.d = optMatch[4].trim();
       } else {
-        text = fs.readFileSync(filePath, 'utf8');
-      }
-      fs.unlinkSync(filePath);
-      const questions = parseQuestions(text);
-      if (!questions.length) {
-        bot.sendMessage(msg.chat.id, 'Could not parse any questions. Please check your file format.');
-        delete userStates[msg.from.id];
+        bot.sendMessage(msg.chat.id, 'Could not parse options. Please use the format: a.1 b.2 c.3 d.4');
+        userStates[msg.from.id].step = 'awaiting_options';
         return;
       }
-      userStates[msg.from.id] = { step: 'awaiting_answers', selected: state.selected, questions };
-      bot.sendMessage(msg.chat.id, `Parsed ${questions.length} questions. Now send the answers file (.txt, e.g. 1.a, 2.b, ...)`);
-      return;
-    }
-    if (state.step === 'awaiting_answers' && msg.document) {
-      // Download answers file
-      const fileId = msg.document.file_id;
-      const fileLink = await bot.getFileLink(fileId);
-      const ext = path.extname(msg.document.file_name).toLowerCase();
-      const filePath = path.join(__dirname, 'tmp', `${msg.from.id}_${Date.now()}${ext}`);
-      const writer = fs.createWriteStream(filePath);
-      const response = await fetch(fileLink);
-      response.body.pipe(writer);
-      await new Promise((resolve) => writer.on('finish', resolve));
-      const text = fs.readFileSync(filePath, 'utf8');
-      fs.unlinkSync(filePath);
-      const answers = parseAnswers(text);
-      if (!Object.keys(answers).length) {
-        bot.sendMessage(msg.chat.id, 'Could not parse any answers. Please check your file format.');
+      userStates[msg.from.id].questions.push({
+        number: userStates[msg.from.id].current,
+        text: userStates[msg.from.id].currentText,
+        options: opts,
+        answer,
+      });
+      const next = userStates[msg.from.id].current + 1;
+      if (next > userStates[msg.from.id].questionCount) {
+        // Save to DB (TODO: implement DB save logic here)
+        // For now, just confirm
+        const { selected, questions } = userStates[msg.from.id];
+        // TODO: Save questions to DB for selected assignment
+        bot.sendMessage(msg.chat.id, `Upload successful! ${questions.length} questions saved for ${selected.Class.name} - ${selected.Subject.name}.`);
         delete userStates[msg.from.id];
         return;
+      } else {
+        userStates[msg.from.id].current = next;
+        userStates[msg.from.id].step = 'awaiting_question_text';
+        bot.sendMessage(msg.chat.id, `What is question ${next}?`);
+        return;
       }
-      // Match questions and answers
-      const { questions, selected } = state;
-      const combined = questions.map(q => ({ ...q, answer: answers[q.number] }));
-      // TODO: Save combined questions to DB for selected assignment
-      bot.sendMessage(msg.chat.id, `Upload successful! ${combined.length} questions saved for ${selected.Class.name} - ${selected.Subject.name}.`);
-      delete userStates[msg.from.id];
-      return;
     }
   });
   // Add more handlers as needed

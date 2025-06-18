@@ -48,4 +48,7 @@ router.delete('/assignment-questions/:assignmentId', requireAuth, admin.deleteAs
 // New: Add class
 router.post('/classes', requireAuth, requireRole('admin'), admin.addClass);
 
+// New: Batch question creation
+router.post('/assignment-questions/:assignmentId', requireAuth, admin.createAssignmentQuestions);
+
 module.exports = router; 
