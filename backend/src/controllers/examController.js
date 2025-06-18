@@ -7,7 +7,13 @@ exports.listExams = async (req, res) => {
 };
 
 exports.getQuestions = async (req, res) => {
-  const questions = await Question.findAll({ where: { ExamId: req.params.id } });
+  const exam = await Exam.findByPk(req.params.id);
+  if (!exam) return res.status(404).json({ error: 'Exam not found' });
+  let questions = await Question.findAll({ where: { ExamId: req.params.id } });
+  if (exam.scramble) {
+    // Shuffle questions array
+    questions = questions.sort(() => Math.random() - 0.5);
+  }
   res.json(questions.map(q => ({ ...q.toJSON(), options: q.options || [] })));
 };
 

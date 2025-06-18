@@ -7,6 +7,7 @@ module.exports = (sequelize) => {
     durationMinutes: { type: DataTypes.INTEGER },
     status: { type: DataTypes.STRING },
     invigilatorCode: { type: DataTypes.STRING },
+    scramble: { type: DataTypes.BOOLEAN, defaultValue: false },
   });
   return Exam;
 }; 

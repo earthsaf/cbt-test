@@ -1,9 +1,10 @@
 // Only accessible by admin. Management controls for users, exams, invigilator codes, analytics.
 import React, { useState, useEffect } from 'react';
-import { AppBar, Tabs, Tab, Box, Typography, Card, CardContent, Button, Grid, TextField, Select, MenuItem, Snackbar, Alert } from '@mui/material';
+import { AppBar, Tabs, Tab, Box, Typography, Card, CardContent, Button, Grid, TextField, Select, MenuItem, Snackbar, Alert, Dialog, DialogTitle, DialogContent, DialogActions, Switch, FormControlLabel } from '@mui/material';
 import { Bar } from 'react-chartjs-2';
 import api from '../services/api';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import dayjs from 'dayjs';
 
 const tabs = ['Users', 'Classes', 'Exams', 'Subjects', 'Assignments'];
 
@@ -29,11 +30,21 @@ function AdminPanel() {
   const [fileError, setFileError] = useState('');
   const [file, setFile] = useState(null);
   const [newClass, setNewClass] = useState('');
+  const [examSearch, setExamSearch] = useState('');
+  const [examClass, setExamClass] = useState('');
+  const [examSubject, setExamSubject] = useState('');
+  const [selectedExam, setSelectedExam] = useState(null);
+  const [examQuestions, setExamQuestions] = useState([]);
+  const [examSettings, setExamSettings] = useState({ startTime: '', durationMinutes: '', scramble: false });
+  const [savingSettings, setSavingSettings] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
-    const r = localStorage.getItem('role');
-    if (r !== 'admin') navigate('/login');
+    const token = localStorage.getItem('token');
+    if (!token || localStorage.getItem('role') !== 'admin') {
+      navigate('/login');
+      setSnack({ open: true, message: 'You must be signed in as admin.', severity: 'error' });
+    }
   }, [navigate]);
 
   useEffect(() => {
@@ -47,6 +58,11 @@ function AdminPanel() {
     api.get('/admin/subjects').then(res => setSubjects(res.data)).catch(() => setSubjects([]));
     api.get('/admin/teacher-assignments').then(res => setAssignments(res.data)).catch(() => setAssignments([]));
   }, []);
+
+  useEffect(() => {
+    api.get(`/admin/exams?search=${encodeURIComponent(examSearch)}&classId=${examClass}&subjectId=${examSubject}`)
+      .then(res => setExams(res.data)).catch(() => setExams([]));
+  }, [examSearch, examClass, examSubject]);
 
   const handleEditUser = async () => {
     try {
@@ -215,6 +231,31 @@ function AdminPanel() {
     setSnack({ open: true, message: 'File upload not implemented yet.', severity: 'info' });
   };
 
+  const openExamModal = async (exam) => {
+    setSelectedExam(exam);
+    setExamSettings({
+      startTime: exam.startTime || '',
+      durationMinutes: exam.durationMinutes || '',
+      scramble: !!exam.scramble,
+    });
+    const res = await api.get(`/admin/exams/${exam.id}/questions`);
+    setExamQuestions(res.data);
+  };
+
+  const handleSaveExamSettings = async () => {
+    setSavingSettings(true);
+    try {
+      await api.put(`/admin/exams/${selectedExam.id}/settings`, examSettings);
+      setSnack({ open: true, message: 'Exam settings updated!', severity: 'success' });
+      setSelectedExam(null);
+      api.get(`/admin/exams?search=${encodeURIComponent(examSearch)}&classId=${examClass}&subjectId=${examSubject}`)
+        .then(res => setExams(res.data)).catch(() => setExams([]));
+    } catch {
+      setSnack({ open: true, message: 'Failed to update exam settings', severity: 'error' });
+    }
+    setSavingSettings(false);
+  };
+
   return (
     <Box sx={{ flexGrow: 1, p: 3 }}>
       <AppBar position="static" color="default">
@@ -271,6 +312,17 @@ function AdminPanel() {
         {tab === 2 && (
           <Box>
             <Typography variant="h6">Exams</Typography>
+            <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+              <TextField label="Search" value={examSearch} onChange={e => setExamSearch(e.target.value)} size="small" />
+              <Select value={examClass} onChange={e => setExamClass(e.target.value)} displayEmpty size="small" sx={{ minWidth: 120 }}>
+                <MenuItem value="">All Classes</MenuItem>
+                {classes.map(c => <MenuItem value={c.id} key={c.id}>{c.name}</MenuItem>)}
+              </Select>
+              <Select value={examSubject} onChange={e => setExamSubject(e.target.value)} displayEmpty size="small" sx={{ minWidth: 120 }}>
+                <MenuItem value="">All Subjects</MenuItem>
+                {subjects.map(s => <MenuItem value={s.id} key={s.id}>{s.name}</MenuItem>)}
+              </Select>
+            </Box>
             <Grid container spacing={2}>
               {exams.map(exam => (
                 <Grid item xs={12} md={6} key={exam.id}>
@@ -278,32 +330,56 @@ function AdminPanel() {
                     <CardContent>
                       <Typography variant="h6">{exam.title}</Typography>
                       <Typography>Class: {exam.Class ? exam.Class.name : ''}</Typography>
+                      <Typography>Subject: {exam.Subject ? exam.Subject.name : ''}</Typography>
                       <Typography>Status: {exam.status}</Typography>
-                      <Box sx={{ mt: 1, mb: 1 }}>
-                        <Button size="small" onClick={() => handleGetInvigilatorCode(exam.id)} variant="outlined">View Invigilator Code</Button>
-                        <Button size="small" sx={{ ml: 1 }} onClick={() => handleGenerateInvigilatorCode(exam.id)} variant="contained">Generate New Code</Button>
-                        {invigilatorCodes[exam.id] && <Typography sx={{ mt: 1 }}>Code: <b>{invigilatorCodes[exam.id]}</b></Typography>}
-                      </Box>
-                      <Button sx={{ mt: 1 }} onClick={() => setEditQuestion({ ...exam, id: 1 })}>Edit Question</Button>
-                      <Button sx={{ mt: 1, ml: 1 }} onClick={() => setRetakeExam({ ...retakeExam, examId: exam.id })}>Retake</Button>
-                      <Button sx={{ mt: 1, ml: 1 }} onClick={() => fetchAnalytics(exam.id)}>View Analytics</Button>
+                      <Button sx={{ mt: 1 }} variant="outlined" onClick={() => openExamModal(exam)}>View / Set Exam</Button>
                     </CardContent>
                   </Card>
                 </Grid>
               ))}
             </Grid>
-            {/* Retake controls */}
-            {retakeExam.examId && (
-              <Box sx={{ mt: 3 }}>
-                <Typography variant="subtitle1">Retake Exam</Typography>
-                <Select value={retakeExam.classId} onChange={e => setRetakeExam({ ...retakeExam, classId: e.target.value })} displayEmpty sx={{ mr: 2 }}>
-                  <MenuItem value="">Select Class</MenuItem>
-                  {classes.map(c => <MenuItem value={c.id} key={c.id}>{c.name}</MenuItem>)}
-                </Select>
-                <TextField label="User ID (optional)" value={retakeExam.userId} onChange={e => setRetakeExam({ ...retakeExam, userId: e.target.value })} sx={{ mr: 2 }} />
-                <Button variant="contained" onClick={handleRetake}>Confirm Retake</Button>
-              </Box>
-            )}
+            <Dialog open={!!selectedExam} onClose={() => setSelectedExam(null)} maxWidth="md" fullWidth>
+              <DialogTitle>Exam Settings: {selectedExam?.title}</DialogTitle>
+              <DialogContent>
+                <Box sx={{ mb: 2 }}>
+                  <TextField
+                    label="Start Time"
+                    type="datetime-local"
+                    value={examSettings.startTime ? dayjs(examSettings.startTime).format('YYYY-MM-DDTHH:mm') : ''}
+                    onChange={e => setExamSettings(s => ({ ...s, startTime: e.target.value }))}
+                    sx={{ mr: 2 }}
+                    InputLabelProps={{ shrink: true }}
+                  />
+                  <TextField
+                    label="Time Limit (minutes)"
+                    type="number"
+                    value={examSettings.durationMinutes}
+                    onChange={e => setExamSettings(s => ({ ...s, durationMinutes: e.target.value }))}
+                    sx={{ mr: 2 }}
+                    inputProps={{ min: 1 }}
+                  />
+                  <FormControlLabel
+                    control={<Switch checked={examSettings.scramble} onChange={e => setExamSettings(s => ({ ...s, scramble: e.target.checked }))} />}
+                    label="Scramble Questions"
+                  />
+                </Box>
+                <Typography variant="subtitle1">Questions (read-only):</Typography>
+                <Box sx={{ maxHeight: 300, overflowY: 'auto', border: '1px solid #eee', borderRadius: 2, p: 2 }}>
+                  {examQuestions.map((q, idx) => (
+                    <Box key={q.id} sx={{ mb: 2 }}>
+                      <Typography><b>{idx + 1}. {q.text}</b></Typography>
+                      <Typography>a. {q.options?.a}  b. {q.options?.b}  c. {q.options?.c}  d. {q.options?.d}</Typography>
+                      <Typography>Answer: {q.answer}</Typography>
+                    </Box>
+                  ))}
+                  {examQuestions.length === 0 && <Typography>No questions for this exam.</Typography>}
+                </Box>
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={() => setSelectedExam(null)}>Close</Button>
+                <Button variant="contained" onClick={handleSaveExamSettings} disabled={savingSettings}>Save Settings</Button>
+              </DialogActions>
+            </Dialog>
           </Box>
         )}
         {tab === 3 && (

@@ -8,7 +8,7 @@ const router = express.Router();
 
 router.get('/users', requireAuth, requireRole('admin'), admin.manageUsers);
 router.get('/classes', requireAuth, requireRole('admin'), admin.manageClasses);
-router.get('/exams', requireAuth, requireRole('admin'), admin.manageExams);
+router.get('/exams', requireAuth, requireRole('admin'), admin.listExams);
 router.get('/analytics', requireAuth, requireRole('admin'), admin.analytics);
 
 // New: Retake, edit user, edit question, get results
@@ -50,5 +50,11 @@ router.post('/classes', requireAuth, requireRole('admin'), admin.addClass);
 
 // New: Batch question creation
 router.post('/assignment-questions/:assignmentId', requireAuth, admin.createAssignmentQuestions);
+
+// New: Get exam questions
+router.get('/exams/:examId/questions', requireAuth, requireRole('admin'), admin.getExamQuestions);
+
+// New: Update exam settings
+router.put('/exams/:examId/settings', requireAuth, requireRole('admin'), admin.updateExamSettings);
 
 module.exports = router; 

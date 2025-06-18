@@ -280,4 +280,39 @@ exports.createAssignmentQuestions = async (req, res) => {
     }));
   }
   res.json({ ok: true, created: created.length });
+};
+
+// List exams with search/filter
+exports.listExams = async (req, res) => {
+  const { search = '', classId, subjectId } = req.query;
+  const where = {};
+  if (search) where.title = { [Op.iLike]: `%${search}%` };
+  if (classId) where.classId = classId;
+  if (subjectId) where.subjectId = subjectId;
+  const exams = await Exam.findAll({
+    where,
+    include: [Class, Subject],
+    order: [['createdAt', 'DESC']],
+  });
+  res.json(exams);
+};
+
+// Get all questions for an exam
+exports.getExamQuestions = async (req, res) => {
+  const exam = await Exam.findByPk(req.params.examId);
+  if (!exam) return res.status(404).json({ error: 'Exam not found' });
+  const questions = await Question.findAll({ where: { ExamId: exam.id } });
+  res.json(questions);
+};
+
+// Update exam settings (startTime, durationMinutes, scramble)
+exports.updateExamSettings = async (req, res) => {
+  const { startTime, durationMinutes, scramble } = req.body;
+  const exam = await Exam.findByPk(req.params.examId);
+  if (!exam) return res.status(404).json({ error: 'Exam not found' });
+  if (startTime !== undefined) exam.startTime = startTime;
+  if (durationMinutes !== undefined) exam.durationMinutes = durationMinutes;
+  if (scramble !== undefined) exam.scramble = scramble;
+  await exam.save();
+  res.json({ ok: true, exam });
 }; 
