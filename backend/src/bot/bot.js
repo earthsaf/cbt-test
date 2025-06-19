@@ -1,5 +1,5 @@
 const TelegramBot = require('node-telegram-bot-api');
-const { User, TeacherClassSubject, Class, Subject } = require('../models');
+const { User, TeacherClassSubject, Class, Subject, Exam, Question } = require('../models');
 const mammoth = require('mammoth');
 const fs = require('fs');
 const path = require('path');
@@ -189,10 +189,35 @@ function setupBot() {
       });
       const next = userStates[msg.from.id].current + 1;
       if (next > userStates[msg.from.id].questionCount) {
-        // Save to DB (TODO: implement DB save logic here)
-        // For now, just confirm
+        // Save to DB for selected assignment
         const { selected, questions } = userStates[msg.from.id];
-        // TODO: Save questions to DB for selected assignment
+        // Find or create the exam for this class/subject/teacher
+        let exam = await Exam.findOne({
+          where: {
+            ClassId: selected.classId,
+            subjectId: selected.subjectId,
+            createdBy: selected.teacherId
+          }
+        });
+        if (!exam) {
+          exam = await Exam.create({
+            ClassId: selected.classId,
+            subjectId: selected.subjectId,
+            createdBy: selected.teacherId,
+            title: `Exam for ${selected.Class.name} - ${selected.Subject.name}`,
+            status: 'draft'
+          });
+        }
+        // Save each question
+        for (const q of questions) {
+          await Question.create({
+            ExamId: exam.id,
+            text: q.text,
+            options: q.options,
+            answer: q.answer,
+            type: 'mcq'
+          });
+        }
         bot.sendMessage(msg.chat.id, `Upload successful! ${questions.length} questions saved for ${selected.Class.name} - ${selected.Subject.name}.`);
         delete userStates[msg.from.id];
         return;

@@ -287,7 +287,7 @@ exports.listExams = async (req, res) => {
   const { search = '', classId, subjectId } = req.query;
   const where = {};
   if (search) where.title = { [Op.iLike]: `%${search}%` };
-  if (classId) where.classId = classId;
+  if (classId) where.ClassId = classId;
   if (subjectId) where.subjectId = subjectId;
   const exams = await Exam.findAll({
     where,
