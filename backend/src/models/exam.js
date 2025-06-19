@@ -8,6 +8,7 @@ module.exports = (sequelize) => {
     status: { type: DataTypes.STRING },
     invigilatorCode: { type: DataTypes.STRING },
     scramble: { type: DataTypes.BOOLEAN, defaultValue: false },
+    subjectId: { type: DataTypes.INTEGER },
   });
   return Exam;
 }; 

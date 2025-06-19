@@ -37,6 +37,8 @@ Class.hasMany(User);
 Exam.belongsTo(Class);
 Class.hasMany(Exam);
 Exam.belongsTo(User, { as: 'creator', foreignKey: 'createdBy' });
+Exam.belongsTo(Subject, { foreignKey: 'subjectId' });
+Subject.hasMany(Exam, { foreignKey: 'subjectId' });
 Question.belongsTo(Exam);
 Exam.hasMany(Question);
 Answer.belongsTo(User);
