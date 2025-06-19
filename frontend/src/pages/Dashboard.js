@@ -40,6 +40,12 @@ function Dashboard() {
     }
   }, [tab, navigate]);
 
+  // Set tab from localStorage on mount
+  useEffect(() => {
+    const savedTab = localStorage.getItem('studentDashboardTab');
+    if (savedTab !== null) setTab(Number(savedTab));
+  }, []);
+
   // Dummy data for missed/completed
   const missed = exams.filter(e => e.status === 'missed');
   const completed = exams.filter(e => e.status === 'completed');
@@ -71,6 +77,12 @@ function Dashboard() {
     setLoadingAnalytics(false);
   };
 
+  // Update localStorage when tab changes
+  const handleTabChange = (_, newTab) => {
+    setTab(newTab);
+    localStorage.setItem('studentDashboardTab', newTab);
+  };
+
   return (
     <Box sx={{ flexGrow: 1 }}>
       <AppBar position="static">
@@ -79,7 +91,7 @@ function Dashboard() {
           {/* No panel buttons for students */}
         </Toolbar>
       </AppBar>
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} centered>
+      <Tabs value={tab} onChange={handleTabChange} centered>
         {sections.map((s, i) => <Tab label={s} key={i} />)}
       </Tabs>
       <Box sx={{ p: 3 }}>
