@@ -1,6 +1,6 @@
 // Only accessible by admin. Management controls for users, exams, invigilator codes, analytics.
 import React, { useState, useEffect } from 'react';
-import { AppBar, Tabs, Tab, Box, Typography, Card, CardContent, Button, Grid, TextField, Select, MenuItem, Snackbar, Alert, Dialog, DialogTitle, DialogContent, DialogActions, Switch, FormControlLabel } from '@mui/material';
+import { AppBar, Tabs, Tab, Box, Typography, Card, CardContent, Button, Grid, TextField, Select, MenuItem, Snackbar, Alert, Dialog, DialogTitle, DialogContent, DialogActions, Switch, FormControlLabel, DialogContentText } from '@mui/material';
 import { Bar } from 'react-chartjs-2';
 import api from '../services/api';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -37,6 +37,8 @@ function AdminPanel() {
   const [examQuestions, setExamQuestions] = useState([]);
   const [examSettings, setExamSettings] = useState({ scramble: false, durationMinutes: 60 });
   const [savingSettings, setSavingSettings] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -260,6 +262,24 @@ function AdminPanel() {
     setSavingSettings(false);
   };
 
+  const handleResetExam = async () => {
+    setResetting(true);
+    try {
+      await api.put(`/admin/exams/${selectedExam.id}/settings`, {
+        startTime: null
+      });
+      setSnack({ open: true, message: 'Exam reset! You can now start it again.', severity: 'success' });
+      setShowResetConfirm(false);
+      // Refresh exam list and modal
+      const res = await api.get('/admin/exams');
+      setExams(res.data);
+      setSelectedExam(res.data.find(e => e.id === selectedExam.id));
+    } catch {
+      setSnack({ open: true, message: 'Failed to reset exam', severity: 'error' });
+    }
+    setResetting(false);
+  };
+
   return (
     <Box sx={{ flexGrow: 1, p: 3 }}>
       <AppBar position="static" color="default">
@@ -374,6 +394,7 @@ function AdminPanel() {
               <DialogActions>
                 <Button onClick={() => setSelectedExam(null)}>Close</Button>
                 <Button variant="contained" color="success" onClick={handleStartExam} disabled={savingSettings || selectedExam?.startTime}>Start Exam</Button>
+                <Button variant="outlined" color="error" onClick={() => setShowResetConfirm(true)} disabled={resetting}>Reset Exam</Button>
               </DialogActions>
             </Dialog>
           </Box>
@@ -452,6 +473,16 @@ function AdminPanel() {
           <Button sx={{ mt: 1 }} onClick={() => setEditQuestion(null)}>Cancel</Button>
         </Box>
       )}
+      <Dialog open={showResetConfirm} onClose={() => setShowResetConfirm(false)}>
+        <DialogTitle>Reset Exam?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>Are you sure you want to reset this exam? This will allow it to be started again. This action cannot be undone.</DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowResetConfirm(false)}>Cancel</Button>
+          <Button onClick={handleResetExam} color="error" disabled={resetting}>Confirm Reset</Button>
+        </DialogActions>
+      </Dialog>
       <Snackbar open={snack.open} autoHideDuration={3000} onClose={() => setSnack({ ...snack, open: false })}>
         <Alert onClose={() => setSnack({ ...snack, open: false })} severity={snack.severity} sx={{ width: '100%' }}>
           {snack.message}
