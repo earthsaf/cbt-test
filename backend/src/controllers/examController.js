@@ -9,7 +9,7 @@ exports.listExams = async (req, res) => {
   const now = new Date();
   const exams = await Exam.findAll({
     where: {
-      classId: req.user.ClassId,
+      ClassId: req.user.ClassId,
       startTime: { [Op.lte]: now },
     },
     order: [['startTime', 'DESC']],
