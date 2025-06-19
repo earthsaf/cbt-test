@@ -315,7 +315,15 @@ exports.updateExamSettings = async (req, res) => {
   const { startTime, durationMinutes, scramble } = req.body;
   const exam = await Exam.findByPk(req.params.examId);
   if (!exam) return res.status(404).json({ error: 'Exam not found' });
-  if (startTime !== undefined) exam.startTime = startTime;
+  if (startTime !== undefined) {
+    exam.startTime = startTime;
+    // Set status to 'available' when exam is started
+    if (startTime) {
+      exam.status = 'available';
+    } else {
+      exam.status = 'draft';
+    }
+  }
   if (durationMinutes !== undefined) exam.durationMinutes = durationMinutes;
   if (scramble !== undefined) exam.scramble = scramble;
   await exam.save();

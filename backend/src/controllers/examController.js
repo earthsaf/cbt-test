@@ -1,4 +1,4 @@
-const { Exam, Question, Answer } = require('../models');
+const { Exam, Question, Answer, Class } = require('../models');
 const { Op } = require('sequelize');
 
 exports.listExams = async (req, res) => {
@@ -11,7 +11,9 @@ exports.listExams = async (req, res) => {
     where: {
       ClassId: req.user.ClassId,
       startTime: { [Op.lte]: now },
+      status: 'available', // Only return exams with available status
     },
+    include: [Class], // Include class information
     order: [['startTime', 'DESC']],
   });
   res.json(exams);

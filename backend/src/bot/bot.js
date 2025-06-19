@@ -1,5 +1,5 @@
 const TelegramBot = require('node-telegram-bot-api');
-const { User, TeacherClassSubject, Class, Subject, Exam, Question } = require('../models');
+const { User, TeacherClassSubject, Class, Subject, Exam, Question, Session } = require('../models');
 const mammoth = require('mammoth');
 const fs = require('fs');
 const path = require('path');
@@ -57,12 +57,95 @@ function setupBot() {
   if (bot) return;
   bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
 
+  bot.onText(/\/start/, (msg) => {
+    const welcomeMessage = `🎉 Welcome to the CBT System Bot!
+
+This bot helps teachers manage exams and students take tests.
+
+📚 Teachers can:
+• Create exams with questions
+• List and manage their exams
+• Delete exams when needed
+
+📝 Students can:
+• Take exams through the web interface
+
+Use /help for detailed instructions or /menu for quick access.`;
+    
+    bot.sendMessage(msg.chat.id, welcomeMessage);
+  });
+
   bot.onText(/\/menu/, (msg) => {
-    bot.sendMessage(msg.chat.id, 'Menu:\n/cbt exam - Take an exam\n/upload - Upload questions (teachers only)');
+    bot.sendMessage(msg.chat.id, 'Menu:\n/cbt exam - Take an exam\n/upload - Upload questions (teachers only)\n/list - List your exams (teachers only)\n/delete - Delete exam (teachers only)');
+  });
+
+  bot.onText(/\/help/, (msg) => {
+    const helpMessage = `🤖 CBT System Bot Help
+
+📚 For Teachers:
+• /upload - Create a new exam with questions
+• /list - View all your exams and their status
+• /delete - Delete an exam (with confirmation)
+• /menu - Show main menu
+
+📝 For Students:
+• /cbt exam - Take an exam via web interface
+
+💡 Tips:
+• Use /upload to create exams step by step
+• Use /list to see all your exams before deleting
+• Started exams can still be deleted but will lose student progress
+• Each exam is linked to a specific class and subject
+
+Need help? Contact your system administrator.`;
+    
+    bot.sendMessage(msg.chat.id, helpMessage);
   });
 
   bot.onText(/\/cbt (exam|test)/, (msg) => {
     bot.sendMessage(msg.chat.id, 'Select class: (not implemented)');
+  });
+
+  bot.onText(/\/list/, async (msg) => {
+    const teacherTelegramId = msg.from.id.toString();
+    const teacher = await User.findOne({ where: { telegramId: teacherTelegramId, role: 'teacher' } });
+    if (!teacher) {
+      bot.sendMessage(msg.chat.id, 'You are not registered as a teacher.');
+      return;
+    }
+    
+    // Get all exams created by this teacher
+    const exams = await Exam.findAll({
+      where: { createdBy: teacher.id },
+      include: [
+        { model: Class, attributes: ['name'] },
+        { model: Subject, attributes: ['name'] },
+      ],
+      order: [['createdAt', 'DESC']]
+    });
+    
+    if (exams.length === 0) {
+      bot.sendMessage(msg.chat.id, 'You have no exams yet. Use /upload to create your first exam.');
+      return;
+    }
+    
+    let message = '📚 Your Exams:\n\n';
+    for (const exam of exams) {
+      const status = exam.status || 'draft';
+      const startTime = exam.startTime ? '✅ Started' : '⏳ Not Started';
+      
+      // Count questions for this exam
+      const questionCount = await Question.count({ where: { ExamId: exam.id } });
+      
+      message += `📝 ${exam.title}\n`;
+      message += `   📖 Class: ${exam.Class?.name || 'Unknown'}\n`;
+      message += `   📚 Subject: ${exam.Subject?.name || 'Unknown'}\n`;
+      message += `   📊 Status: ${status}\n`;
+      message += `   ⏰ ${startTime}\n`;
+      message += `   ❓ Questions: ${questionCount}\n\n`;
+    }
+    
+    bot.sendMessage(msg.chat.id, message);
   });
 
   bot.onText(/\/upload/, async (msg) => {
@@ -94,9 +177,179 @@ function setupBot() {
     });
   });
 
+  bot.onText(/\/delete/, async (msg) => {
+    const teacherTelegramId = msg.from.id.toString();
+    const teacher = await User.findOne({ where: { telegramId: teacherTelegramId, role: 'teacher' } });
+    if (!teacher) {
+      bot.sendMessage(msg.chat.id, 'You are not registered as a teacher.');
+      return;
+    }
+    
+    // Get all exams created by this teacher
+    const exams = await Exam.findAll({
+      where: { createdBy: teacher.id },
+      include: [
+        { model: Class, attributes: ['name'] },
+        { model: Subject, attributes: ['name'] },
+      ],
+      order: [['createdAt', 'DESC']]
+    });
+    
+    if (exams.length === 0) {
+      bot.sendMessage(msg.chat.id, 'You have no exams to delete.');
+      return;
+    }
+    
+    const examOptions = exams.map(exam => {
+      const status = exam.status || 'draft';
+      const startTime = exam.startTime ? ' (Started)' : ' (Not Started)';
+      return `${exam.title} - ${exam.Class?.name || 'Unknown'} - ${exam.Subject?.name || 'Unknown'} - ${status}${startTime}`;
+    });
+    
+    userStates[msg.from.id] = { 
+      step: 'awaiting_exam_selection', 
+      exams,
+      teacherId: teacher.id 
+    };
+    
+    bot.sendMessage(msg.chat.id, 'Choose an exam to delete:', {
+      reply_markup: {
+        keyboard: examOptions.map(o => [o]),
+        one_time_keyboard: true,
+        resize_keyboard: true
+      }
+    });
+  });
+
   bot.on('message', async (msg) => {
     const state = userStates[msg.from.id];
     if (!state) return;
+    
+    // Handle exam deletion
+    if (state.step === 'awaiting_exam_selection') {
+      const selectedExamText = msg.text;
+      const selectedExam = state.exams.find(exam => {
+        const status = exam.status || 'draft';
+        const startTime = exam.startTime ? ' (Started)' : ' (Not Started)';
+        const examText = `${exam.title} - ${exam.Class?.name || 'Unknown'} - ${exam.Subject?.name || 'Unknown'} - ${status}${startTime}`;
+        return examText === selectedExamText;
+      });
+      
+      if (!selectedExam) {
+        bot.sendMessage(msg.chat.id, 'Invalid exam selection. Please try again.');
+        return;
+      }
+      
+      // Check if exam has been started
+      if (selectedExam.startTime) {
+        bot.sendMessage(msg.chat.id, `⚠️ Warning: This exam has already been started. Deleting it will remove all student progress and results. Are you sure you want to delete "${selectedExam.title}"?`, {
+          reply_markup: {
+            keyboard: [['Yes, delete it'], ['No, cancel']],
+            one_time_keyboard: true,
+            resize_keyboard: true
+          }
+        });
+        userStates[msg.from.id] = { 
+          step: 'awaiting_delete_confirmation', 
+          selectedExam,
+          teacherId: state.teacherId 
+        };
+      } else {
+        bot.sendMessage(msg.chat.id, `Are you sure you want to delete "${selectedExam.title}"?`, {
+          reply_markup: {
+            keyboard: [['Yes, delete it'], ['No, cancel']],
+            one_time_keyboard: true,
+            resize_keyboard: true
+          }
+        });
+        userStates[msg.from.id] = { 
+          step: 'awaiting_delete_confirmation', 
+          selectedExam,
+          teacherId: state.teacherId 
+        };
+      }
+      return;
+    }
+    
+    if (state.step === 'awaiting_delete_confirmation') {
+      if (msg.text === 'Yes, delete it') {
+        try {
+          const { selectedExam } = state;
+          
+          // Check if there are any active sessions for this exam
+          const activeSessions = await Session.count({ where: { ExamId: selectedExam.id } });
+          
+          if (activeSessions > 0) {
+            bot.sendMessage(msg.chat.id, `⚠️ Warning: This exam has ${activeSessions} active student session(s). Deleting it will immediately terminate these sessions and lose all progress. Are you absolutely sure?`, {
+              reply_markup: {
+                keyboard: [['Yes, delete anyway'], ['No, cancel']],
+                one_time_keyboard: true,
+                resize_keyboard: true
+              }
+            });
+            userStates[msg.from.id] = { 
+              step: 'awaiting_final_delete_confirmation', 
+              selectedExam,
+              teacherId: state.teacherId 
+            };
+            return;
+          }
+          
+          // Delete all questions associated with this exam
+          await Question.destroy({ where: { ExamId: selectedExam.id } });
+          
+          // Delete any sessions associated with this exam
+          await Session.destroy({ where: { ExamId: selectedExam.id } });
+          
+          // Delete the exam
+          await selectedExam.destroy();
+          
+          bot.sendMessage(msg.chat.id, `✅ Exam "${selectedExam.title}" has been successfully deleted along with all its questions and sessions.`);
+          delete userStates[msg.from.id];
+        } catch (error) {
+          console.error('Error deleting exam:', error);
+          bot.sendMessage(msg.chat.id, '❌ An error occurred while deleting the exam. Please try again.');
+          delete userStates[msg.from.id];
+        }
+      } else if (msg.text === 'No, cancel') {
+        bot.sendMessage(msg.chat.id, '❌ Exam deletion cancelled.');
+        delete userStates[msg.from.id];
+      } else {
+        bot.sendMessage(msg.chat.id, 'Please select "Yes, delete it" or "No, cancel".');
+      }
+      return;
+    }
+    
+    if (state.step === 'awaiting_final_delete_confirmation') {
+      if (msg.text === 'Yes, delete anyway') {
+        try {
+          const { selectedExam } = state;
+          
+          // Delete all questions associated with this exam
+          await Question.destroy({ where: { ExamId: selectedExam.id } });
+          
+          // Delete any sessions associated with this exam
+          await Session.destroy({ where: { ExamId: selectedExam.id } });
+          
+          // Delete the exam
+          await selectedExam.destroy();
+          
+          bot.sendMessage(msg.chat.id, `✅ Exam "${selectedExam.title}" has been forcefully deleted. All student sessions and progress have been lost.`);
+          delete userStates[msg.from.id];
+        } catch (error) {
+          console.error('Error deleting exam:', error);
+          bot.sendMessage(msg.chat.id, '❌ An error occurred while deleting the exam. Please try again.');
+          delete userStates[msg.from.id];
+        }
+      } else if (msg.text === 'No, cancel') {
+        bot.sendMessage(msg.chat.id, '❌ Exam deletion cancelled.');
+        delete userStates[msg.from.id];
+      } else {
+        bot.sendMessage(msg.chat.id, 'Please select "Yes, delete anyway" or "No, cancel".');
+      }
+      return;
+    }
+    
     if (state.step === 'awaiting_assignment') {
       const selected = state.assignments.find(a => `${a.Class.name} - ${a.Subject.name}` === msg.text);
       if (!selected) return;

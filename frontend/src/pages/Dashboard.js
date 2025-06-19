@@ -109,7 +109,7 @@ function Dashboard() {
                 <Card>
                   <CardContent>
                     <Typography variant="h6">{exam.title}</Typography>
-                    <Typography>Class: {exam.className}</Typography>
+                    <Typography>Class: {exam.Class ? exam.Class.name : 'Unknown'}</Typography>
                     <Button variant="contained" sx={{ mt: 1 }} onClick={() => navigate(`/exam/${exam.id}`)}>Take Exam</Button>
                   </CardContent>
                 </Card>
