@@ -10,4 +10,18 @@ api.interceptors.request.use(config => {
   return config;
 });
 
+// Add response interceptor to handle authentication errors
+api.interceptors.response.use(
+  response => response,
+  error => {
+    if (error.response && error.response.status === 401) {
+      // Token is invalid or expired
+      localStorage.removeItem('token');
+      localStorage.removeItem('role');
+      window.location.href = '/';
+    }
+    return Promise.reject(error);
+  }
+);
+
 export default api; 

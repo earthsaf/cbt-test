@@ -280,6 +280,18 @@ function AdminPanel() {
     setResetting(false);
   };
 
+  const handleFixExamStatuses = async () => {
+    try {
+      const res = await api.post('/admin/fix-exam-statuses');
+      setSnack({ open: true, message: `✅ ${res.data.message}`, severity: 'success' });
+      // Refresh exam list
+      const examRes = await api.get('/admin/exams');
+      setExams(examRes.data);
+    } catch (error) {
+      setSnack({ open: true, message: '❌ Failed to fix exam statuses', severity: 'error' });
+    }
+  };
+
   return (
     <Box sx={{ flexGrow: 1, p: 3 }}>
       <AppBar position="static" color="default">
@@ -335,7 +347,17 @@ function AdminPanel() {
         )}
         {tab === 2 && (
           <Box>
-            <Typography variant="h6">Exams</Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6">Exams</Typography>
+              <Button 
+                variant="contained" 
+                color="primary" 
+                onClick={handleFixExamStatuses}
+                sx={{ ml: 2 }}
+              >
+                🔧 Fix Exam Statuses
+              </Button>
+            </Box>
             <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
               <TextField label="Search" value={examSearch} onChange={e => setExamSearch(e.target.value)} size="small" />
               <Select value={examClass} onChange={e => setExamClass(e.target.value)} displayEmpty size="small" sx={{ minWidth: 120 }}>

@@ -25,12 +25,21 @@ function Dashboard() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Check if user is authenticated
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/');
+      return;
+    }
+    
     // Fetch user role from token or API
     const r = localStorage.getItem('role') || 'student';
     setRole(r);
     if (r === 'admin') navigate('/admin');
     if (r === 'teacher') navigate('/teacher');
     if (r === 'invigilator') navigate('/proctor');
+    
+    // Only fetch data if user is authenticated
     api.get('/exams').then(res => setExams(res.data)).catch(() => setExams([]));
     api.get('/exams/history').then(res => setHistory(res.data)).catch(() => setHistory([]));
     if (tab === 6) {
@@ -82,12 +91,18 @@ function Dashboard() {
     setTab(newTab);
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('role');
+    navigate('/');
+  };
+
   return (
     <Box sx={{ flexGrow: 1 }}>
       <AppBar position="static">
         <Toolbar>
           <Typography variant="h6" sx={{ flexGrow: 1 }}>CBT System</Typography>
-          {/* No panel buttons for students */}
+          <Button color="inherit" onClick={handleLogout}>Logout</Button>
         </Toolbar>
       </AppBar>
       <Tabs value={tab} onChange={handleTabChange} centered>

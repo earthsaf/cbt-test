@@ -310,6 +310,38 @@ exports.getExamQuestions = async (req, res) => {
   res.json(questions);
 };
 
+// Debug endpoint to check exam statuses
+exports.debugExams = async (req, res) => {
+  try {
+    const exams = await Exam.findAll({
+      include: [Class, Subject],
+      order: [['createdAt', 'DESC']],
+    });
+    
+    const examStatuses = exams.map(exam => ({
+      id: exam.id,
+      title: exam.title,
+      status: exam.status,
+      startTime: exam.startTime,
+      classId: exam.ClassId,
+      subjectId: exam.subjectId,
+      className: exam.Class?.name,
+      subjectName: exam.Subject?.name,
+      createdBy: exam.createdBy,
+      createdAt: exam.createdAt
+    }));
+    
+    res.json({
+      totalExams: exams.length,
+      exams: examStatuses,
+      message: 'Debug information for all exams'
+    });
+  } catch (error) {
+    console.error('Debug exams error:', error);
+    res.status(500).json({ error: 'Failed to get debug info' });
+  }
+};
+
 // Update exam settings (startTime, durationMinutes, scramble)
 exports.updateExamSettings = async (req, res) => {
   const { startTime, durationMinutes, scramble } = req.body;
@@ -328,4 +360,78 @@ exports.updateExamSettings = async (req, res) => {
   if (scramble !== undefined) exam.scramble = scramble;
   await exam.save();
   res.json({ ok: true, exam });
+};
+
+// Test endpoint to manually start an exam
+exports.testStartExam = async (req, res) => {
+  try {
+    const { examId } = req.params;
+    const exam = await Exam.findByPk(examId);
+    
+    if (!exam) {
+      return res.status(404).json({ error: 'Exam not found' });
+    }
+    
+    // Set exam as started
+    exam.startTime = new Date().toISOString();
+    exam.status = 'available';
+    await exam.save();
+    
+    res.json({
+      message: 'Exam started successfully',
+      exam: {
+        id: exam.id,
+        title: exam.title,
+        status: exam.status,
+        startTime: exam.startTime
+      }
+    });
+  } catch (error) {
+    console.error('Test start exam error:', error);
+    res.status(500).json({ error: 'Failed to start exam' });
+  }
+};
+
+// Utility endpoint to fix exam statuses
+exports.fixExamStatuses = async (req, res) => {
+  try {
+    const exams = await Exam.findAll();
+    let fixedCount = 0;
+    
+    for (const exam of exams) {
+      let needsUpdate = false;
+      
+      // If exam has startTime but no status or wrong status, set to 'available'
+      if (exam.startTime && (!exam.status || exam.status !== 'available')) {
+        exam.status = 'available';
+        needsUpdate = true;
+      }
+      
+      // If exam has no startTime but status is 'available', set to 'draft'
+      if (!exam.startTime && exam.status === 'available') {
+        exam.status = 'draft';
+        needsUpdate = true;
+      }
+      
+      // If exam has no status at all, set to 'draft'
+      if (!exam.status) {
+        exam.status = 'draft';
+        needsUpdate = true;
+      }
+      
+      if (needsUpdate) {
+        await exam.save();
+        fixedCount++;
+      }
+    }
+    
+    res.json({
+      message: `Fixed ${fixedCount} exam statuses`,
+      totalExams: exams.length,
+      fixedCount: fixedCount
+    });
+  } catch (error) {
+    console.error('Fix exam statuses error:', error);
+    res.status(500).json({ error: 'Failed to fix exam statuses' });
+  }
 }; 
