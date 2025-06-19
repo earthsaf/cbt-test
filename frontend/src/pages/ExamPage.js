@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
-import { Box, Typography, Button, Card, CardContent, Grid, Snackbar, Alert, LinearProgress } from '@mui/material';
-import { Bar } from 'react-chartjs-2';
+import { Box, Typography, Button, Card, CardContent, Grid, Snackbar, Alert, LinearProgress, Radio, RadioGroup, FormControlLabel, FormControl, Avatar, Paper } from '@mui/material';
+import ExitToAppIcon from '@mui/icons-material/ExitToApp';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import io from 'socket.io-client';
 
 function ExamPage() {
@@ -18,16 +19,20 @@ function ExamPage() {
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'info' });
   const [timer, setTimer] = useState(0); // seconds left
   const [duration, setDuration] = useState(0); // total seconds
+  const [subject, setSubject] = useState('');
+  const [user, setUser] = useState('');
   const timerRef = useRef();
   const navigate = useNavigate();
 
   useEffect(() => {
     api.get(`/exams/${examId}/questions`).then(res => {
       setQuestions(res.data);
-      // For demo, set 30 min timer; in real app, fetch from exam info
-      setDuration(30 * 60); // 30 minutes
-      setTimer(30 * 60);
+      setDuration(res.data.durationMinutes ? res.data.durationMinutes * 60 : 30 * 60);
+      setTimer(res.data.durationMinutes ? res.data.durationMinutes * 60 : 30 * 60);
+      if (res.data.length > 0 && res.data[0].Subject) setSubject(res.data[0].Subject.name);
     }).catch(() => setQuestions([]));
+    // Fetch user info
+    setUser(localStorage.getItem('username') || '');
   }, [examId]);
 
   // Timer logic
@@ -44,7 +49,6 @@ function ExamPage() {
       });
     }, 1000);
     return () => clearInterval(timerRef.current);
-    // eslint-disable-next-line
   }, [duration, submitted]);
 
   // Timer warning
@@ -84,7 +88,7 @@ function ExamPage() {
 
   // WebSocket for live question updates
   useEffect(() => {
-    const socket = io(process.env.REACT_APP_API_URL.replace('/api', ''), { transports: ['websocket'] });
+    const socket = io(process.env.REACT_APP_API_URL?.replace('/api', '') || '', { transports: ['websocket'] });
     socket.on(`question-update-exam-${examId}`, (data) => {
       setQuestions((prev) =>
         prev.map((q) =>
@@ -108,7 +112,7 @@ function ExamPage() {
   function formatTime(secs) {
     const m = Math.floor(secs / 60);
     const s = secs % 60;
-    return `${m}:${s.toString().padStart(2, '0')}`;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   }
 
   const handleOption = (qid, opt) => setAnswers({ ...answers, [qid]: opt });
@@ -117,6 +121,14 @@ function ExamPage() {
     await api.post(`/exams/${examId}/submit`, { answers });
     setSubmitted(true);
   };
+
+  const handleAbort = () => {
+    if (window.confirm('Are you sure you want to abort the test? Your progress will be lost.')) {
+      navigate('/dashboard');
+    }
+  };
+
+  const handleQuickNav = idx => setCurrent(idx);
 
   if (submitted) {
     return (
@@ -181,39 +193,73 @@ function ExamPage() {
   }
 
   const q = questions[current];
+  const options = Array.isArray(q.options)
+    ? q.options
+    : Object.values(q.options || {});
+
   return (
-    <Box sx={{ maxWidth: 600, mx: 'auto', p: 3 }}>
+    <Box sx={{ maxWidth: 900, mx: 'auto', p: 2 }}>
+      {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h6" sx={{ flexGrow: 1 }}>Time Left: <span style={{ color: timer <= 60 ? 'red' : timer <= 5 * 60 ? 'orange' : 'inherit' }}>{formatTime(timer)}</span></Typography>
-        <Typography variant="body2">Progress: {answered}/{total}</Typography>
+        <Button onClick={handleAbort} color="error" variant="contained" startIcon={<ExitToAppIcon />} sx={{ mr: 2 }}>Abort</Button>
+        <Typography variant="h6" sx={{ flexGrow: 1 }}>{subject || 'Exam'} &nbsp; <b>{current + 1}/{total}</b></Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Typography>Welcome, {user}</Typography>
+          <Paper sx={{ bgcolor: 'red', color: 'white', px: 2, py: 1, display: 'flex', alignItems: 'center', borderRadius: 2 }}>
+            <AccessTimeIcon sx={{ mr: 1 }} />
+            <Box>
+              <Typography sx={{ fontWeight: 'bold', fontSize: 18 }}>Time Left</Typography>
+              <Typography sx={{ fontWeight: 'bold', fontSize: 22 }}>{formatTime(timer)}</Typography>
+            </Box>
+          </Paper>
+        </Box>
       </Box>
-      <LinearProgress variant="determinate" value={progress} sx={{ mb: 2, height: 10, borderRadius: 5 }} />
-      <Card sx={{ my: 2 }}>
+      {/* Question */}
+      <Card sx={{ mb: 2 }}>
         <CardContent>
-          <Typography><b>{current + 1}. {q.text}</b></Typography>
-          {q.options.map((opt, i) => (
-            <Button
-              key={i}
-              onClick={() => handleOption(q.id, opt)}
-              sx={{
-                display: 'block',
-                my: 1,
-                background: answers[q.id] === opt ? '#cce' : '#fff',
-                border: '1px solid #ccc',
-                borderRadius: 2,
-                width: '100%',
-              }}
+          <Typography sx={{ mb: 1, color: 'gray' }}>{q.year || ''}</Typography>
+          <Typography sx={{ mb: 2, fontWeight: 'bold' }}>{q.text}</Typography>
+          <FormControl component="fieldset">
+            <RadioGroup
+              value={answers[q.id] || ''}
+              onChange={e => handleOption(q.id, e.target.value)}
             >
-              {String.fromCharCode(97 + i)}. {opt}
-            </Button>
-          ))}
+              {options.map((opt, i) => (
+                <FormControlLabel
+                  key={i}
+                  value={opt}
+                  control={<Radio />}
+                  label={`(${String.fromCharCode(65 + i)}) ${opt}`}
+                  sx={{ mb: 1 }}
+                />
+              ))}
+            </RadioGroup>
+          </FormControl>
         </CardContent>
       </Card>
-      <Box sx={{ mt: 2 }}>
-        <Button onClick={() => setCurrent(current - 1)} disabled={current === 0}>Previous</Button>
-        <Button onClick={() => setCurrent(current + 1)} disabled={current === questions.length - 1} sx={{ mx: 2 }}>Next</Button>
-        <Button onClick={() => setReview(true)}>Review</Button>
-        <Button variant="contained" color="error" sx={{ ml: 2 }} onClick={handleSubmit}>Submit Now</Button>
+      {/* Navigation */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Button onClick={() => setCurrent(current - 1)} disabled={current === 0} variant="outlined">Previous</Button>
+        <Button onClick={handleSubmit} variant="contained" color="success">Submit Test</Button>
+        <Button onClick={() => setCurrent(current + 1)} disabled={current === questions.length - 1} variant="outlined">Next</Button>
+      </Box>
+      {/* Quick Navigation */}
+      <Box sx={{ mt: 2, p: 2, bgcolor: '#f5f5f5', borderRadius: 2 }}>
+        <Typography sx={{ mb: 1, fontWeight: 'bold', color: 'green' }}>Quick Navigation</Typography>
+        <Grid container spacing={1}>
+          {questions.map((_, idx) => (
+            <Grid item key={idx} xs={1} sm={1} md={0.5} lg={0.5}>
+              <Button
+                variant={idx === current ? 'contained' : answers[questions[idx].id] ? 'outlined' : 'text'}
+                color={idx === current ? 'primary' : answers[questions[idx].id] ? 'success' : 'inherit'}
+                onClick={() => handleQuickNav(idx)}
+                sx={{ minWidth: 36, minHeight: 36, p: 0 }}
+              >
+                {idx + 1}
+              </Button>
+            </Grid>
+          ))}
+        </Grid>
       </Box>
       <Snackbar open={snack.open} autoHideDuration={3000} onClose={() => setSnack({ ...snack, open: false })}>
         <Alert onClose={() => setSnack({ ...snack, open: false })} severity={snack.severity} sx={{ width: '100%' }}>

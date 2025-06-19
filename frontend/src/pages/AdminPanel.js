@@ -35,7 +35,7 @@ function AdminPanel() {
   const [examSubject, setExamSubject] = useState('');
   const [selectedExam, setSelectedExam] = useState(null);
   const [examQuestions, setExamQuestions] = useState([]);
-  const [examSettings, setExamSettings] = useState({ scramble: false });
+  const [examSettings, setExamSettings] = useState({ scramble: false, durationMinutes: 60 });
   const [savingSettings, setSavingSettings] = useState(false);
   const navigate = useNavigate();
 
@@ -235,6 +235,7 @@ function AdminPanel() {
     setSelectedExam(exam);
     setExamSettings({
       scramble: !!exam.scramble,
+      durationMinutes: exam.durationMinutes || 60,
     });
     const res = await api.get(`/admin/exams/${exam.id}/questions`);
     setExamQuestions(res.data);
@@ -246,7 +247,7 @@ function AdminPanel() {
       const now = new Date().toISOString();
       await api.put(`/admin/exams/${selectedExam.id}/settings`, {
         startTime: now,
-        durationMinutes: 1440,
+        durationMinutes: Number(examSettings.durationMinutes) || 60,
         scramble: examSettings.scramble,
       });
       setSnack({ open: true, message: 'Exam started!', severity: 'success' });
@@ -345,6 +346,14 @@ function AdminPanel() {
               <DialogTitle>Exam Settings: {selectedExam?.title}</DialogTitle>
               <DialogContent>
                 <Box sx={{ mb: 2 }}>
+                  <TextField
+                    label="Time Limit (minutes)"
+                    type="number"
+                    value={examSettings.durationMinutes}
+                    onChange={e => setExamSettings(s => ({ ...s, durationMinutes: e.target.value }))}
+                    sx={{ mr: 2 }}
+                    inputProps={{ min: 1 }}
+                  />
                   <FormControlLabel
                     control={<Switch checked={examSettings.scramble} onChange={e => setExamSettings(s => ({ ...s, scramble: e.target.checked }))} />}
                     label="Scramble Questions"
