@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../services/api';
 import { AppBar, Toolbar, Typography, Tabs, Tab, Box, Card, CardContent, Button, Grid, Accordion, AccordionSummary, AccordionDetails } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -10,7 +10,9 @@ import { Bar } from 'react-chartjs-2';
 const sections = ['Home', 'Available Tests', 'Missed Tests', 'Completed Tests', 'Results', 'History', 'Profile'];
 
 function Dashboard() {
-  const [tab, setTab] = useState(0);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTab = parseInt(searchParams.get('tab')) || 0;
+  const [tab, setTab] = useState(initialTab);
   const [exams, setExams] = useState([]);
   const [role, setRole] = useState('student');
   const [history, setHistory] = useState([]);
@@ -40,11 +42,10 @@ function Dashboard() {
     }
   }, [tab, navigate]);
 
-  // Set tab from localStorage on mount
+  // Update tab in URL when it changes
   useEffect(() => {
-    const savedTab = localStorage.getItem('studentDashboardTab');
-    if (savedTab !== null) setTab(Number(savedTab));
-  }, []);
+    setSearchParams({ tab });
+  }, [tab, setSearchParams]);
 
   // Dummy data for missed/completed
   const missed = exams.filter(e => e.status === 'missed');
@@ -77,10 +78,8 @@ function Dashboard() {
     setLoadingAnalytics(false);
   };
 
-  // Update localStorage when tab changes
   const handleTabChange = (_, newTab) => {
     setTab(newTab);
-    localStorage.setItem('studentDashboardTab', newTab);
   };
 
   return (

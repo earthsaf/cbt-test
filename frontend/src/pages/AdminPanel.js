@@ -35,7 +35,7 @@ function AdminPanel() {
   const [examSubject, setExamSubject] = useState('');
   const [selectedExam, setSelectedExam] = useState(null);
   const [examQuestions, setExamQuestions] = useState([]);
-  const [examSettings, setExamSettings] = useState({ startTime: '', durationMinutes: '', scramble: false });
+  const [examSettings, setExamSettings] = useState({ scramble: false });
   const [savingSettings, setSavingSettings] = useState(false);
   const navigate = useNavigate();
 
@@ -234,24 +234,27 @@ function AdminPanel() {
   const openExamModal = async (exam) => {
     setSelectedExam(exam);
     setExamSettings({
-      startTime: exam.startTime || '',
-      durationMinutes: exam.durationMinutes || '',
       scramble: !!exam.scramble,
     });
     const res = await api.get(`/admin/exams/${exam.id}/questions`);
     setExamQuestions(res.data);
   };
 
-  const handleSaveExamSettings = async () => {
+  const handleStartExam = async () => {
     setSavingSettings(true);
     try {
-      await api.put(`/admin/exams/${selectedExam.id}/settings`, examSettings);
-      setSnack({ open: true, message: 'Exam settings updated!', severity: 'success' });
+      const now = new Date().toISOString();
+      await api.put(`/admin/exams/${selectedExam.id}/settings`, {
+        startTime: now,
+        durationMinutes: 1440,
+        scramble: examSettings.scramble,
+      });
+      setSnack({ open: true, message: 'Exam started!', severity: 'success' });
       setSelectedExam(null);
       api.get(`/admin/exams?search=${encodeURIComponent(examSearch)}&classId=${examClass}&subjectId=${examSubject}`)
         .then(res => setExams(res.data)).catch(() => setExams([]));
     } catch {
-      setSnack({ open: true, message: 'Failed to update exam settings', severity: 'error' });
+      setSnack({ open: true, message: 'Failed to start exam', severity: 'error' });
     }
     setSavingSettings(false);
   };
@@ -342,22 +345,6 @@ function AdminPanel() {
               <DialogTitle>Exam Settings: {selectedExam?.title}</DialogTitle>
               <DialogContent>
                 <Box sx={{ mb: 2 }}>
-                  <TextField
-                    label="Start Time"
-                    type="datetime-local"
-                    value={examSettings.startTime ? dayjs(examSettings.startTime).format('YYYY-MM-DDTHH:mm') : ''}
-                    onChange={e => setExamSettings(s => ({ ...s, startTime: e.target.value }))}
-                    sx={{ mr: 2 }}
-                    InputLabelProps={{ shrink: true }}
-                  />
-                  <TextField
-                    label="Time Limit (minutes)"
-                    type="number"
-                    value={examSettings.durationMinutes}
-                    onChange={e => setExamSettings(s => ({ ...s, durationMinutes: e.target.value }))}
-                    sx={{ mr: 2 }}
-                    inputProps={{ min: 1 }}
-                  />
                   <FormControlLabel
                     control={<Switch checked={examSettings.scramble} onChange={e => setExamSettings(s => ({ ...s, scramble: e.target.checked }))} />}
                     label="Scramble Questions"
@@ -377,7 +364,7 @@ function AdminPanel() {
               </DialogContent>
               <DialogActions>
                 <Button onClick={() => setSelectedExam(null)}>Close</Button>
-                <Button variant="contained" onClick={handleSaveExamSettings} disabled={savingSettings}>Save Settings</Button>
+                <Button variant="contained" color="success" onClick={handleStartExam} disabled={savingSettings || selectedExam?.startTime}>Start Exam</Button>
               </DialogActions>
             </Dialog>
           </Box>

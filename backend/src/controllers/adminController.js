@@ -19,6 +19,11 @@ exports.analytics = (req, res) => res.json({ message: 'Analytics (not implemente
 // Retake exam for a class or user
 exports.retakeExam = async (req, res) => {
   const { examId, classId, userId } = req.body;
+  // Prevent retake if exam has started
+  const exam = await Exam.findByPk(examId);
+  if (exam && exam.startTime) {
+    return res.status(400).json({ error: 'Retake not allowed after exam has started.' });
+  }
   let where = { ExamId: examId };
   if (classId) {
     const users = await User.findAll({ where: { ClassId: classId } });
