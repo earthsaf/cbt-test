@@ -282,13 +282,30 @@ function AdminPanel() {
 
   const handleFixExamStatuses = async () => {
     try {
+      console.log('Starting to fix exam statuses...');
       const res = await api.post('/admin/fix-exam-statuses');
+      console.log('Fix response:', res.data);
       setSnack({ open: true, message: `✅ ${res.data.message}`, severity: 'success' });
       // Refresh exam list
       const examRes = await api.get('/admin/exams');
       setExams(examRes.data);
     } catch (error) {
-      setSnack({ open: true, message: '❌ Failed to fix exam statuses', severity: 'error' });
+      console.error('Fix exam statuses error:', error);
+      const errorMessage = error.response?.data?.error || error.message || 'Unknown error occurred';
+      setSnack({ open: true, message: `❌ Failed to fix exam statuses: ${errorMessage}`, severity: 'error' });
+    }
+  };
+
+  const handleDebugExams = async () => {
+    try {
+      console.log('Checking exam statuses...');
+      const res = await api.get('/admin/debug/exams');
+      console.log('Debug response:', res.data);
+      setSnack({ open: true, message: `📊 Found ${res.data.totalExams} exams. Check console for details.`, severity: 'info' });
+    } catch (error) {
+      console.error('Debug exams error:', error);
+      const errorMessage = error.response?.data?.error || error.message || 'Unknown error occurred';
+      setSnack({ open: true, message: `❌ Debug failed: ${errorMessage}`, severity: 'error' });
     }
   };
 
@@ -349,14 +366,22 @@ function AdminPanel() {
           <Box>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
               <Typography variant="h6">Exams</Typography>
-              <Button 
-                variant="contained" 
-                color="primary" 
-                onClick={handleFixExamStatuses}
-                sx={{ ml: 2 }}
-              >
-                🔧 Fix Exam Statuses
-              </Button>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <Button 
+                  variant="outlined" 
+                  color="info" 
+                  onClick={handleDebugExams}
+                >
+                  🔍 Debug Exams
+                </Button>
+                <Button 
+                  variant="contained" 
+                  color="primary" 
+                  onClick={handleFixExamStatuses}
+                >
+                  🔧 Fix Exam Statuses
+                </Button>
+              </Box>
             </Box>
             <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
               <TextField label="Search" value={examSearch} onChange={e => setExamSearch(e.target.value)} size="small" />
