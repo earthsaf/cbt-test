@@ -342,6 +342,20 @@ exports.debugExams = async (req, res) => {
   }
 };
 
+// Debug: Show all exams and students with class info
+exports.debugDatabase = async (req, res) => {
+  const exams = await Exam.findAll({
+    attributes: ['id', 'title', 'ClassId', 'status', 'startTime'],
+    raw: true
+  });
+  const students = await User.findAll({
+    where: { role: 'student' },
+    attributes: ['id', 'username', 'ClassId'],
+    raw: true
+  });
+  res.json({ exams, students });
+};
+
 // Update exam settings (startTime, durationMinutes, scramble)
 exports.updateExamSettings = async (req, res) => {
   const { startTime, durationMinutes, scramble } = req.body;
@@ -434,4 +448,4 @@ exports.fixExamStatuses = async (req, res) => {
     console.error('Fix exam statuses error:', error);
     res.status(500).json({ error: 'Failed to fix exam statuses' });
   }
-}; 
+};

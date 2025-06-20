@@ -39,6 +39,8 @@ function AdminPanel() {
   const [savingSettings, setSavingSettings] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [debugOpen, setDebugOpen] = useState(false);
+  const [debugData, setDebugData] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -309,6 +311,16 @@ function AdminPanel() {
     }
   };
 
+  const handleShowDebug = async () => {
+    try {
+      const res = await api.get('/admin/debug/database');
+      setDebugData(res.data);
+      setDebugOpen(true);
+    } catch (e) {
+      setSnack({ open: true, message: 'Failed to fetch debug data', severity: 'error' });
+    }
+  };
+
   return (
     <Box sx={{ flexGrow: 1, p: 3 }}>
       <AppBar position="static" color="default">
@@ -367,20 +379,9 @@ function AdminPanel() {
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
               <Typography variant="h6">Exams</Typography>
               <Box sx={{ display: 'flex', gap: 1 }}>
-                <Button 
-                  variant="outlined" 
-                  color="info" 
-                  onClick={handleDebugExams}
-                >
-                  🔍 Debug Exams
-                </Button>
-                <Button 
-                  variant="contained" 
-                  color="primary" 
-                  onClick={handleFixExamStatuses}
-                >
-                  🔧 Fix Exam Statuses
-                </Button>
+                <Button variant="outlined" color="info" onClick={handleDebugExams}>🔍 Debug Exams</Button>
+                <Button variant="contained" color="primary" onClick={handleFixExamStatuses}>🔧 Fix Exam Statuses</Button>
+                <Button variant="contained" color="secondary" onClick={handleShowDebug}>🗄️ Show Database Debug</Button>
               </Box>
             </Box>
             <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
@@ -442,6 +443,52 @@ function AdminPanel() {
                 <Button onClick={() => setSelectedExam(null)}>Close</Button>
                 <Button variant="contained" color="success" onClick={handleStartExam} disabled={savingSettings || selectedExam?.startTime}>Start Exam</Button>
                 <Button variant="outlined" color="error" onClick={() => setShowResetConfirm(true)} disabled={resetting}>Reset Exam</Button>
+              </DialogActions>
+            </Dialog>
+            <Dialog open={debugOpen} onClose={() => setDebugOpen(false)} maxWidth="md" fullWidth>
+              <DialogTitle>Database Debug Info</DialogTitle>
+              <DialogContent>
+                {debugData ? (
+                  <>
+                    <Typography variant="h6">Exams</Typography>
+                    <Box sx={{ overflowX: 'auto', mb: 2 }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <thead>
+                          <tr>
+                            <th>ID</th><th>Title</th><th>ClassId</th><th>Status</th><th>StartTime</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {debugData.exams.map(e => (
+                            <tr key={e.id}>
+                              <td>{e.id}</td><td>{e.title}</td><td>{e.ClassId}</td><td>{e.status}</td><td>{e.startTime}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </Box>
+                    <Typography variant="h6">Students</Typography>
+                    <Box sx={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <thead>
+                          <tr>
+                            <th>ID</th><th>Username</th><th>ClassId</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {debugData.students.map(s => (
+                            <tr key={s.id}>
+                              <td>{s.id}</td><td>{s.username}</td><td>{s.ClassId}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </Box>
+                  </>
+                ) : <Typography>Loading...</Typography>}
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={() => setDebugOpen(false)}>Close</Button>
               </DialogActions>
             </Dialog>
           </Box>
@@ -539,4 +586,4 @@ function AdminPanel() {
   );
 }
 
-export default AdminPanel; 
+export default AdminPanel;
