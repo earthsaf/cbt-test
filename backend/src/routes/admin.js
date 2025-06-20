@@ -57,12 +57,4 @@ router.get('/exams/:examId/questions', requireAuth, requireRole('admin'), admin.
 // New: Update exam settings
 router.put('/exams/:examId/settings', requireAuth, requireRole('admin'), admin.updateExamSettings);
 
-// New: Debug endpoint
-router.get('/debug/exams', requireAuth, requireRole('admin'), admin.debugExams);
-router.post('/fix-exam-statuses', requireAuth, requireRole('admin'), admin.fixExamStatuses);
-router.post('/exams/:examId/test-start', requireAuth, requireRole('admin'), admin.testStartExam);
-// DEBUG: List all exams and students with class info
-router.get('/debug/exam-student-link', requireAuth, requireRole('admin'), admin.debugExamStudentLink);
-router.get('/debug/database', requireAuth, requireRole('admin'), admin.debugDatabase);
-
 module.exports = router;

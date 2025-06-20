@@ -376,14 +376,7 @@ function AdminPanel() {
         )}
         {tab === 2 && (
           <Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Typography variant="h6">Exams</Typography>
-              <Box sx={{ display: 'flex', gap: 1 }}>
-                <Button variant="outlined" color="info" onClick={handleDebugExams}>🔍 Debug Exams</Button>
-                <Button variant="contained" color="primary" onClick={handleFixExamStatuses}>🔧 Fix Exam Statuses</Button>
-                <Button variant="contained" color="secondary" onClick={handleShowDebug}>🗄️ Show Database Debug</Button>
-              </Box>
-            </Box>
+            <Typography variant="h6">Exams</Typography>
             <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
               <TextField label="Search" value={examSearch} onChange={e => setExamSearch(e.target.value)} size="small" />
               <Select value={examClass} onChange={e => setExamClass(e.target.value)} displayEmpty size="small" sx={{ minWidth: 120 }}>
