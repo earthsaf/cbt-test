@@ -57,4 +57,7 @@ router.get('/exams/:examId/questions', requireAuth, requireRole('admin'), admin.
 // New: Update exam settings
 router.put('/exams/:examId/settings', requireAuth, requireRole('admin'), admin.updateExamSettings);
 
+// Admin: Start an exam
+router.post('/exams/start', requireAuth, requireRole('admin'), admin.startExam);
+
 module.exports = router;

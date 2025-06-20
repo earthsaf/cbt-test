@@ -207,13 +207,55 @@ exports.uploadQuestions = async (req, res) => {
   const { assignmentId } = req.body;
   const file = req.file;
   if (!file) return res.status(400).json({ error: 'No file uploaded' });
-  const allowed = ['text/plain', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+  const allowed = ['text/plain'];
   const ext = file.originalname.split('.').pop().toLowerCase();
-  if (!allowed.includes(file.mimetype) && ext !== 'txt' && ext !== 'docx') {
-    return res.status(400).json({ error: 'Only .txt or .docx files are allowed' });
+  if (!allowed.includes(file.mimetype) && ext !== 'txt') {
+    return res.status(400).json({ error: 'Only .txt files are allowed' });
   }
-  // TODO: Implement file parsing and question creation
-  res.json({ ok: true, message: 'Upload received (not implemented)' });
+  // Find assignment
+  const assignment = await TeacherClassSubject.findByPk(assignmentId);
+  if (!assignment) return res.status(404).json({ error: 'Assignment not found' });
+  // Find or create exam for this assignment
+  let exam = await Exam.findOne({ where: { ClassId: assignment.classId, SubjectId: assignment.subjectId, createdBy: assignment.teacherId } });
+  if (!exam) {
+    exam = await Exam.create({
+      ClassId: assignment.classId,
+      SubjectId: assignment.subjectId,
+      createdBy: assignment.teacherId,
+      title: `Exam for ${assignment.classId}-${assignment.subjectId}`,
+      status: 'draft',
+    });
+  }
+  // Parse questions from txt file (format: question|option1;option2;option3;option4|answer)
+  const text = file.buffer.toString('utf-8');
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+  let created = 0;
+  for (const line of lines) {
+    const [qtext, optionsStr, answer] = line.split('|');
+    if (!qtext || !optionsStr || !answer) continue;
+    const options = optionsStr.split(';').map(o => o.trim()).filter(o => o);
+    if (options.length < 2) continue;
+    await Question.create({
+      ExamId: exam.id,
+      text: qtext,
+      options,
+      answer,
+      type: 'mcq',
+    });
+    created++;
+  }
+  res.json({ ok: true, created });
+};
+
+// Admin: Start an exam (set status to 'active' and set startTime)
+exports.startExam = async (req, res) => {
+  const { examId } = req.body;
+  const exam = await Exam.findByPk(examId);
+  if (!exam) return res.status(404).json({ error: 'Exam not found' });
+  exam.status = 'active';
+  exam.startTime = new Date();
+  await exam.save();
+  res.json({ ok: true, exam });
 };
 
 exports.listAssignmentQuestions = async (req, res) => {
