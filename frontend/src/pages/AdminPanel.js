@@ -321,6 +321,18 @@ function AdminPanel() {
     }
   };
 
+  // Auto-end exams handler
+  const handleAutoEndExams = async () => {
+    try {
+      await api.post('/admin/exams/auto-end');
+      setSnack({ open: true, message: 'Checked and ended any expired exams.', severity: 'success' });
+      // Optionally refresh exams list
+      api.get('/admin/exams').then(res => setExams(res.data)).catch(() => {});
+    } catch {
+      setSnack({ open: true, message: 'Failed to auto-end exams.', severity: 'error' });
+    }
+  };
+
   return (
     <Box sx={{ flexGrow: 1, p: 3 }}>
       <AppBar position="static" color="default">
@@ -403,6 +415,7 @@ function AdminPanel() {
                 </Grid>
               ))}
             </Grid>
+            <Button variant="contained" color="warning" onClick={handleAutoEndExams} sx={{ ml: 2 }}>Auto-End Exams</Button>
             <Dialog open={!!selectedExam} onClose={() => setSelectedExam(null)} maxWidth="md" fullWidth>
               <DialogTitle>Exam Settings: {selectedExam?.title}</DialogTitle>
               <DialogContent>

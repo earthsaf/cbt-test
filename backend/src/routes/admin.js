@@ -57,7 +57,10 @@ router.get('/exams/:examId/questions', requireAuth, requireRole('admin'), admin.
 // New: Update exam settings
 router.put('/exams/:examId/settings', requireAuth, requireRole('admin'), admin.updateExamSettings);
 
-// Admin: Start an exam
-router.post('/exams/start', requireAuth, requireRole('admin'), admin.startExam);
+// Admin: Start an exam (new, robust)
+router.put('/exams/:examId/start', requireAuth, requireRole('admin'), admin.startExam);
+
+// Auto-end exams whose duration has passed
+router.post('/exams/auto-end', requireAuth, requireRole('admin'), admin.autoEndExams);
 
 module.exports = router;

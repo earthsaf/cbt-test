@@ -87,7 +87,7 @@ exports.examResults = async (req, res) => {
   });
   const resultArr = Object.values(scores);
   const highest = Math.max(...resultArr.map(r => r.score), 0);
-  const lowest = Math.min(...resultArr.map(r => r.score), highest);
+  const lowest = resultArr.length ? Math.min(...resultArr.map(r => r.score)) : 0;
   const avg = resultArr.length ? (resultArr.reduce((a, b) => a + b.score, 0) / resultArr.length).toFixed(2) : 0;
   res.json({ results: resultArr, highest, lowest, avg });
 };
@@ -252,13 +252,13 @@ exports.uploadQuestions = async (req, res) => {
 
 // Admin: Start an exam (set status to 'active' and set startTime)
 exports.startExam = async (req, res) => {
-  const { examId } = req.body;
+  const { examId } = req.params;
   const exam = await Exam.findByPk(examId);
   if (!exam) return res.status(404).json({ error: 'Exam not found' });
   exam.status = 'active';
   exam.startTime = new Date();
   await exam.save();
-  res.json({ ok: true, exam });
+  res.json({ ok: true, message: 'Exam started', exam });
 };
 
 exports.listAssignmentQuestions = async (req, res) => {
@@ -479,4 +479,23 @@ exports.fixExamStatuses = async (req, res) => {
     console.error('Fix exam statuses error:', error);
     res.status(500).json({ error: 'Failed to fix exam statuses' });
   }
+};
+
+// Auto-end exams whose duration has passed
+exports.autoEndExams = async (req, res) => {
+  const now = new Date();
+  const ended = [];
+  // Find all active exams with startTime and durationMinutes
+  const exams = await Exam.findAll({ where: { status: 'active' } });
+  for (const exam of exams) {
+    if (exam.startTime && exam.durationMinutes) {
+      const endTime = new Date(exam.startTime.getTime() + exam.durationMinutes * 60000);
+      if (now >= endTime) {
+        exam.status = 'ended';
+        await exam.save();
+        ended.push(exam.id);
+      }
+    }
+  }
+  res.json({ ok: true, ended });
 };
