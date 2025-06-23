@@ -264,6 +264,17 @@ function AdminPanel() {
     setSavingSettings(false);
   };
 
+  // Start exam directly from exam card
+  const handleStartExamDirect = async (examId) => {
+    try {
+      await api.put(`/admin/exams/${examId}/start`);
+      setSnack({ open: true, message: 'Exam started!', severity: 'success' });
+      api.get('/admin/exams').then(res => setExams(res.data));
+    } catch {
+      setSnack({ open: true, message: 'Failed to start exam.', severity: 'error' });
+    }
+  };
+
   const handleResetExam = async () => {
     setResetting(true);
     try {
@@ -409,7 +420,10 @@ function AdminPanel() {
                       <Typography>Class: {exam.Class ? exam.Class.name : ''}</Typography>
                       <Typography>Subject: {exam.Subject ? exam.Subject.name : ''}</Typography>
                       <Typography>Status: {exam.status}</Typography>
-                      <Button sx={{ mt: 1 }} variant="outlined" onClick={() => openExamModal(exam)}>View / Set Exam</Button>
+                      <Button sx={{ mt: 1, mr: 1 }} variant="outlined" onClick={() => openExamModal(exam)}>View / Set Exam</Button>
+                      <Button sx={{ mt: 1 }} variant="contained" color="success" disabled={exam.status === 'active'} onClick={() => handleStartExamDirect(exam.id)}>
+                        {exam.status === 'active' ? 'Active' : 'Start Exam'}
+                      </Button>
                     </CardContent>
                   </Card>
                 </Grid>

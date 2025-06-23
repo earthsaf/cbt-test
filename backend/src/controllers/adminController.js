@@ -116,13 +116,14 @@ exports.exportExamResults = async (req, res) => {
 exports.createUser = async (req, res) => {
   const { username, password, role, name, email, classId, telegramId } = req.body;
   if (!['student', 'teacher'].includes(role)) return res.status(400).json({ error: 'Invalid role' });
+  if (!username || !password || !name) return res.status(400).json({ error: 'Username, password, and name are required' });
+  if (role === 'student' && !classId) return res.status(400).json({ error: 'Student must be assigned to a class' });
   const exists = await User.findOne({ where: { username } });
   if (exists) return res.status(400).json({ error: 'Username already exists' });
   const bcrypt = require('bcrypt');
   const passwordHash = await bcrypt.hash(password, 10);
-  // Use ClassId for student assignment
   const userData = { username, passwordHash, role, name, email, telegramId };
-  if (role === 'student' && classId) userData.ClassId = classId;
+  if (role === 'student') userData.ClassId = classId;
   const user = await User.create(userData);
   res.json({ ok: true, user });
 };
@@ -255,6 +256,7 @@ exports.startExam = async (req, res) => {
   const { examId } = req.params;
   const exam = await Exam.findByPk(examId);
   if (!exam) return res.status(404).json({ error: 'Exam not found' });
+  if (!exam.ClassId) return res.status(400).json({ error: 'Exam must be assigned to a class' });
   exam.status = 'active';
   exam.startTime = new Date();
   await exam.save();
