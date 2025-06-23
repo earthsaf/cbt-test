@@ -380,7 +380,7 @@ function AdminPanel() {
                 <Typography variant="h6">{user.username}</Typography>
                 <Typography>Email: {user.email}</Typography>
                 <Typography>Class: {user.Class ? user.Class.name : ''}</Typography>
-                <Button sx={{ mt: 1 }} onClick={() => setEditUser(user)}>Edit</Button>
+                <Button sx={{ mt: 1 }} onClick={() => setEditUser({ ...user, classId: user.ClassId || '' })}>Edit</Button>
               </CardContent>
             </Card>
           </Grid>
