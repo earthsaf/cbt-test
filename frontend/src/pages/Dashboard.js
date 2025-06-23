@@ -139,7 +139,34 @@ function Dashboard() {
           <Button color="inherit" onClick={handleLogout}>Logout</Button>
         </Toolbar>
       </AppBar>
-      <Tabs value={tab} onChange={handleTabChange} centered>
+      <Tabs
+        value={tab}
+        onChange={handleTabChange}
+        centered
+        TabIndicatorProps={{ style: { background: 'linear-gradient(90deg, #1976d2, #43cea2)' } }}
+        sx={{
+          background: '#fff',
+          borderRadius: 3,
+          boxShadow: '0 2px 12px rgba(25, 118, 210, 0.08)',
+          mb: 2,
+          '.MuiTab-root': {
+            fontWeight: 700,
+            fontSize: 16,
+            color: '#1976d2',
+            borderRadius: 2,
+            mx: 1,
+            transition: 'background 0.2s, color 0.2s',
+            '&.Mui-selected': {
+              color: '#fff',
+              background: 'linear-gradient(90deg, #1976d2, #43cea2)',
+              boxShadow: '0 2px 8px rgba(25, 118, 210, 0.10)',
+            },
+            '&:hover': {
+              background: 'rgba(25, 118, 210, 0.08)',
+            },
+          },
+        }}
+      >
         {sections.map((s, i) => <Tab label={s} key={i} />)}
       </Tabs>
       <Box sx={{ p: 3 }}>
@@ -169,7 +196,10 @@ function Dashboard() {
                     <CardContent>
                       <Typography variant="h6">{exam.title}</Typography>
                       <Typography>Class: {exam.Class ? exam.Class.name : 'Unknown'}</Typography>
-                      <Button variant="contained" sx={{ mt: 1 }} onClick={() => navigate(`/exam/${exam.id}`)}>Take Exam</Button>
+                      <Button variant="contained" sx={{ mt: 1 }} onClick={() => {
+                        localStorage.setItem('pendingExamId', exam.id);
+                        navigate(`/exam/${exam.id}`);
+                      }}>Take Exam</Button>
                     </CardContent>
                   </Card>
                 </Grid>

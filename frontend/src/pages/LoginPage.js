@@ -36,10 +36,22 @@ function LoginPage() {
       if (res.data && res.data.token) {
         localStorage.setItem('token', res.data.token);
         localStorage.setItem('role', role);
-        if (role === 'admin') navigate('/admin');
-        else if (role === 'teacher') navigate('/teacher');
-        else if (role === 'invigilator') navigate('/proctor');
-        else navigate('/dashboard');
+        // Redirect to pending exam if set
+        const pendingExamId = localStorage.getItem('pendingExamId');
+        if (role === 'student' && pendingExamId) {
+          localStorage.removeItem('pendingExamId');
+          navigate(`/exam/${pendingExamId}`);
+          return;
+        }
+        if (role === 'admin') {
+          navigate('/admin');
+        } else if (role === 'teacher') {
+          navigate('/teacher');
+        } else if (role === 'invigilator') {
+          navigate('/proctor');
+        } else {
+          navigate('/dashboard');
+        }
       } else {
         setError('Login failed: No token received.');
       }
@@ -79,4 +91,4 @@ function LoginPage() {
   );
 }
 
-export default LoginPage; 
+export default LoginPage;

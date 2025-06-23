@@ -33,6 +33,10 @@ function ExamPage() {
   const [duration, setDuration] = useState(0); // total seconds
   const [subject, setSubject] = useState('');
   const [user, setUser] = useState('');
+  const [remarks, setRemarks] = useState(() => {
+    const saved = localStorage.getItem(`exam_${examId}_remarks`);
+    return saved ? JSON.parse(saved) : {};
+  });
   const timerRef = useRef();
   const navigate = useNavigate();
 
@@ -45,6 +49,16 @@ function ExamPage() {
     }).catch(() => setQuestions([]));
     // Fetch user info
     setUser(localStorage.getItem('username') || '');
+  }, [examId]);
+
+  // Restore all progress from localStorage
+  useEffect(() => {
+    const savedAnswers = localStorage.getItem(`exam_${examId}_answers`);
+    const savedCurrent = localStorage.getItem(`exam_${examId}_current`);
+    const savedTimer = localStorage.getItem(`exam_${examId}_timer`);
+    if (savedAnswers) setAnswers(JSON.parse(savedAnswers));
+    if (savedCurrent) setCurrent(Number(savedCurrent));
+    if (savedTimer) setTimer(Number(savedTimer));
   }, [examId]);
 
   // Timer logic
@@ -127,8 +141,26 @@ function ExamPage() {
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   }
 
-  const handleOption = (qid, opt) => setAnswers({ ...answers, [qid]: opt });
+  const handleOption = (qid, opt) => {
+    setAnswers(prev => {
+      const updated = { ...prev, [qid]: opt };
+      api.post(`/exams/${examId}/autosave`, { answers: updated }); // Autosave
+      return updated;
+    });
+  };
 
+  const handleRemark = (qid) => {
+    setRemarks(prev => ({ ...prev, [qid]: !prev[qid] }));
+  };
+
+  const handleNext = () => {
+    if (current < questions.length - 1) setCurrent(current + 1);
+  };
+  const handlePrev = () => {
+    if (current > 0) setCurrent(current - 1);
+  };
+
+  // On submit, fetch real class results
   const handleSubmit = async () => {
     try {
       const res = await api.post(`/exams/${examId}/submit`, { answers });
@@ -138,6 +170,14 @@ function ExamPage() {
       setSubmitted(true);
       localStorage.setItem(`exam_${examId}_completed`, 'true');
       localStorage.removeItem('inProgressExamId');
+      // Fetch real class results
+      const resultsRes = await api.get(`/exams/${examId}/results`);
+      if (resultsRes.data && Array.isArray(resultsRes.data)) {
+        setClassResults({
+          labels: resultsRes.data.map(r => r.username),
+          scores: resultsRes.data.map(r => r.score),
+        });
+      }
     } catch {
       setSnack({ open: true, message: 'Failed to submit answers', severity: 'error' });
     }
@@ -151,7 +191,22 @@ function ExamPage() {
 
   const handleQuickNav = idx => setCurrent(idx);
 
-  if (submitted) {
+  // Save progress to localStorage
+  useEffect(() => {
+    localStorage.setItem(`exam_${examId}_answers`, JSON.stringify(answers));
+  }, [answers, examId]);
+  useEffect(() => {
+    localStorage.setItem(`exam_${examId}_current`, current);
+  }, [current, examId]);
+  useEffect(() => {
+    localStorage.setItem(`exam_${examId}_timer`, timer);
+  }, [timer, examId]);
+  useEffect(() => {
+    localStorage.setItem(`exam_${examId}_remarks`, JSON.stringify(remarks));
+  }, [remarks, examId]);
+
+  // After submit: only show score, ask for review
+  if (submitted && !review) {
     return (
       <Box sx={{ maxWidth: 700, mx: 'auto', p: 3 }}>
         <Card sx={{ mb: 2 }}>
@@ -159,20 +214,6 @@ function ExamPage() {
             <Typography variant="h5">Your Score: {score} / {questions.length}</Typography>
           </CardContent>
         </Card>
-        <Typography variant="h6" sx={{ mt: 2 }}>Question Feedback</Typography>
-        <Grid container spacing={2}>
-          {feedback.map((f, idx) => (
-            <Grid item xs={12} key={f.id}>
-              <Card sx={{ bgcolor: f.correct ? '#e8f5e9' : '#ffebee' }}>
-                <CardContent>
-                  <Typography><b>{idx + 1}. {f.text}</b></Typography>
-                  <Typography>Your answer: {f.yourAnswer || 'No answer'} {f.correct ? '✅' : '❌'}</Typography>
-                  <Typography>Correct answer: {f.answer}</Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
         {classResults && (
           <Box sx={{ mt: 4 }}>
             <Typography variant="h6">Class Results</Typography>
@@ -187,7 +228,8 @@ function ExamPage() {
             <Typography sx={{ mt: 2 }}>Highest: {Math.max(...classResults.scores)}, Lowest: {Math.min(...classResults.scores)}</Typography>
           </Box>
         )}
-        <Button sx={{ mt: 3 }} variant="contained" onClick={() => navigate('/dashboard')}>Back to Dashboard</Button>
+        <Button sx={{ mt: 3, mr: 2 }} variant="contained" onClick={() => setReview(true)}>Review Questions</Button>
+        <Button sx={{ mt: 3 }} variant="outlined" onClick={() => navigate('/dashboard')}>Back to Dashboard</Button>
       </Box>
     );
   }
@@ -256,30 +298,40 @@ function ExamPage() {
               ))}
             </RadioGroup>
           </FormControl>
+          <Button onClick={() => handleRemark(q.id)} sx={{ ml: 2 }} color={remarks[q.id] ? 'error' : 'primary'} variant="outlined">
+            {remarks[q.id] ? 'Unremark' : 'Remark'}
+          </Button>
         </CardContent>
       </Card>
       {/* Navigation */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Button onClick={() => setCurrent(current - 1)} disabled={current === 0} variant="outlined">Previous</Button>
+        <Button onClick={handlePrev} disabled={current === 0} variant="outlined">Previous</Button>
         <Button onClick={handleSubmit} variant="contained" color="success">Submit Test</Button>
-        <Button onClick={() => setCurrent(current + 1)} disabled={current === questions.length - 1} variant="outlined">Next</Button>
+        <Button onClick={handleNext} disabled={current === questions.length - 1} variant="outlined">Next</Button>
       </Box>
       {/* Quick Navigation */}
       <Box sx={{ mt: 2, p: 2, bgcolor: '#f5f5f5', borderRadius: 2 }}>
         <Typography sx={{ mb: 1, fontWeight: 'bold', color: 'green' }}>Quick Navigation</Typography>
         <Grid container spacing={1}>
-          {questions.map((_, idx) => (
-            <Grid item key={idx} xs={1} sm={1} md={0.5} lg={0.5}>
-              <Button
-                variant={idx === current ? 'contained' : answers[questions[idx].id] ? 'outlined' : 'text'}
-                color={idx === current ? 'primary' : answers[questions[idx].id] ? 'success' : 'inherit'}
-                onClick={() => handleQuickNav(idx)}
-                sx={{ minWidth: 36, minHeight: 36, p: 0 }}
-              >
-                {idx + 1}
-              </Button>
-            </Grid>
-          ))}
+          {questions.map((_, idx) => {
+            const qid = questions[idx].id;
+            let color = 'inherit';
+            if (remarks[qid]) color = 'error'; // Red for remarked
+            else if (!answers[qid]) color = 'warning'; // Yellow for unanswered
+            else color = 'success'; // Green for answered
+            return (
+              <Grid item key={idx} xs={1} sm={1} md={0.5} lg={0.5}>
+                <Button
+                  variant={idx === current ? 'contained' : 'outlined'}
+                  color={color}
+                  onClick={() => setCurrent(idx)}
+                  sx={{ minWidth: 36, minHeight: 36, p: 0 }}
+                >
+                  {idx + 1}
+                </Button>
+              </Grid>
+            );
+          })}
         </Grid>
       </Box>
       <Snackbar open={snack.open} autoHideDuration={3000} onClose={() => setSnack({ ...snack, open: false })}>
