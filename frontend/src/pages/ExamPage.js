@@ -5,6 +5,7 @@ import { Box, Typography, Button, Card, CardContent, Grid, Snackbar, Alert, Line
 import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import io from 'socket.io-client';
+import { Bar } from 'react-chartjs-2';
 
 function ExamPage() {
   const { examId } = useParams();
