@@ -63,4 +63,7 @@ router.put('/exams/:examId/start', requireAuth, requireRole('admin'), admin.star
 // Auto-end exams whose duration has passed
 router.post('/exams/auto-end', requireAuth, requireRole('admin'), admin.autoEndExams);
 
+// Debug: Show student class and all exams
+router.get('/debug-student-exams', requireAuth, admin.debugStudentExams);
+
 module.exports = router;

@@ -389,6 +389,16 @@ exports.debugExams = async (req, res) => {
   }
 };
 
+// Debug: Show student class and all exams
+exports.debugStudentExams = async (req, res) => {
+  const user = await User.findByPk(req.user.id);
+  const exams = await Exam.findAll();
+  res.json({
+    user: { id: user.id, username: user.username, ClassId: user.ClassId },
+    exams: exams.map(e => ({ id: e.id, title: e.title, ClassId: e.ClassId, status: e.status, startTime: e.startTime }))
+  });
+};
+
 // Update exam settings (startTime, durationMinutes, scramble)
 exports.updateExamSettings = async (req, res) => {
   const { startTime, durationMinutes, scramble } = req.body;
