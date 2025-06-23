@@ -23,6 +23,7 @@ function Dashboard() {
   const [analytics, setAnalytics] = useState(null);
   const [loadingAnalytics, setLoadingAnalytics] = useState(false);
   const [debugData, setDebugData] = useState(null);
+  const [inProgressExamId, setInProgressExamId] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -56,6 +57,27 @@ function Dashboard() {
   useEffect(() => {
     setSearchParams({ tab });
   }, [tab, setSearchParams]);
+
+  // Check for in-progress exam in localStorage
+  useEffect(() => {
+    const storedExam = localStorage.getItem('inProgressExamId');
+    if (storedExam) {
+      setInProgressExamId(storedExam);
+      navigate(`/exam/${storedExam}`);
+    }
+  }, [navigate]);
+
+  // If user starts an exam, store it
+  useEffect(() => {
+    if (tab === 1 && exams.length > 0) {
+      const incomplete = exams.find(e => localStorage.getItem(`exam_${e.id}_completed`) !== 'true');
+      if (incomplete) {
+        setInProgressExamId(incomplete.id);
+        localStorage.setItem('inProgressExamId', incomplete.id);
+        navigate(`/exam/${incomplete.id}`);
+      }
+    }
+  }, [tab, exams, navigate]);
 
   // Dummy data for missed/completed
   const missed = exams.filter(e => e.status === 'missed');
@@ -95,6 +117,7 @@ function Dashboard() {
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('role');
+    localStorage.removeItem('inProgressExamId');
     navigate('/');
   };
 

@@ -118,8 +118,17 @@ function ExamPage() {
   const handleOption = (qid, opt) => setAnswers({ ...answers, [qid]: opt });
 
   const handleSubmit = async () => {
-    await api.post(`/exams/${examId}/submit`, { answers });
-    setSubmitted(true);
+    try {
+      const res = await api.post(`/exams/${examId}/submit`, { answers });
+      if (res.data && typeof res.data.score === 'number') {
+        setScore(res.data.score);
+      }
+      setSubmitted(true);
+      localStorage.setItem(`exam_${examId}_completed`, 'true');
+      localStorage.removeItem('inProgressExamId');
+    } catch {
+      setSnack({ open: true, message: 'Failed to submit answers', severity: 'error' });
+    }
   };
 
   const handleAbort = () => {
@@ -270,4 +279,4 @@ function ExamPage() {
   );
 }
 
-export default ExamPage; 
+export default ExamPage;

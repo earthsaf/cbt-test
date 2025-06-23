@@ -34,8 +34,27 @@ exports.autosaveAnswers = async (req, res) => {
 };
 
 exports.submitAnswers = async (req, res) => {
-  // Save final answers (not implemented for brevity)
-  res.json({ ok: true });
+  const { answers } = req.body;
+  const examId = req.params.id || req.body.examId;
+  const userId = req.user.id;
+  if (!Array.isArray(answers) && typeof answers !== 'object') {
+    return res.status(400).json({ error: 'Answers must be an array or object' });
+  }
+  // Remove old answers for this user/exam
+  await Answer.destroy({ where: { UserId: userId, ExamId: examId } });
+  // Save new answers
+  let correct = 0;
+  let total = 0;
+  const questions = await Question.findAll({ where: { ExamId: examId } });
+  for (const q of questions) {
+    const ans = Array.isArray(answers) ? answers.find(a => a.questionId === q.id) : answers[q.id];
+    if (!ans) continue;
+    const userAnswer = Array.isArray(answers) ? ans.answer : ans;
+    await Answer.create({ UserId: userId, ExamId: examId, QuestionId: q.id, answer: userAnswer });
+    total++;
+    if (userAnswer === q.answer) correct++;
+  }
+  res.json({ ok: true, score: correct, total });
 };
 
 // Exam history for a user
