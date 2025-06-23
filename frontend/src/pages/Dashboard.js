@@ -22,6 +22,7 @@ function Dashboard() {
   const [selectedExam, setSelectedExam] = useState('');
   const [analytics, setAnalytics] = useState(null);
   const [loadingAnalytics, setLoadingAnalytics] = useState(false);
+  const [debugData, setDebugData] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -97,6 +98,16 @@ function Dashboard() {
     navigate('/');
   };
 
+  // Debug: Show student class and all exams
+  const handleDebug = async () => {
+    try {
+      const res = await api.get('/admin/debug-student-exams');
+      setDebugData(res.data);
+    } catch {
+      setDebugData({ error: 'Failed to fetch debug info' });
+    }
+  };
+
   return (
     <Box sx={{ flexGrow: 1 }}>
       <AppBar position="static">
@@ -118,19 +129,30 @@ function Dashboard() {
           </Card>
         )}
         {tab === 1 && (
-          <Grid container spacing={2}>
-            {available.map(exam => (
-              <Grid item xs={12} md={6} lg={4} key={exam.id}>
-                <Card>
-                  <CardContent>
-                    <Typography variant="h6">{exam.title}</Typography>
-                    <Typography>Class: {exam.Class ? exam.Class.name : 'Unknown'}</Typography>
-                    <Button variant="contained" sx={{ mt: 1 }} onClick={() => navigate(`/exam/${exam.id}`)}>Take Exam</Button>
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
+          <>
+            <Button variant="outlined" color="warning" onClick={handleDebug} sx={{ mb: 2 }}>Show Debug Info</Button>
+            {debugData && (
+              <Card sx={{ mb: 2, p: 2 }}>
+                <Typography variant="subtitle1">User: {debugData.user?.username} (ClassId: {debugData.user?.ClassId})</Typography>
+                <Typography variant="subtitle1">Exams:</Typography>
+                <pre style={{ fontSize: 12, background: '#f5f5f5', padding: 8, borderRadius: 4 }}>{JSON.stringify(debugData.exams, null, 2)}</pre>
+                {debugData.error && <Typography color="error">{debugData.error}</Typography>}
+              </Card>
+            )}
+            <Grid container spacing={2}>
+              {available.map(exam => (
+                <Grid item xs={12} md={6} lg={4} key={exam.id}>
+                  <Card>
+                    <CardContent>
+                      <Typography variant="h6">{exam.title}</Typography>
+                      <Typography>Class: {exam.Class ? exam.Class.name : 'Unknown'}</Typography>
+                      <Button variant="contained" sx={{ mt: 1 }} onClick={() => navigate(`/exam/${exam.id}`)}>Take Exam</Button>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+          </>
         )}
         {tab === 2 && (
           <Grid container spacing={2}>
@@ -229,6 +251,19 @@ function Dashboard() {
                 <Button type="submit" variant="contained" disabled={profileLoading}>Save</Button>
                 {profileMsg && <Typography sx={{ mt: 1 }} color={profileMsg.includes('updated') ? 'success.main' : 'error'}>{profileMsg}</Typography>}
               </form>
+            </CardContent>
+          </Card>
+        )}
+        {tab === 7 && (
+          <Card>
+            <CardContent>
+              <Typography variant="h6">Debug Info</Typography>
+              <Button variant="contained" onClick={handleDebug}>Fetch Debug Data</Button>
+              {debugData && (
+                <Box sx={{ mt: 2 }}>
+                  <pre>{JSON.stringify(debugData, null, 2)}</pre>
+                </Box>
+              )}
             </CardContent>
           </Card>
         )}
