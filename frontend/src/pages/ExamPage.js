@@ -6,6 +6,17 @@ import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import io from 'socket.io-client';
 import { Bar } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+} from 'chart.js';
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
 function ExamPage() {
   const { examId } = useParams();
