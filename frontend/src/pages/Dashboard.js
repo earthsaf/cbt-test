@@ -59,7 +59,7 @@ function Dashboard() {
   // Dummy data for missed/completed
   const missed = exams.filter(e => e.status === 'missed');
   const completed = exams.filter(e => e.status === 'completed');
-  const available = exams.filter(e => e.status === 'available');
+  const available = exams.filter(e => e.status === 'active');
 
   const handleProfileChange = e => setProfile({ ...profile, [e.target.name]: e.target.value });
   const handleProfileSave = async e => {
@@ -237,4 +237,4 @@ function Dashboard() {
   );
 }
 
-export default Dashboard; 
+export default Dashboard;

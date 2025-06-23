@@ -120,7 +120,10 @@ exports.createUser = async (req, res) => {
   if (exists) return res.status(400).json({ error: 'Username already exists' });
   const bcrypt = require('bcrypt');
   const passwordHash = await bcrypt.hash(password, 10);
-  const user = await User.create({ username, passwordHash, role, name, email, classId, telegramId });
+  // Use ClassId for student assignment
+  const userData = { username, passwordHash, role, name, email, telegramId };
+  if (role === 'student' && classId) userData.ClassId = classId;
+  const user = await User.create(userData);
   res.json({ ok: true, user });
 };
 
