@@ -6,7 +6,7 @@ import api from '../services/api';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import dayjs from 'dayjs';
 
-const tabs = ['Users', 'Classes', 'Exams', 'Subjects', 'Assignments'];
+const tabs = ['Users', 'Classes', 'Exams', 'Subjects', 'Assignments', 'Settings'];
 
 function AdminPanel() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -364,11 +364,6 @@ function AdminPanel() {
       <AppBar position="static" color="secondary" sx={{ mb: 2 }}>
         <Box sx={{ p: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Typography variant="h6">Admin Panel</Typography>
-          <Box>
-            <Typography variant="body2" sx={{ color: 'white' }}>
-              Logged in users: {loggedInUsers.map(u => u.username + ' (' + u.role + ')').join(', ')}
-            </Typography>
-          </Box>
         </Box>
       </AppBar>
       <Box sx={{ flexGrow: 1, p: 3 }}>
@@ -615,6 +610,31 @@ function AdminPanel() {
                   </li>
                 ))}
               </ul>
+            </Box>
+          )}
+          {tab === 5 && (
+            <Box>
+              <Typography variant="h5" sx={{ mb: 2 }}>Settings & Maintenance</Typography>
+              <Card sx={{ mb: 3, p: 2 }}>
+                <Typography variant="h6">Logged In Users</Typography>
+                <Typography variant="body2" sx={{ color: 'gray', mb: 1 }}>
+                  {loggedInUsers.length === 0 ? 'No users currently logged in.' : loggedInUsers.map(u => u.username + ' (' + u.role + ')').join(', ')}
+                </Typography>
+              </Card>
+              <Card sx={{ mb: 3, p: 2 }}>
+                <Typography variant="h6">User Management</Typography>
+                <Button variant="outlined" sx={{ mt: 1, mb: 2 }} onClick={() => setEditUser(users[0] || null)}>
+                  Edit User (Demo)
+                </Button>
+                {/* You can add a user search and edit dialog here for real use */}
+              </Card>
+              <Card sx={{ mb: 3, p: 2 }}>
+                <Typography variant="h6">System Diagnostics</Typography>
+                <Button variant="outlined" sx={{ mt: 1, mb: 2 }} onClick={() => setDebugOpen(true)}>
+                  Run Exam Debugger
+                </Button>
+                {/* Add more maintenance/debug buttons here as needed */}
+              </Card>
             </Box>
           )}
         </Box>
