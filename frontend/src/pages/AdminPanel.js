@@ -45,11 +45,13 @@ function AdminPanel() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token || localStorage.getItem('role') !== 'admin') {
-      navigate('/login');
-      setSnack({ open: true, message: 'You must be signed in as admin.', severity: 'error' });
-    }
+    // Check authentication by requesting the admin profile
+    api.get('/admin/profile')
+      .then(() => {})
+      .catch(() => {
+        navigate('/login');
+        setSnack({ open: true, message: 'You must be signed in as admin.', severity: 'error' });
+      });
   }, [navigate]);
 
   useEffect(() => {
@@ -421,7 +423,8 @@ function AdminPanel() {
               </form>
             </Box>
           )}
-          {users.map(user => (
+          {/* Only show user list and edit on Settings tab */}
+          {tab === 5 && users.map(user => (
             <Grid item xs={12} md={6} key={user.id}>
               <Card>
                 <CardContent>
@@ -622,18 +625,28 @@ function AdminPanel() {
                 </Typography>
               </Card>
               <Card sx={{ mb: 3, p: 2 }}>
-                <Typography variant="h6">User Management</Typography>
-                <Button variant="outlined" sx={{ mt: 1, mb: 2 }} onClick={() => setEditUser(users[0] || null)}>
-                  Edit User (Demo)
-                </Button>
-                {/* You can add a user search and edit dialog here for real use */}
-              </Card>
-              <Card sx={{ mb: 3, p: 2 }}>
                 <Typography variant="h6">System Diagnostics</Typography>
-                <Button variant="outlined" sx={{ mt: 1, mb: 2 }} onClick={() => setDebugOpen(true)}>
+                <Button variant="outlined" sx={{ mt: 1, mb: 2, mr: 2 }} onClick={() => setDebugOpen(true)}>
                   Run Exam Debugger
                 </Button>
-                {/* Add more maintenance/debug buttons here as needed */}
+                <Button variant="outlined" sx={{ mt: 1, mb: 2, mr: 2 }} onClick={async () => {
+                  const t0 = performance.now();
+                  await fetch(window.location.href, { cache: 'no-store' });
+                  const t1 = performance.now();
+                  alert(`Frontend page load time: ${(t1 - t0).toFixed(2)} ms`);
+                }}>
+                  Check Site Speed
+                </Button>
+                <Button variant="outlined" sx={{ mt: 1, mb: 2, mr: 2 }} onClick={async () => {
+                  try {
+                    const res = await api.get('/admin/system-info');
+                    alert(`Server RAM: ${res.data.ram}\nServer Disk: ${res.data.disk}\nServer CPU: ${res.data.cpu}`);
+                  } catch {
+                    alert('Failed to fetch server info.');
+                  }
+                }}>
+                  Check Server RAM/Space/CPU
+                </Button>
               </Card>
             </Box>
           )}

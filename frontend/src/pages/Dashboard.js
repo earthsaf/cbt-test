@@ -58,30 +58,16 @@ function Dashboard() {
     setSearchParams({ tab });
   }, [tab, setSearchParams]);
 
-  // Check for in-progress exam in localStorage
+  // Remove auto-redirect to exam if inProgressExamId is set
   useEffect(() => {
     const storedExam = localStorage.getItem('inProgressExamId');
     if (storedExam) {
       setInProgressExamId(storedExam);
-      navigate(`/exam/${storedExam}`);
+      // Do NOT auto-navigate here. Only show a resume/start button in UI.
     }
-  }, [navigate]);
+  }, []);
 
-  // If user starts an exam, store it
-  useEffect(() => {
-    if (tab === 1 && exams.length > 0) {
-      const incomplete = exams.find(e => localStorage.getItem(`exam_${e.id}_completed`) !== 'true');
-      if (incomplete) {
-        setInProgressExamId(incomplete.id);
-        localStorage.setItem('inProgressExamId', incomplete.id);
-        navigate(`/exam/${incomplete.id}`);
-      }
-    }
-  }, [tab, exams, navigate]);
-
-  // Dummy data for missed/completed
-  const missed = exams.filter(e => e.status === 'missed');
-  const completed = exams.filter(e => e.status === 'completed');
+  // In Available Tests tab, show a Start/Resume button for each available exam
   const available = exams.filter(e => e.status === 'active');
 
   const handleProfileChange = e => setProfile({ ...profile, [e.target.name]: e.target.value });
@@ -197,9 +183,9 @@ function Dashboard() {
                       <Typography variant="h6">{exam.title}</Typography>
                       <Typography>Class: {exam.Class ? exam.Class.name : 'Unknown'}</Typography>
                       <Button variant="contained" sx={{ mt: 1 }} onClick={() => {
-                        localStorage.setItem('pendingExamId', exam.id);
+                        localStorage.setItem('inProgressExamId', exam.id);
                         navigate(`/exam/${exam.id}`);
-                      }}>Take Exam</Button>
+                      }}>Start Test</Button>
                     </CardContent>
                   </Card>
                 </Grid>

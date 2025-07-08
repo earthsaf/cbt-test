@@ -8,12 +8,17 @@ const { setupBot } = require('./bot/bot');
 const { setupSocket } = require('./services/proctoring');
 const bcrypt = require('bcrypt');
 const { User } = require('./models');
+const cookieParser = require('cookie-parser');
 
 const app = express();
 const server = http.createServer(app);
 
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:3000', // adjust to your frontend URL
+  credentials: true,
+}));
 app.use(express.json());
+app.use(cookieParser());
 app.use('/api', routes);
 
 setupBot();
@@ -31,4 +36,4 @@ sequelize.sync({ alter: true }).then(async () => {
   server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
   });
-}); 
+});
