@@ -13,8 +13,20 @@ const cookieParser = require('cookie-parser');
 const app = express();
 const server = http.createServer(app);
 
+const allowedOrigins = [
+  'https://cbt-test-urrr.onrender.com', // deployed frontend
+  'http://localhost:3000', // local dev
+];
+
 app.use(cors({
-  origin: 'http://localhost:3000', // adjust to your frontend URL
+  origin: function(origin, callback) {
+    // allow requests with no origin (like mobile apps, curl, etc.)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) === -1) {
+      return callback(new Error('CORS not allowed from this origin: ' + origin), false);
+    }
+    return callback(null, true);
+  },
   credentials: true,
 }));
 app.use(express.json());

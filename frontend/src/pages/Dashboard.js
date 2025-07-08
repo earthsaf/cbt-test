@@ -7,7 +7,7 @@ import { Bar } from 'react-chartjs-2';
 
 // Only accessible by students. Student dashboard for exams, results, and profile.
 
-const sections = ['Home', 'Available Tests', 'Missed Tests', 'Completed Tests', 'Results', 'History', 'Profile'];
+const sections = ['Home', 'Available Tests', 'Results', 'History', 'Profile'];
 
 function Dashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -192,35 +192,6 @@ function Dashboard() {
               ))}
             </Grid>
           </>
-        )}
-        {tab === 2 && (
-          <Grid container spacing={2}>
-            {missed.map(exam => (
-              <Grid item xs={12} md={6} lg={4} key={exam.id}>
-                <Card>
-                  <CardContent>
-                    <Typography variant="h6">{exam.title}</Typography>
-                    <Typography color="error">Missed</Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
-        )}
-        {tab === 3 && (
-          <Grid container spacing={2}>
-            {completed.map(exam => (
-              <Grid item xs={12} md={6} lg={4} key={exam.id}>
-                <Card>
-                  <CardContent>
-                    <Typography variant="h6">{exam.title}</Typography>
-                    <Typography color="success.main">Completed</Typography>
-                    <Button variant="outlined" sx={{ mt: 1 }} onClick={() => navigate(`/exam/${exam.id}`)}>View Score</Button>
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
         )}
         {tab === 4 && (
           <Card>
