@@ -15,6 +15,7 @@ const server = http.createServer(app);
 
 const allowedOrigins = [
   'https://cbt-test-urrr.onrender.com', // deployed frontend
+  'https://cbt-test.onrender.com', // deployed backend (if you ever host frontend here)
   'http://localhost:3000', // local dev
 ];
 
