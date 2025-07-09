@@ -45,9 +45,14 @@ function AdminPanel() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check authentication by requesting the admin profile
-    api.get('/admin/profile')
-      .then(() => {})
+    // Check authentication by requesting the test endpoint
+    api.get('/auth/test')
+      .then(res => {
+        if (res.data.user.role !== 'admin') {
+          navigate('/login');
+          setSnack({ open: true, message: 'You must be signed in as admin.', severity: 'error' });
+        }
+      })
       .catch(() => {
         navigate('/login');
         setSnack({ open: true, message: 'You must be signed in as admin.', severity: 'error' });

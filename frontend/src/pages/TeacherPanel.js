@@ -29,8 +29,14 @@ function TeacherPanel() {
   const teacherId = parseInt(localStorage.getItem('userId'));
 
   useEffect(() => {
-    const r = localStorage.getItem('role');
-    if (r !== 'teacher') navigate('/login');
+    // Check authentication by requesting the teacher profile or test endpoint
+    api.get('/auth/test')
+      .then(res => {
+        if (res.data.user.role !== 'teacher') navigate('/login');
+      })
+      .catch(() => {
+        navigate('/login');
+      });
     api.get('/admin/teacher-assignments').then(res => {
       setAssignments(res.data.filter(a => a.teacher?.id === teacherId));
     }).catch(() => setAssignments([]));
@@ -274,4 +280,4 @@ function TeacherPanel() {
   );
 }
 
-export default TeacherPanel; 
+export default TeacherPanel;

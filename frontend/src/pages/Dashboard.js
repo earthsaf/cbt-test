@@ -27,21 +27,21 @@ function Dashboard() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check if user is authenticated
-    const token = localStorage.getItem('token');
-    if (!token) {
-      navigate('/');
-      return;
-    }
-    
-    // Fetch user role from token or API
-    const r = localStorage.getItem('role') || 'student';
-    setRole(r);
-    if (r === 'admin') navigate('/admin');
-    if (r === 'teacher') navigate('/teacher');
-    if (r === 'invigilator') navigate('/proctor');
-    
-    // Only fetch data if user is authenticated
+    // Check if user is authenticated via backend (cookie-based session)
+    api.get('/auth/test')
+      .then(res => {
+        // Optionally, set user info from res.data.user
+        setRole(res.data.user.role || 'student');
+        // Optionally, redirect if not student
+        if (res.data.user.role === 'admin') navigate('/admin');
+        if (res.data.user.role === 'teacher') navigate('/teacher');
+        if (res.data.user.role === 'invigilator') navigate('/proctor');
+      })
+      .catch(() => {
+        // Not authenticated, redirect to login
+        navigate('/');
+      });
+    // Only fetch data if user is authenticated (handled above)
     api.get('/exams').then(res => setExams(res.data)).catch(() => setExams([]));
     api.get('/exams/history').then(res => setHistory(res.data)).catch(() => setHistory([]));
     if (tab === 6) {

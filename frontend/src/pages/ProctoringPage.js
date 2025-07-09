@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import io from 'socket.io-client';
 import { useNavigate } from 'react-router-dom';
+import api from '../api'; // Adjust the import based on your project structure
 
 function ProctoringPage() {
   const [screens, setScreens] = useState([]);
@@ -11,6 +12,17 @@ function ProctoringPage() {
   useEffect(() => {
     const r = localStorage.getItem('role');
     if (r !== 'invigilator') navigate('/login');
+  }, [navigate]);
+
+  useEffect(() => {
+    // Check authentication by requesting the test endpoint
+    api.get('/auth/test')
+      .then(res => {
+        if (res.data.user.role !== 'invigilator') navigate('/login');
+      })
+      .catch(() => {
+        navigate('/login');
+      });
   }, [navigate]);
 
   useEffect(() => {
@@ -55,4 +67,4 @@ function ProctoringPage() {
   );
 }
 
-export default ProctoringPage; 
+export default ProctoringPage;

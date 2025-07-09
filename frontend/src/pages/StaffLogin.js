@@ -21,14 +21,13 @@ function StaffLogin() {
     try {
       const apiUrl = process.env.REACT_APP_API_URL || '/api';
       const res = await axios.post(`${apiUrl}/auth/login`, { username, password, role });
-      if (res.data && res.data.token) {
-        localStorage.setItem('token', res.data.token);
-        localStorage.setItem('role', role);
+      if (res.data && res.data.success) {
+        // Cookie is set by backend; no need to check for token in response
         if (role === 'admin') navigate('/admin');
         else if (role === 'teacher') navigate('/teacher');
         else if (role === 'invigilator') navigate('/proctor');
       } else {
-        setError('Login failed: No token received.');
+        setError('Login failed.');
       }
     } catch (err) {
       setError('Login failed');
