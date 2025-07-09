@@ -2,6 +2,7 @@ import axios from 'axios';
 
 const api = axios.create({
   baseURL: process.env.REACT_APP_API_URL || '/api',
+  withCredentials: true,
 });
 
 api.interceptors.request.use(config => {
@@ -24,4 +25,4 @@ api.interceptors.response.use(
   }
 );
 
-export default api; 
+export default api;
