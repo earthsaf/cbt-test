@@ -57,3 +57,17 @@ exports.testAuth = async (req, res) => {
     }
   });
 };
+
+// Debug endpoint to check if a user exists and password is valid
+exports.debugLogin = async (req, res) => {
+  const { username, password, role } = req.body;
+  const user = await User.findOne({ where: { username, role } });
+  if (!user) {
+    return res.status(404).json({ error: 'User not found', username, role });
+  }
+  const valid = await bcrypt.compare(password, user.passwordHash);
+  if (!valid) {
+    return res.status(401).json({ error: 'Password incorrect', username, role });
+  }
+  res.json({ success: true, user: { id: user.id, username: user.username, role: user.role } });
+};
