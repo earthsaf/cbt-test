@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import api from '../services/api'; // Add this import
 
 function StudentLogin() {
   const [username, setUsername] = useState('');
@@ -30,6 +31,21 @@ function StudentLogin() {
       }
     } catch (err) {
       setError('Login failed');
+    }
+  };
+
+  // Debug login function
+  const handleDebugLogin = async () => {
+    setError('');
+    try {
+      const res = await api.post('/auth/debug-login', { username, password, role: 'student' });
+      alert('Debug login result: ' + JSON.stringify(res.data));
+    } catch (err) {
+      if (err.response) {
+        alert('Debug login error: ' + JSON.stringify(err.response.data));
+      } else {
+        alert('Debug login error: ' + err.message);
+      }
     }
   };
 
@@ -128,6 +144,28 @@ function StudentLogin() {
             onMouseOut={e => e.target.style.background = 'linear-gradient(90deg, #1976d2, #43cea2)'}
           >
             Login to Begin
+          </button>
+          {/* Debug Login Button */}
+          <button
+            type="button"
+            onClick={handleDebugLogin}
+            style={{
+              width: '100%',
+              padding: '10px 0',
+              background: '#f90',
+              color: '#fff',
+              fontWeight: 600,
+              fontSize: 16,
+              border: 'none',
+              borderRadius: 8,
+              cursor: 'pointer',
+              marginTop: 4,
+              marginBottom: 8,
+              fontFamily: 'inherit',
+              transition: 'background 0.2s',
+            }}
+          >
+            Debug Login
           </button>
           {error && <div style={{ color: 'crimson', marginTop: 8, fontWeight: 500 }}>{error}</div>}
         </form>
