@@ -14,8 +14,8 @@ exports.login = async (req, res) => {
     // Set as HttpOnly cookie
     res.cookie('token', token, {
       httpOnly: true,
-      secure: true,
-      sameSite: 'none',
+      secure: true, // Always secure for cross-site
+      sameSite: 'none', // Always none for cross-site
       maxAge: 4 * 60 * 60 * 1000
     });
     return res.json({ success: true });
@@ -28,8 +28,8 @@ exports.login = async (req, res) => {
     const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '8h' });
     res.cookie('token', token, {
       httpOnly: true,
-      secure: true,
-      sameSite: 'none',
+      secure: true, // Always secure for cross-site
+      sameSite: 'none', // Always none for cross-site
       maxAge: 8 * 60 * 60 * 1000
     });
     res.json({ success: true, user: { id: user.id, username: user.username, role: user.role } });
@@ -39,8 +39,8 @@ exports.login = async (req, res) => {
 exports.logout = (req, res) => {
   res.clearCookie('token', {
     httpOnly: true,
-    secure: true,
-    sameSite: 'none',
+    secure: true, // Always secure for cross-site
+    sameSite: 'none', // Always none for cross-site
   });
   res.json({ success: true });
 };
