@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import io from 'socket.io-client';
 import { useNavigate } from 'react-router-dom';
-import api from '../api'; // Adjust the import based on your project structure
+import api from '../services/api'; // Correct import path for api
 
 function ProctoringPage() {
   const [screens, setScreens] = useState([]);
