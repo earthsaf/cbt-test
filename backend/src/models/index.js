@@ -2,15 +2,15 @@ const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
 // Import models
-const User = require('./User')(sequelize, DataTypes);
-const Class = require('./Class')(sequelize, DataTypes);
-const Exam = require('./Exam')(sequelize, DataTypes);
-const Question = require('./Question')(sequelize, DataTypes);
-const Answer = require('./Answer')(sequelize, DataTypes);
-const Session = require('./Session')(sequelize, DataTypes);
-const Log = require('./Log')(sequelize, DataTypes);
-const ProctoringEvent = require('./ProctoringEvent')(sequelize, DataTypes);
-const Subject = require('./Subject')(sequelize, DataTypes);
+const User = require('./user')(sequelize, DataTypes);
+const Class = require('./class')(sequelize, DataTypes);
+const Exam = require('./exam')(sequelize, DataTypes);
+const Question = require('./question')(sequelize, DataTypes);
+const Answer = require('./answer')(sequelize, DataTypes);
+const Session = require('./session')(sequelize, DataTypes);
+const Log = require('./log')(sequelize, DataTypes);
+const ProctoringEvent = require('./proctoringEvent')(sequelize, DataTypes);
+const Subject = require('./subject')(sequelize, DataTypes);
 const TeacherClassSubject = require('./TeacherClassSubject')(sequelize, DataTypes);
 
 // Associations
