@@ -11,26 +11,33 @@ module.exports = (sequelize, DataTypes) => {
       unique: true,
       allowNull: false
     },
-    passwordHash: {
+    password_hash: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: false,
+      field: 'password_hash'
     },
     role: {
       type: DataTypes.ENUM('student', 'teacher', 'admin', 'invigilator'),
       allowNull: false
     },
-    telegramId: {
-      type: DataTypes.STRING
+    telegram_id: {
+      type: DataTypes.STRING,
+      field: 'telegram_id'
     },
     name: {
       type: DataTypes.STRING
     },
     email: {
       type: DataTypes.STRING
+    },
+    class_id: {
+      type: DataTypes.INTEGER,
+      field: 'class_id'
     }
   }, {
     tableName: 'Users',
-    timestamps: true
+    timestamps: true,
+    underscored: true
   });
   return User;
 };
