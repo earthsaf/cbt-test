@@ -21,15 +21,21 @@ const allowedOrigins = [
   'http://localhost:3000', // local dev
 ];
 
-app.use(cors({
+const corsOptions = {
   origin: function(origin, callback) {
-    if (allowedOrigins.indexOf(origin) === -1) {
-      return callback(new Error('CORS not allowed from this origin: ' + origin), false);
+    // Allow requests without origin (like mobile apps, curl, etc.)
+    // Also allow undefined origin for Socket.IO requests
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      return callback(null, true);
     }
-    return callback(null, true);
+    return callback(new Error('CORS not allowed from this origin: ' + origin), false);
   },
   credentials: true,
-}));
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Access-Control-Allow-Origin']
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(cookieParser());
 app.use('/api', routes);

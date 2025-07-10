@@ -23,7 +23,7 @@ exports.login = async (req, res) => {
     // Normal user login
     const user = await User.findOne({ where: { username, role } });
     if (!user) return res.status(401).json({ error: 'Invalid credentials' });
-    const valid = await bcrypt.compare(password, user.passwordHash);
+    const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
     const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '8h' });
     res.cookie('token', token, {
