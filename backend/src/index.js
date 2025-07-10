@@ -73,7 +73,7 @@ app.use((err, req, res, next) => {
   res.status(500).send('Something broke!');
 });
 
-sequelize.sync({ alter: true }).then(async () => {
+sequelize.sync({ force: true }).then(async () => {
   // Ensure default admin user exists
   const admin = await User.findOne({ where: { role: 'admin' } });
   if (!admin) {
