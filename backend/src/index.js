@@ -9,6 +9,7 @@ const { setupSocket } = require('./services/proctoring');
 const bcrypt = require('bcrypt');
 const { User } = require('./models');
 const cookieParser = require('cookie-parser');
+const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
@@ -33,6 +34,35 @@ app.use(cors({
 app.use(express.json());
 app.use(cookieParser());
 app.use('/api', routes);
+
+// Serve static files from the React app
+const frontendBuildPath = path.join(__dirname, '../../frontend/build');
+console.log('Frontend build path:', frontendBuildPath);
+
+// Check if frontend build exists
+const fs = require('fs');
+if (fs.existsSync(frontendBuildPath)) {
+  console.log('Frontend build found, serving static files');
+  app.use(express.static(frontendBuildPath));
+
+  // Serve index.html for non-API GET requests (for React Router)
+  app.get(/^\/((?!api).)*$/, (req, res) => {
+    console.log('Serving index.html for route:', req.path);
+    res.sendFile(path.join(frontendBuildPath, 'index.html'));
+  });
+} else {
+  console.log('Frontend build not found at:', frontendBuildPath);
+  console.log('Current directory:', __dirname);
+  
+  // Fallback route for root path
+  app.get('/', (req, res) => {
+    res.json({ 
+      message: 'Backend is running. Frontend build not found.',
+      frontendPath: frontendBuildPath,
+      currentDir: __dirname
+    });
+  });
+}
 
 setupBot();
 setupSocket(server);
