@@ -1,0 +1,38 @@
+services:
+  - type: web
+    name: cbt-backend
+    env: node
+    buildCommand: |
+      # Install dependencies for both frontend and backend
+      cd frontend && npm install && npm run build
+      cd ../backend && npm install
+    startCommand: npm start
+    envVars:
+      - key: DB_HOST
+        fromService: cbt-db
+        fromServiceKey: DATABASE_HOST
+      - key: DB_PORT
+        fromService: cbt-db
+        fromServiceKey: DATABASE_PORT
+      - key: DB_USER
+        fromService: cbt-db
+        fromServiceKey: DATABASE_USER
+      - key: DB_PASS
+        fromService: cbt-db
+        fromServiceKey: DATABASE_PASSWORD
+      - key: DB_NAME
+        fromService: cbt-db
+        fromServiceKey: DATABASE_NAME
+      - key: JWT_SECRET
+        value: your-secret-key-change-in-production
+    httpPort: 10000
+    healthCheckPath: /api/health
+    allowInsecure: true
+    
+  - type: database
+    name: cbt-db
+    plan: postgres
+    envVars:
+      - key: DATABASE_URL
+        fromService: cbt-db
+        fromServiceKey: DATABASE_URL
