@@ -66,6 +66,7 @@ exports.examHistory = async (req, res) => {
   // Group by exam
   const history = {};
   answers.forEach(a => {
+    if (!a.Question) return; // Skip if Question is missing
     if (!history[a.ExamId]) history[a.ExamId] = { exam: a.Exam, answers: [], score: 0, total: 0 };
     history[a.ExamId].answers.push({
       question: a.Question.text,
