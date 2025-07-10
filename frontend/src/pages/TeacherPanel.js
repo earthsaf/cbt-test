@@ -31,9 +31,9 @@ import StudentList from '../components/StudentList';
 import AnalyticsChart from '../components/AnalyticsChart';
 
 const tabs = [
-  { id: 'assignments', label: 'My Assignments', icon: <FaBook /> },
-  { id: 'students', label: 'My Students', icon: <FaUsers /> },
-  { id: 'analytics', label: 'Analytics', icon: <FaChartBar /> }
+  { id: 'assignments', label: 'My Assignments', icon: <Book /> },
+  { id: 'students', label: 'My Students', icon: <Group /> },
+  { id: 'analytics', label: 'Analytics', icon: <Analytics /> }
 ];
 
 function TeacherPanel() {
