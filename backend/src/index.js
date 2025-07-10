@@ -108,4 +108,3 @@ sequelize.sync(syncOptions).then(async () => {
   console.error('Database sync error:', error);
   process.exit(1);
 });
-});
