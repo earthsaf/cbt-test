@@ -74,8 +74,27 @@ app.use((err, req, res, next) => {
 });
 
 sequelize.sync({ force: true }).then(async () => {
+  console.log('Database synced successfully');
   // Ensure default admin user exists
   const admin = await User.findOne({ where: { role: 'admin' } });
+  if (!admin) {
+    const passwordHash = await bcrypt.hash('0000', 10);
+    await User.create({ 
+      username: '0000', 
+      password_hash: passwordHash, 
+      role: 'admin', 
+      name: 'Default Admin', 
+      email: '' 
+    });
+    console.log('Default admin user created: username=0000, password=0000');
+  }
+  server.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+  });
+}).catch((error) => {
+  console.error('Database sync error:', error);
+  process.exit(1);
+});
   if (!admin) {
     const passwordHash = await bcrypt.hash('0000', 10);
     await User.create({ 
