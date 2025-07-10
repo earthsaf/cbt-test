@@ -23,8 +23,6 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: function(origin, callback) {
-    // allow requests with no origin (like mobile apps, curl, etc.)
-    if (!origin) return callback(null, true);
     if (allowedOrigins.indexOf(origin) === -1) {
       return callback(new Error('CORS not allowed from this origin: ' + origin), false);
     }
@@ -68,46 +66,24 @@ if (fs.existsSync(frontendBuildPath)) {
 setupBot();
 
 const PORT = process.env.PORT || 4000;
+if (!PORT) {
+  console.error('Error: PORT environment variable is not set');
+  process.exit(1);
+}
+
+// Global error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).send('Something broke!');
+  res.status(500).json({
+    error: 'Internal Server Error',
+    message: process.env.NODE_ENV === 'development' ? err.message : undefined
+  });
 });
 
-sequelize.sync({ force: true }).then(async () => {
+const syncOptions = process.env.NODE_ENV === 'development' ? { force: true } : {};
+
+sequelize.sync(syncOptions).then(async () => {
   console.log('Database synced successfully');
-  // Ensure default admin user exists
-  const admin = await User.findOne({ where: { role: 'admin' } });
-  if (!admin) {
-    const passwordHash = await bcrypt.hash('0000', 10);
-    await User.create({ 
-      username: '0000', 
-      password_hash: passwordHash, 
-      role: 'admin', 
-      name: 'Default Admin', 
-      email: '' 
-    });
-    console.log('Default admin user created: username=0000, password=0000');
-  }
-  server.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-  });
-}).catch((error) => {
-  console.error('Database sync error:', error);
-  process.exit(1);
-});
-  if (!admin) {
-    const passwordHash = await bcrypt.hash('0000', 10);
-    await User.create({ 
-      username: '0000', 
-      password_hash: passwordHash, 
-      role: 'admin', 
-      name: 'Default Admin', 
-      email: '' 
-    });
-    console.log('Default admin user created: username=0000, password=0000');
-  }
-  
-  // Create default admin user if not exists
   try {
     const admin = await User.findOne({ where: { role: 'admin' } });
     if (!admin) {
@@ -125,8 +101,11 @@ sequelize.sync({ force: true }).then(async () => {
     console.error('Error creating default admin:', error);
     process.exit(1);
   }
-
   server.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
   });
+}).catch((error) => {
+  console.error('Database sync error:', error);
+  process.exit(1);
+});
 });
