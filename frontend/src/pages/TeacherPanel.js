@@ -1,61 +1,128 @@
-// Only accessible by teachers. Teacher dashboard for managing their exams, students, and analytics.
+// Only accessible by teachers. Teacher dashboard for managing exams, students, and analytics.
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
-import { AppBar, Tabs, Tab, Box, Typography, Card, CardContent, Button, Grid, Snackbar, Alert, Select, MenuItem, TextField } from '@mui/material';
+import { AppBar, Tabs, Tab, Box, Typography, Card, CardContent, Button, Grid, Snackbar, Alert, Select, MenuItem, TextField, 
+  Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, IconButton, Modal, Backdrop, Fade, 
+  CircularProgress, Stack, AlertTitle, Avatar, Chip, Divider } from '@mui/material';
 import { Bar } from 'react-chartjs-2';
+import { FaUpload, FaEdit, FaTrash, FaPlus, FaUser, FaChartBar, FaBook, FaUsers } from 'react-icons/fa';
+import { toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '@mui/material/styles';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { useTranslation } from 'react-i18next';
+import QuestionForm from '../components/QuestionForm';
+import QuestionList from '../components/QuestionList';
+import ProfileCard from '../components/ProfileCard';
+import AssignmentCard from '../components/AssignmentCard';
+import StudentList from '../components/StudentList';
+import AnalyticsChart from '../components/AnalyticsChart';
 
-const tabs = ['My Assignments', 'My Students', 'Analytics'];
+const tabs = [
+  { id: 'assignments', label: 'My Assignments', icon: <FaBook /> },
+  { id: 'students', label: 'My Students', icon: <FaUsers /> },
+  { id: 'analytics', label: 'Analytics', icon: <FaChartBar /> }
+];
 
 function TeacherPanel() {
-  const [tab, setTab] = useState(0);
+  const { user } = useAuth();
+  const { t } = useTranslation();
+  const theme = useTheme();
+  const navigate = useNavigate();
+  
+  // State management
+  const [activeTab, setActiveTab] = useState('assignments');
   const [assignments, setAssignments] = useState([]);
   const [students, setStudents] = useState([]);
   const [analytics, setAnalytics] = useState(null);
-  const [loadingAnalytics, setLoadingAnalytics] = useState(false);
+  const [loading, setLoading] = useState({
+    assignments: false,
+    students: false,
+    analytics: false,
+    questions: false
+  });
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
+  
+  // Question management
   const [selectedAssignment, setSelectedAssignment] = useState('');
-  const [file, setFile] = useState(null);
   const [questions, setQuestions] = useState([]);
+  const [showQuestionForm, setShowQuestionForm] = useState(false);
+  
+  // Modal states
+  const [openUploadModal, setOpenUploadModal] = useState(false);
+  const [openQuestionModal, setOpenQuestionModal] = useState(false);
+  const [openAnalyticsModal, setOpenAnalyticsModal] = useState(false);
+  const [file, setFile] = useState(null);
+  
+  // Question editing
   const [editingQuestion, setEditingQuestion] = useState(null);
-  const [editText, setEditText] = useState('');
-  const [editOptions, setEditOptions] = useState({ a: '', b: '', c: '', d: '' });
-  const [editAnswer, setEditAnswer] = useState('');
-  const [manualQuestions, setManualQuestions] = useState([]);
-  const [showManualForm, setShowManualForm] = useState(false);
-  const [newQ, setNewQ] = useState({ text: '', options: { a: '', b: '', c: '', d: '' }, answer: '' });
-  const [submittingManual, setSubmittingManual] = useState(false);
-  const navigate = useNavigate();
-  const teacherId = parseInt(localStorage.getItem('userId'));
+  const [editData, setEditData] = useState({
+    text: '',
+    options: { a: '', b: '', c: '', d: '' },
+    answer: ''
+  });
 
   useEffect(() => {
-    // Check authentication by requesting the teacher profile or test endpoint
-    api.get('/auth/test')
-      .then(res => {
-        if (res.data.user.role !== 'teacher') navigate('/login');
-      })
-      .catch(() => {
-        navigate('/login');
-      });
-    api.get('/admin/teacher-assignments').then(res => {
-      setAssignments(res.data.filter(a => a.teacher?.id === teacherId));
-    }).catch(() => setAssignments([]));
-    api.get('/admin/users').then(res => setStudents(res.data.filter(u => u.role === 'student'))).catch(() => setStudents([]));
-  }, [navigate, teacherId]);
+    // Check authentication
+    if (!user || user.role !== 'teacher') {
+      navigate('/login');
+      return;
+    }
+
+    // Fetch teacher-specific data
+    const fetchTeacherData = async () => {
+      try {
+        setLoading({ ...loading, assignments: true });
+        const [assignmentsRes, studentsRes] = await Promise.all([
+          api.get('/admin/teacher-assignments'),
+          api.get('/admin/users')
+        ]);
+
+        setAssignments(assignmentsRes.data.filter(a => a.teacher?.id === user.id));
+        setStudents(studentsRes.data.filter(u => u.role === 'student'));
+      } catch (error) {
+        toast.error(t('error.fetching_data'));
+      } finally {
+        setLoading({ ...loading, assignments: false, students: false });
+      }
+    };
+
+    fetchTeacherData();
+  }, [navigate, user]);
 
   const handleUpload = async (e) => {
     e.preventDefault();
-    if (!selectedAssignment || !file) return;
-    const formData = new FormData();
-    formData.append('assignmentId', selectedAssignment);
-    formData.append('file', file);
+    if (!selectedAssignment || !file) {
+      toast.error(t('error.no_file_selected'));
+      return;
+    }
+
     try {
-      await api.post('/admin/upload-questions', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
-      setSnack({ open: true, message: 'Questions uploaded!', severity: 'success' });
+      setLoading({ ...loading, questions: true });
+      const formData = new FormData();
+      formData.append('assignmentId', selectedAssignment);
+      formData.append('file', file);
+      
+      await api.post('/admin/upload-questions', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          toast.info(`Uploading... ${percentCompleted}%`);
+        }
+      });
+
+      toast.success(t('success.questions_uploaded'));
+      setOpenUploadModal(false);
       setFile(null);
       setSelectedAssignment('');
-    } catch {
-      setSnack({ open: true, message: 'Upload failed', severity: 'error' });
+      fetchQuestions(selectedAssignment);
+    } catch (error) {
+      toast.error(t('error.upload_failed'));
+    } finally {
+      setLoading({ ...loading, questions: false });
     }
   };
 
