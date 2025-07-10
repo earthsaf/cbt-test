@@ -6,9 +6,11 @@ const io = require('../services/socket');
 // Real-time monitoring
 exports.getEvents = async (req, res) => {
   try {
-    const alerts = await Alert.find({ examId: req.query.examId })
-      .sort({ timestamp: -1 })
-      .limit(50);
+    const alerts = await Alert.findAll({
+      where: { examId: req.query.examId },
+      order: [['timestamp', 'DESC']],
+      limit: 50
+    });
     res.json(alerts);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching events' });
@@ -46,7 +48,9 @@ exports.flagStudent = async (req, res) => {
 
 exports.getStudents = async (req, res) => {
   try {
-    const students = await Student.find({ examId: req.query.examId });
+    const students = await Student.findAll({
+      where: { examId: req.query.examId }
+    });
     res.json(students);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching students' });
@@ -55,10 +59,13 @@ exports.getStudents = async (req, res) => {
 
 exports.getScreenshots = async (req, res) => {
   try {
-    const { studentId } = req.params;
-    const screenshots = await Student.findOne({ _id: studentId })
-      .select('screenshots')
-      .populate('screenshots');
+    const screenshots = await Student.findOne({
+      where: {
+        examId: req.query.examId,
+        id: req.params.studentId
+      },
+      attributes: ['screenshots']
+    });
     res.json(screenshots);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching screenshots' });
@@ -67,8 +74,12 @@ exports.getScreenshots = async (req, res) => {
 
 exports.getAlerts = async (req, res) => {
   try {
-    const alerts = await Alert.find({ examId: req.query.examId })
-      .sort({ timestamp: -1 });
+    const alerts = await Alert.findAll({
+      where: {
+        examId: req.query.examId,
+        studentId: req.query.studentId
+      }
+    });
     res.json(alerts);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching alerts' });
@@ -79,27 +90,26 @@ exports.getAlerts = async (req, res) => {
 exports.forceSubmit = async (req, res) => {
   try {
     const { studentId } = req.body;
-    const student = await Student.findOne({ _id: studentId });
+    const student = await Student.findOne({
+      where: { id: studentId }
+    });
     if (!student) {
       return res.status(404).json({ message: 'Student not found' });
     }
-    
-    student.status = 'submitted';
-    await student.save();
-    
-    // Notify student via socket
-    io.to(student.socketId).emit('exam-force-submit');
-    
-    res.json({ message: 'Exam force submitted successfully' });
+    await student.update({ status: 'submitted' });
+    io.to(studentId).emit('force-submit');
+    res.json({ message: 'Exam forced to submit' });
   } catch (error) {
-    res.status(500).json({ message: 'Error force submitting exam' });
+    res.status(500).json({ message: 'Error forcing submit' });
   }
 };
 
 exports.controlExam = async (req, res) => {
   try {
     const { studentId, action } = req.body;
-    const student = await Student.findOne({ _id: studentId });
+    const student = await Student.findOne({
+      where: { id: studentId }
+    });
     if (!student) {
       return res.status(404).json({ message: 'Student not found' });
     }
@@ -119,18 +129,15 @@ exports.controlExam = async (req, res) => {
 exports.lockStudent = async (req, res) => {
   try {
     const { studentId } = req.body;
-    const student = await Student.findOne({ _id: studentId });
+    const student = await Student.findOne({
+      where: { id: studentId }
+    });
     if (!student) {
       return res.status(404).json({ message: 'Student not found' });
     }
-    
-    student.status = 'locked';
-    await student.save();
-    
-    // Notify student via socket
-    io.to(student.socketId).emit('student-locked');
-    
-    res.json({ message: 'Student locked successfully' });
+    await student.update({ status: 'locked' });
+    io.to(studentId).emit('lock-screen');
+    res.json({ message: 'Student locked' });
   } catch (error) {
     res.status(500).json({ message: 'Error locking student' });
   }
@@ -139,14 +146,13 @@ exports.lockStudent = async (req, res) => {
 exports.broadcastMessage = async (req, res) => {
   try {
     const { message } = req.body;
-    const examId = req.query.examId;
-    
-    const students = await Student.find({ examId });
-    students.forEach(student => {
-      io.to(student.socketId).emit('broadcast-message', { message });
+    const students = await Student.findAll({
+      where: { examId: req.query.examId }
     });
-    
-    res.json({ message: 'Message broadcasted successfully' });
+    students.forEach(student => {
+      io.to(student.id).emit('broadcast-message', { message });
+    });
+    res.json({ message: 'Message broadcasted' });
   } catch (error) {
     res.status(500).json({ message: 'Error broadcasting message' });
   }
@@ -155,22 +161,19 @@ exports.broadcastMessage = async (req, res) => {
 // Session management
 exports.getSessionSummary = async (req, res) => {
   try {
-    const { studentId } = req.params;
-    const student = await Student.findOne({ _id: studentId })
-      .populate('alerts')
-      .populate('screenshots');
-    
+    const { examId } = req.query;
     const summary = {
-      studentInfo: {
-        name: student.name,
-        rollNumber: student.rollNumber,
-        status: student.status
-      },
-      alerts: student.alerts,
-      screenshots: student.screenshots,
-      behaviorHistory: student.behaviorHistory
+      students: await Student.findAll({
+        where: { examId }
+      }),
+      alerts: await Alert.findAll({
+        where: { examId }
+      }),
+      screenshots: await Student.findAll({
+        where: { examId },
+        attributes: ['screenshots']
+      })
     };
-    
     res.json(summary);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching session summary' });
@@ -180,7 +183,7 @@ exports.getSessionSummary = async (req, res) => {
 exports.getStudentStatus = async (req, res) => {
   try {
     const { studentId } = req.params;
-    const student = await Student.findOne({ _id: studentId });
+    const student = await Student.findOne({ where: { id: studentId } });
     res.json({ status: student.status });
   } catch (error) {
     res.status(500).json({ message: 'Error fetching student status' });

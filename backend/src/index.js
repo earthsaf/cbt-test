@@ -5,7 +5,7 @@ const cors = require('cors');
 const { sequelize } = require('./models');
 const routes = require('./routes');
 const { setupBot } = require('./bot/bot');
-const { setupSocket } = require('./services/proctoring');
+const socketService = require('./services/socket');
 const bcrypt = require('bcrypt');
 const { User } = require('./models');
 const cookieParser = require('cookie-parser');
@@ -13,6 +13,7 @@ const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
+const io = socketService.init(server);
 
 const allowedOrigins = [
   'https://cbt-test-urrr.onrender.com', // deployed frontend
@@ -65,9 +66,13 @@ if (fs.existsSync(frontendBuildPath)) {
 }
 
 setupBot();
-setupSocket(server);
 
 const PORT = process.env.PORT || 4000;
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).send('Something broke!');
+});
+
 sequelize.sync({ alter: true }).then(async () => {
   // Ensure default admin user exists
   const admin = await User.findOne({ where: { role: 'admin' } });
@@ -77,6 +82,6 @@ sequelize.sync({ alter: true }).then(async () => {
     console.log('Default admin user created: username=0000, password=0000');
   }
   server.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log(`Server is running on port ${PORT}`);
   });
 });
