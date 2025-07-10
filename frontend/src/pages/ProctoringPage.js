@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { FaUser, FaBell, FaHandPaper, FaSearch, FaPause, FaPlay, FaFlag, FaCamera } from 'react-icons/fa';
+import { Person, Notifications, RaiseHand, Search, Pause, PlayArrow, Flag, CameraAlt } from '@mui/icons-material';
 
 function ProctoringPage() {
   const [screens, setScreens] = useState([]);

@@ -7,14 +7,12 @@ import {
   Button, 
   Box, 
   Chip, 
-  Divider 
+  Divider,
+  Book,
+  AccessTime,
+  Group,
+  UploadFile
 } from '@mui/material';
-import { 
-  FaBook, 
-  FaClock, 
-  FaUsers, 
-  FaFileUpload 
-} from 'react-icons/fa';
 
 const AssignmentCard = ({ 
   assignment, 

@@ -1,6 +1,11 @@
 import React from 'react';
 import { Card, CardContent, Typography, Avatar, Box, Chip } from '@mui/material';
-import { FaUser, FaGraduationCap, FaCalendar, FaMapMarkerAlt } from 'react-icons/fa';
+import { 
+  Person, 
+  School, 
+  CalendarToday, 
+  LocationOn 
+} from '@mui/icons-material';
 
 const ProfileCard = ({ user }) => {
   const formatDate = (dateString) => {

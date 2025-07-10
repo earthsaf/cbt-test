@@ -14,13 +14,13 @@ import {
   Box 
 } from '@mui/material';
 import { 
-  FaUser, 
-  FaEnvelope, 
-  FaGraduationCap, 
-  FaEdit, 
-  FaEye, 
-  FaTimes 
-} from 'react-icons/fa';
+  Person, 
+  Email, 
+  School, 
+  Edit, 
+  Visibility, 
+  Delete 
+} from '@mui/icons-material';
 
 const StudentList = ({ 
   students, 

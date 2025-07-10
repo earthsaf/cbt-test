@@ -6,7 +6,16 @@ import { AppBar, Tabs, Tab, Box, Typography, Card, CardContent, Button, Grid, Sn
   Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, IconButton, Modal, Backdrop, Fade, 
   CircularProgress, Stack, AlertTitle, Avatar, Chip, Divider } from '@mui/material';
 import { Bar } from 'react-chartjs-2';
-import { FaUpload, FaEdit, FaTrash, FaPlus, FaUser, FaChartBar, FaBook, FaUsers } from 'react-icons/fa';
+import { 
+  Upload, 
+  Edit, 
+  Delete, 
+  Add, 
+  Person, 
+  Analytics, 
+  Book, 
+  Group 
+} from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { useAuth } from '../contexts/AuthContext';

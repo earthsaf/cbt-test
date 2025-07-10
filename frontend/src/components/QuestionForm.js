@@ -12,7 +12,7 @@ import {
   MenuItem, 
   Alert
 } from '@mui/material';
-import { FaPlus, FaSave, FaTimes } from 'react-icons/fa';
+import { Add, Save, Close } from '@mui/icons-material';
 
 const QuestionForm = ({ onSubmit, onCancel, question = null, difficultyOptions = ['Easy', 'Medium', 'Hard'] }) => {
   const [formData, setFormData] = useState({
