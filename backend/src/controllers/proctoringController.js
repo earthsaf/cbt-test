@@ -1,6 +1,4 @@
-const Student = require('../models/Student');
-const Exam = require('../models/Exam');
-const Alert = require('../models/Alert');
+const { Student, Exam, Alert } = require('../models');
 const io = require('../services/socket');
 
 // Real-time monitoring
