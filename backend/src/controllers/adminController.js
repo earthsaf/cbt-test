@@ -118,8 +118,8 @@ exports.createUser = async (req, res) => {
   if (!['student', 'teacher', 'admin', 'invigilator'].includes(role)) return res.status(400).json({ error: 'Invalid role' });
   if (!username || !password || !name) return res.status(400).json({ error: 'Username, password, and name are required' });
   if (role === 'student' && !classId) return res.status(400).json({ error: 'Student must be assigned to a class' });
-  // Password must be at least 5 words
-  if (password.trim().split(/\s+/).length < 5) return res.status(400).json({ error: 'Password must be at least 5 words' });
+  // Password must be at least 5 characters
+  if (password.length < 5) return res.status(400).json({ error: 'Password must be at least 5 characters long' });
   // Username must be unique across all users (all roles)
   const exists = await User.findOne({ where: { username } });
   if (exists) return res.status(400).json({ error: 'Username already exists' });
