@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { useAuth } from '../contexts/AuthContext';
 
 function LoginPage() {
   const [username, setUsername] = useState('');
@@ -10,40 +10,52 @@ function LoginPage() {
   const [examId, setExamId] = useState('');
   const [invigilatorCode, setInvigilatorCode] = useState('');
   const [exams, setExams] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const { login } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     if (role === 'invigilator') {
-      const apiUrl = process.env.REACT_APP_API_URL || '/api';
-      axios.get(`${apiUrl}/admin/exams`, { headers: { Authorization: '' } })
-        .then(res => setExams(res.data))
-        .catch(() => setExams([]));
+      // Fetch exams for invigilator role
+      const fetchExams = async () => {
+        try {
+          const response = await fetch('/api/admin/exams');
+          if (response.ok) {
+            const data = await response.json();
+            setExams(data);
+          }
+        } catch (err) {
+          console.error('Failed to fetch exams:', err);
+          setExams([]);
+        }
+      };
+      fetchExams();
     }
   }, [role]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setIsLoading(true);
+    
     try {
-      let payload;
+      let credentials;
       if (role === 'invigilator') {
-        payload = { role, examId, invigilatorCode };
+        credentials = { role, examId, invigilatorCode };
       } else {
-        payload = { username, password, role };
+        credentials = { username, password, role };
       }
-      const apiUrl = process.env.REACT_APP_API_URL || '/api';
-      const res = await axios.post(`${apiUrl}/auth/login`, payload);
-      if (res.data && res.data.token) {
-        localStorage.setItem('token', res.data.token);
-        localStorage.setItem('role', role);
-        // Redirect to pending exam if set
+
+      const result = await login(credentials);
+      
+      if (result && result.success) {
+        // Redirect based on role
         const pendingExamId = localStorage.getItem('pendingExamId');
+        
         if (role === 'student' && pendingExamId) {
           localStorage.removeItem('pendingExamId');
           navigate(`/exam/${pendingExamId}`);
-          return;
-        }
-        if (role === 'admin') {
+        } else if (role === 'admin') {
           navigate('/admin');
         } else if (role === 'teacher') {
           navigate('/teacher');
@@ -53,7 +65,7 @@ function LoginPage() {
           navigate('/dashboard');
         }
       } else {
-        setError('Login failed: No token received.');
+        setError(result?.error || 'Login failed. Please check your credentials.');
       }
     } catch (err) {
       setError('Login failed');

@@ -1,19 +1,22 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import api from '../services/api';
-import { useNavigate } from 'react-router-dom';
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Initialize user from localStorage on mount
   useEffect(() => {
-    // Load user data from localStorage on mount
     const savedUser = localStorage.getItem('user');
     if (savedUser) {
-      setUser(JSON.parse(savedUser));
+      try {
+        setUser(JSON.parse(savedUser));
+      } catch (e) {
+        console.error('Failed to parse user data', e);
+        localStorage.removeItem('user');
+      }
     }
     setLoading(false);
   }, []);
@@ -28,19 +31,20 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('token', token);
       
       setUser(user);
-      return true;
+      return { success: true, user };
     } catch (error) {
       console.error('Login error:', error);
-      return false;
+      return { success: false, error: error.response?.data?.message || 'Login failed' };
     }
   };
 
-  const logout = () => {
+  const logout = useCallback(() => {
     localStorage.removeItem('user');
     localStorage.removeItem('token');
     setUser(null);
-    navigate('/login');
-  };
+    // Instead of navigating here, we'll let the component handle the navigation
+    return true;
+  }, []);
 
   const updateUser = (updatedUser) => {
     const newUser = { ...user, ...updatedUser };

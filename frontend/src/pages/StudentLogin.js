@@ -1,22 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
-import api from '../services/api'; // Add this import
+import { useAuth } from '../contexts/AuthContext';
 
 function StudentLogin() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setIsLoading(true);
+    
     try {
-      const apiUrl = process.env.REACT_APP_API_URL || '/api';
-      const res = await axios.post(`${apiUrl}/auth/login`, { username, password, role: 'student' });
-      if (res.data && res.data.success) {
-        // Cookie is set by backend; no need to check for token in response
+      const result = await login({ 
+        username, 
+        password, 
+        role: 'student' 
+      });
+      
+      if (result && result.success) {
         // Redirect to pending exam if set
         const pendingExamId = localStorage.getItem('pendingExamId');
         if (pendingExamId) {
@@ -26,10 +32,13 @@ function StudentLogin() {
           navigate('/dashboard');
         }
       } else {
-        setError('Login failed.');
+        setError(result?.error || 'Login failed. Please check your credentials.');
       }
     } catch (err) {
-      setError('Login failed');
+      setError('An error occurred during login. Please try again.');
+      console.error('Login error:', err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -109,25 +118,45 @@ function StudentLogin() {
           />
           <button
             type="submit"
+            disabled={isLoading}
             style={{
               width: '100%',
               padding: '12px 0',
-              background: 'linear-gradient(90deg, #1976d2, #43cea2)',
+              background: isLoading ? '#a5d6ff' : 'linear-gradient(90deg, #1976d2, #43cea2)',
               color: '#fff',
               fontWeight: 700,
               fontSize: 18,
               border: 'none',
               borderRadius: 8,
-              cursor: 'pointer',
+              cursor: isLoading ? 'not-allowed' : 'pointer',
               marginTop: 8,
               marginBottom: 8,
               fontFamily: 'inherit',
-              transition: 'background 0.2s',
+              transition: 'all 0.2s',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px'
             }}
-            onMouseOver={e => e.target.style.background = 'linear-gradient(90deg, #125ea2, #2fa07a)'}
-            onMouseOut={e => e.target.style.background = 'linear-gradient(90deg, #1976d2, #43cea2)'}
+            onMouseOver={e => !isLoading && (e.target.style.background = 'linear-gradient(90deg, #125ea2, #2fa07a)')}
+            onMouseOut={e => !isLoading && (e.target.style.background = 'linear-gradient(90deg, #1976d2, #43cea2)')}
           >
-            Login to Begin
+            {isLoading ? (
+              <>
+                <div className="spinner" style={{
+                  width: '20px',
+                  height: '20px',
+                  border: '3px solid rgba(255, 255, 255, 0.3)',
+                  borderRadius: '50%',
+                  borderTopColor: '#fff',
+                  animation: 'spin 1s ease-in-out infinite',
+                }}></div>
+                <style>{
+                  `@keyframes spin { to { transform: rotate(360deg); } }`
+                }</style>
+                Logging in...
+              </>
+            ) : 'Login to Begin'}
           </button>
           {error && <div style={{ color: 'crimson', marginTop: 8, fontWeight: 500 }}>{error}</div>}
         </form>
