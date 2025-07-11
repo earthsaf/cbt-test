@@ -15,9 +15,11 @@ const app = express();
 const server = http.createServer(app);
 const io = socketService.init(server);
 
+const isProduction = process.env.NODE_ENV === 'production';
+
 const allowedOrigins = [
-  'https://cbt-test-urrr.onrender.com', // deployed frontend
-  'https://cbt-test.onrender.com', // deployed backend (if you ever host frontend here)
+  'https://cbt-test-urrr.onrender.com', // old frontend URL
+  'https://cbt-test.onrender.com', // new combined URL
   'http://localhost:3000', // local dev
 ];
 
@@ -75,6 +77,17 @@ const PORT = process.env.PORT || 4000;
 if (!PORT) {
   console.error('Error: PORT environment variable is not set');
   process.exit(1);
+}
+
+// Serve frontend build files in production
+if (isProduction) {
+  const frontendBuildPath = path.join(__dirname, '../../frontend/build');
+  app.use(express.static(frontendBuildPath));
+  
+  // Serve index.html for all other routes (client-side routing)
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(frontendBuildPath, 'index.html'));
+  });
 }
 
 // Global error handling middleware
