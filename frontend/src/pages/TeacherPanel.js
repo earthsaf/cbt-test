@@ -295,7 +295,7 @@ function TeacherPanel() {
             )}
           </Box>
         )}
-        {tab === 1 && (
+        {activeTab === 'students' && (
           <Box>
             <Typography variant="h6">My Students</Typography>
             <ul>
@@ -303,7 +303,7 @@ function TeacherPanel() {
             </ul>
           </Box>
         )}
-        {tab === 2 && (
+        {activeTab === 'analytics' && (
           <Box>
             <Typography variant="h6">Analytics</Typography>
             <Select value={selectedAssignment} onChange={e => setSelectedAssignment(e.target.value)} displayEmpty style={{ minWidth: 200, marginBottom: 8 }}>
