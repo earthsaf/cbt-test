@@ -81,11 +81,14 @@ function AdminPanel() {
     const fetchLogins = async () => {
       try {
         const res = await api.get('/admin/logins');
-        setLoggedInUsers(res.data);
-      } catch {
+        // Ensure we always set an array, even if the response is null/undefined
+        setLoggedInUsers(Array.isArray(res?.data) ? res.data : []);
+      } catch (error) {
+        console.error('Error fetching logged in users:', error);
         setLoggedInUsers([]);
       }
     };
+    
     fetchLogins();
     const interval = setInterval(fetchLogins, 10000); // Poll every 10s
     return () => clearInterval(interval);
@@ -661,7 +664,9 @@ function AdminPanel() {
               <Card sx={{ mb: 3, p: 2 }}>
                 <Typography variant="h6">Logged In Users</Typography>
                 <Typography variant="body2" sx={{ color: 'gray', mb: 1 }}>
-                  {loggedInUsers.length === 0 ? 'No users currently logged in.' : loggedInUsers.map(u => u.username + ' (' + u.role + ')').join(', ')}
+                  {!Array.isArray(loggedInUsers) || loggedInUsers.length === 0 
+                    ? 'No users currently logged in.' 
+                    : loggedInUsers.map(u => `${u?.username || 'Unknown'} (${u?.role || 'unknown'})`).join(', ')}
                 </Typography>
               </Card>
               <Card sx={{ mb: 3, p: 2 }}>
