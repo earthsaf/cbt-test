@@ -131,6 +131,20 @@ exports.createUser = async (req, res) => {
   res.json({ ok: true, user });
 };
 
+// Delete user (admin only)
+exports.deleteUser = async (req, res) => {
+  const { id } = req.params;
+  if (req.user.id === parseInt(id)) {
+    return res.status(400).json({ error: 'You cannot delete your own account while logged in' });
+  }
+  const user = await User.findByPk(id);
+  if (!user) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+  await user.destroy();
+  res.json({ ok: true, message: 'User deleted successfully' });
+};
+
 // Generate/view invigilator code for an exam
 exports.setInvigilatorCode = async (req, res) => {
   const { examId } = req.body;

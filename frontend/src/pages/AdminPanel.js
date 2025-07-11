@@ -43,6 +43,8 @@ function AdminPanel() {
   const [debugOpen, setDebugOpen] = useState(false);
   const [debugData, setDebugData] = useState(null);
   const [loggedInUsers, setLoggedInUsers] = useState([]);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -93,6 +95,25 @@ function AdminPanel() {
     const interval = setInterval(fetchLogins, 10000); // Poll every 10s
     return () => clearInterval(interval);
   }, []);
+
+  const handleDeleteUser = async (userId) => {
+    try {
+      await api.delete(`/admin/users/${userId}`);
+      setUsers(users.filter(user => user.id !== userId));
+      setSnack({ open: true, message: 'User deleted successfully', severity: 'success' });
+    } catch (error) {
+      const errorMessage = error.response?.data?.error || 'Failed to delete user';
+      setSnack({ open: true, message: errorMessage, severity: 'error' });
+    } finally {
+      setDeleteConfirmOpen(false);
+      setUserToDelete(null);
+    }
+  };
+
+  const confirmDelete = (user) => {
+    setUserToDelete(user);
+    setDeleteConfirmOpen(true);
+  };
 
   const handleEditUser = async () => {
     try {
@@ -473,7 +494,17 @@ function AdminPanel() {
                   <Typography variant="h6">{user.username}</Typography>
                   <Typography>Email: {user.email}</Typography>
                   <Typography>Class: {user.Class ? user.Class.name : ''}</Typography>
-                  <Button sx={{ mt: 1 }} onClick={() => setEditUser({ ...user, classId: user.ClassId || '' })}>Edit</Button>
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Button onClick={() => setEditUser({ ...user, classId: user.ClassId || '' })}>Edit</Button>
+                    <Button 
+                      onClick={() => confirmDelete(user)}
+                      color="error"
+                      variant="outlined"
+                      size="small"
+                    >
+                      Delete
+                    </Button>
+                  </Box>
                 </CardContent>
               </Card>
             </Grid>

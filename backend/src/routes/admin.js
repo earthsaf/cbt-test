@@ -18,8 +18,9 @@ router.put('/exams/:examId/questions/:questionId', requireAuth, requireRole('adm
 router.get('/exams/:examId/results', requireAuth, requireRole('admin'), admin.examResults);
 router.get('/exams/:examId/export', requireAuth, requireRole('admin'), admin.exportExamResults);
 
-// New: Create user, set/get invigilator code, get profile, update profile
+// New: Create/delete user, set/get invigilator code, get profile, update profile
 router.post('/users', requireAuth, requireRole('admin'), admin.createUser);
+router.delete('/users/:id', requireAuth, requireRole('admin'), admin.deleteUser);
 router.post('/exams/invigilator-code', requireAuth, requireRole('admin'), admin.setInvigilatorCode);
 router.get('/exams/invigilator-code', requireAuth, requireRole('admin'), admin.getInvigilatorCode);
 // Profile routes (any authenticated user)
