@@ -108,7 +108,7 @@ Need help? Contact your system administrator.`;
 
   bot.onText(/\/list/, async (msg) => {
     const teacherTelegramId = msg.from.id.toString();
-    const teacher = await User.findOne({ where: { telegramId: teacherTelegramId, role: 'teacher' } });
+    const teacher = await User.findOne({ where: { telegram_id: teacherTelegramId, role: 'teacher' } });
     if (!teacher) {
       bot.sendMessage(msg.chat.id, 'You are not registered as a teacher.');
       return;
@@ -150,7 +150,7 @@ Need help? Contact your system administrator.`;
 
   bot.onText(/\/upload/, async (msg) => {
     const teacherTelegramId = msg.from.id.toString();
-    const teacher = await User.findOne({ where: { telegramId: teacherTelegramId, role: 'teacher' } });
+    const teacher = await User.findOne({ where: { telegram_id: teacherTelegramId, role: 'teacher' } });
     if (!teacher) {
       bot.sendMessage(msg.chat.id, 'You are not registered as a teacher.');
       return;
@@ -179,7 +179,7 @@ Need help? Contact your system administrator.`;
 
   bot.onText(/\/delete/, async (msg) => {
     const teacherTelegramId = msg.from.id.toString();
-    const teacher = await User.findOne({ where: { telegramId: teacherTelegramId, role: 'teacher' } });
+    const teacher = await User.findOne({ where: { telegram_id: teacherTelegramId, role: 'teacher' } });
     if (!teacher) {
       bot.sendMessage(msg.chat.id, 'You are not registered as a teacher.');
       return;
