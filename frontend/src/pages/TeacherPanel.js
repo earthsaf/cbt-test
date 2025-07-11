@@ -218,12 +218,32 @@ function TeacherPanel() {
   return (
     <Box sx={{ flexGrow: 1, p: 3 }}>
       <AppBar position="static" color="default">
-        <Tabs value={tab} onChange={(_, v) => setTab(v)}>
-          {tabs.map((t, i) => <Tab label={t} key={i} />)}
+        <Tabs 
+          value={activeTab} 
+          onChange={(_, newValue) => setActiveTab(newValue)}
+          indicatorColor="secondary"
+          textColor="inherit"
+          variant="fullWidth"
+          sx={{
+            '& .MuiTabs-flexContainer': {
+              justifyContent: 'space-around',
+            },
+          }}
+        >
+          {tabs.map((tab) => (
+            <Tab 
+              key={tab.id}
+              value={tab.id}
+              label={tab.label}
+              icon={tab.icon}
+              iconPosition="start"
+              sx={{ minHeight: 64 }}
+            />
+          ))}
         </Tabs>
       </AppBar>
       <Box sx={{ mt: 3 }}>
-        {tab === 0 && (
+        {activeTab === 'assignments' && (
           <Box>
             <Typography variant="h6">My Assignments</Typography>
             <ul>
