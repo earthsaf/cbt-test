@@ -21,6 +21,7 @@ function AdminPanel() {
   const [analytics, setAnalytics] = useState({ results: [], highest: 0, lowest: 0, avg: 0 });
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
   const [newUser, setNewUser] = useState({ username: '', password: '', role: 'student', name: '', email: '', classId: '', telegramId: '' });
+  const [passwordError, setPasswordError] = useState('');
   const [creatingUser, setCreatingUser] = useState(false);
   const [invigilatorCodes, setInvigilatorCodes] = useState({});
   const [subjects, setSubjects] = useState([]);
@@ -143,19 +144,39 @@ function AdminPanel() {
     }
   };
 
+  const validatePassword = (password) => {
+    const wordCount = password.trim() === '' ? 0 : password.trim().split(/\s+/).length;
+    return wordCount >= 5;
+  };
+
   const handleCreateUser = async (e) => {
     e.preventDefault();
+    
+    // Validate password
+    if (!validatePassword(newUser.password)) {
+      setPasswordError('Password must be at least 5 words');
+      return;
+    }
+    
+    setPasswordError('');
     setCreatingUser(true);
+    
     try {
-      await api.post('/admin/users', newUser);
-      setSnack({ open: true, message: 'User created', severity: 'success' });
+      const response = await api.post('/admin/users', newUser);
+      setSnack({ open: true, message: 'User created successfully', severity: 'success' });
       setNewUser({ username: '', password: '', role: 'student', name: '', email: '', classId: '', telegramId: '' });
       const res = await api.get('/admin/users');
       setUsers(res.data);
-    } catch {
-      setSnack({ open: true, message: 'Failed to create user', severity: 'error' });
+    } catch (error) {
+      const errorMessage = error.response?.data?.error || 'Failed to create user';
+      setSnack({ 
+        open: true, 
+        message: errorMessage, 
+        severity: 'error' 
+      });
+    } finally {
+      setCreatingUser(false);
     }
-    setCreatingUser(false);
   };
 
   const handleGetInvigilatorCode = async (examId) => {
@@ -412,7 +433,21 @@ function AdminPanel() {
               <Typography variant="h6">Create User</Typography>
               <form onSubmit={handleCreateUser} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
                 <TextField label="Username" value={newUser.username} onChange={e => setNewUser({ ...newUser, username: e.target.value })} required size="small" />
-                <TextField label="Password" value={newUser.password} onChange={e => setNewUser({ ...newUser, password: e.target.value })} required size="small" />
+                <TextField 
+                  label="Password" 
+                  value={newUser.password} 
+                  onChange={e => {
+                    setNewUser({ ...newUser, password: e.target.value });
+                    if (passwordError && validatePassword(e.target.value)) {
+                      setPasswordError('');
+                    }
+                  }} 
+                  required 
+                  size="small" 
+                  type="password"
+                  error={!!passwordError}
+                  helperText={passwordError || 'Must be at least 5 words'}
+                />
                 <TextField label="Name" value={newUser.name} onChange={e => setNewUser({ ...newUser, name: e.target.value })} size="small" />
                 <TextField label="Email" value={newUser.email} onChange={e => setNewUser({ ...newUser, email: e.target.value })} size="small" />
                 {newUser.role === 'teacher' && <TextField label="Telegram ID" value={newUser.telegramId} onChange={e => setNewUser({ ...newUser, telegramId: e.target.value })} size="small" required />}
