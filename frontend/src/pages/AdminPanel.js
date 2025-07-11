@@ -148,8 +148,7 @@ function AdminPanel() {
   };
 
   const validatePassword = (password) => {
-    const wordCount = password.trim() === '' ? 0 : password.trim().split(/\s+/).length;
-    return wordCount >= 5;
+    return password.length >= 5;
   };
 
   const handleCreateUser = async (e) => {
@@ -449,7 +448,7 @@ function AdminPanel() {
                   size="small" 
                   type="password"
                   error={!!passwordError}
-                  helperText={passwordError || 'Must be at least 5 words'}
+                  helperText={passwordError || 'Must be at least 5 characters long'}
                 />
                 <TextField label="Name" value={newUser.name} onChange={e => setNewUser({ ...newUser, name: e.target.value })} size="small" />
                 <TextField label="Email" value={newUser.email} onChange={e => setNewUser({ ...newUser, email: e.target.value })} size="small" />
