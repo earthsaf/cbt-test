@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
 import Dashboard from './pages/Dashboard';
 import ExamPage from './pages/ExamPage';
@@ -15,7 +15,7 @@ function App() {
     <AuthProvider>
       <Router>
         <Routes>
-          <Route path="/" element={<StudentLogin />} />
+          <Route path="/" element={<Navigate to="/student-login" replace />} />
           <Route path="/student-login" element={<StudentLogin />} />
           <Route path="/staff-login" element={<StaffLogin />} />
           <Route path="/dashboard" element={<Dashboard />} />
@@ -23,6 +23,7 @@ function App() {
           <Route path="/admin" element={<AdminPanel />} />
           <Route path="/proctor" element={<ProctoringPage />} />
           <Route path="/teacher" element={<TeacherPanel />} />
+          <Route path="*" element={<Navigate to="/student-login" replace />} />
         </Routes>
       </Router>
     </AuthProvider>

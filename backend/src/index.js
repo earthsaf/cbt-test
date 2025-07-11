@@ -42,33 +42,36 @@ app.use(express.json());
 app.use(cookieParser());
 app.use('/api', routes);
 
-// Serve static files from the React app
-const frontendBuildPath = path.join(__dirname, '../../frontend/build');
-console.log('Frontend build path:', frontendBuildPath);
+// Serve static files from the React app in production
+if (isProduction) {
+  const frontendBuildPath = path.join(__dirname, '../../frontend/build');
+  console.log('Frontend build path:', frontendBuildPath);
 
-// Check if frontend build exists
-const fs = require('fs');
-if (fs.existsSync(frontendBuildPath)) {
-  console.log('Frontend build found, serving static files');
-  app.use(express.static(frontendBuildPath));
-
-  // Serve index.html for non-API GET requests (for React Router)
-  app.get(/^\/((?!api).)*$/, (req, res) => {
-    console.log('Serving index.html for route:', req.path);
-    res.sendFile(path.join(frontendBuildPath, 'index.html'));
-  });
-} else {
-  console.log('Frontend build not found at:', frontendBuildPath);
-  console.log('Current directory:', __dirname);
-  
-  // Fallback route for root path
-  app.get('/', (req, res) => {
-    res.json({ 
-      message: 'Backend is running. Frontend build not found.',
-      frontendPath: frontendBuildPath,
-      currentDir: __dirname
+  // Check if frontend build exists
+  const fs = require('fs');
+  if (fs.existsSync(frontendBuildPath)) {
+    console.log('Frontend build found, serving static files');
+    
+    // Serve static files
+    app.use(express.static(frontendBuildPath, { index: false }));
+    
+    // Handle all other routes by serving index.html
+    app.get('*', (req, res) => {
+      console.log('Serving index.html for route:', req.path);
+      res.sendFile(path.join(frontendBuildPath, 'index.html'));
     });
-  });
+  } else {
+    console.log('Frontend build not found at:', frontendBuildPath);
+    
+    // Fallback route for root path
+    app.get('/', (req, res) => {
+      res.json({ 
+        message: 'Backend is running. Frontend build not found.',
+        frontendPath: frontendBuildPath,
+        currentDir: __dirname
+      });
+    });
+  }
 }
 
 setupBot();
@@ -77,17 +80,6 @@ const PORT = process.env.PORT || 4000;
 if (!PORT) {
   console.error('Error: PORT environment variable is not set');
   process.exit(1);
-}
-
-// Serve frontend build files in production
-if (isProduction) {
-  const frontendBuildPath = path.join(__dirname, '../../frontend/build');
-  app.use(express.static(frontendBuildPath));
-  
-  // Serve index.html for all other routes (client-side routing)
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(frontendBuildPath, 'index.html'));
-  });
 }
 
 // Global error handling middleware
