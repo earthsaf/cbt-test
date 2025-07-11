@@ -412,6 +412,29 @@ function AdminPanel() {
 
   return (
     <div>
+      <Dialog
+        open={deleteConfirmOpen}
+        onClose={() => setDeleteConfirmOpen(false)}
+      >
+        <DialogTitle>Confirm Delete</DialogTitle>
+        <DialogContent>
+          <Typography>Are you sure you want to delete user: <strong>{userToDelete?.username}</strong>?</Typography>
+          <Typography color="error" variant="body2" sx={{ mt: 1 }}>
+            This action cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteConfirmOpen(false)}>Cancel</Button>
+          <Button 
+            onClick={() => handleDeleteUser(userToDelete?.id)} 
+            color="error"
+            variant="contained"
+          >
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <AppBar position="static" color="secondary" sx={{ mb: 2 }}>
         <Box sx={{ p: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Typography variant="h6">Admin Panel</Typography>
@@ -484,31 +507,44 @@ function AdminPanel() {
                 </Select>
                 <Button type="submit" variant="contained" disabled={creatingUser}>Create</Button>
               </form>
+              
+              {/* User List */}
+              <Box sx={{ mt: 4 }}>
+                <Typography variant="h6" gutterBottom>User List</Typography>
+                <Grid container spacing={2}>
+                  {users.map(user => (
+                    <Grid item xs={12} md={6} key={user.id}>
+                      <Card>
+                        <CardContent>
+                          <Typography variant="h6">{user.username}</Typography>
+                          <Typography>Email: {user.email}</Typography>
+                          <Typography>Role: {user.role}</Typography>
+                          <Typography>Class: {user.Class ? user.Class.name : 'N/A'}</Typography>
+                          <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+                            <Button 
+                              variant="outlined" 
+                              size="small"
+                              onClick={() => setEditUser({ ...user, classId: user.ClassId || '' })}
+                            >
+                              Edit
+                            </Button>
+                            <Button 
+                              variant="outlined" 
+                              color="error"
+                              size="small"
+                              onClick={() => confirmDelete(user)}
+                            >
+                              Delete
+                            </Button>
+                          </Box>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  ))}
+                </Grid>
+              </Box>
             </Box>
           )}
-          {/* Only show user list and edit on Settings tab */}
-          {tab === 5 && users.map(user => (
-            <Grid item xs={12} md={6} key={user.id}>
-              <Card>
-                <CardContent>
-                  <Typography variant="h6">{user.username}</Typography>
-                  <Typography>Email: {user.email}</Typography>
-                  <Typography>Class: {user.Class ? user.Class.name : ''}</Typography>
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Button onClick={() => setEditUser({ ...user, classId: user.ClassId || '' })}>Edit</Button>
-                    <Button 
-                      onClick={() => confirmDelete(user)}
-                      color="error"
-                      variant="outlined"
-                      size="small"
-                    >
-                      Delete
-                    </Button>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
           {tab === 1 && (
             <Box>
               <Typography variant="h6">Classes</Typography>
