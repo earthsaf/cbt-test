@@ -53,12 +53,20 @@ function TeacherPanel() {
     analytics: false,
     questions: false
   });
+  const [loadingAnalytics, setLoadingAnalytics] = useState(false);
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
   
   // Question management
   const [selectedAssignment, setSelectedAssignment] = useState('');
   const [questions, setQuestions] = useState([]);
   const [showQuestionForm, setShowQuestionForm] = useState(false);
+  const [showManualForm, setShowManualForm] = useState(false);
+  const [manualQuestions, setManualQuestions] = useState([]);
+  const [newQ, setNewQ] = useState({
+    text: '',
+    options: { a: '', b: '', c: '', d: '' },
+    answer: ''
+  });
   
   // Modal states
   const [openUploadModal, setOpenUploadModal] = useState(false);
@@ -68,11 +76,10 @@ function TeacherPanel() {
   
   // Question editing
   const [editingQuestion, setEditingQuestion] = useState(null);
-  const [editData, setEditData] = useState({
-    text: '',
-    options: { a: '', b: '', c: '', d: '' },
-    answer: ''
-  });
+  const [editText, setEditText] = useState('');
+  const [editOptions, setEditOptions] = useState({ a: '', b: '', c: '', d: '' });
+  const [editAnswer, setEditAnswer] = useState('');
+  const [submittingManual, setSubmittingManual] = useState(false);
 
   useEffect(() => {
     // Check authentication
