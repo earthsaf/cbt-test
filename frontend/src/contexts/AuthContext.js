@@ -32,11 +32,15 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = useCallback(() => {
-    localStorage.removeItem('user');
-    localStorage.removeItem('token');
-    setUser(null);
-    // Instead of navigating here, we'll let the component handle the navigation
-    return true;
+    try {
+      localStorage.removeItem('user');
+      localStorage.removeItem('token');
+      setUser(null);
+      return { success: true };
+    } catch (error) {
+      console.error('Logout error:', error);
+      return { success: false, error: 'Failed to log out' };
+    }
   }, []);
 
   const updateUser = (updatedUser) => {

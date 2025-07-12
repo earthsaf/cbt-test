@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { Button } from '@mui/material';
 
 const roles = [
   { value: 'teacher', label: 'Teacher', color: '#1976d2' },
@@ -14,13 +15,17 @@ function StaffLogin() {
   const [role, setRole] = useState('teacher');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { user, login } = useAuth();
+  const { user, login, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Check if we're coming from a logout action
+  const isLogoutAction = location.search.includes('from=logout');
 
-  // Redirect if already logged in
+  // Handle redirection for already logged-in users
   useEffect(() => {
-    // Only redirect if we have a user and we're not in the middle of a login attempt
-    if (user && !loading) {
+    // Only redirect if we have a user, not in loading state, and not coming from a logout
+    if (user && !loading && !window.location.search.includes('from=logout')) {
       if (user.role === 'admin') {
         navigate('/admin', { replace: true });
       } else if (user.role === 'teacher') {
@@ -81,7 +86,24 @@ function StaffLogin() {
           Staff Login
         </h1>
         <div style={{ color: '#444', fontSize: 16, marginBottom: 32 }}>
-          Enter your credentials to access your staff dashboard.
+          {user ? (
+            <div style={{ textAlign: 'center' }}>
+              <p>You are currently logged in as {user.name || user.username} ({user.role})</p>
+              <Button 
+                variant="contained" 
+                color="primary" 
+                onClick={() => {
+                  logout();
+                  window.location.href = '/staff-login?from=logout';
+                }}
+                style={{ marginTop: '10px' }}
+              >
+                Logout and Sign In as Different User
+              </Button>
+            </div>
+          ) : (
+            'Enter your credentials to access your staff dashboard.'
+          )}
         </div>
         <form onSubmit={handleSubmit} style={{ textAlign: 'left' }}>
           <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
