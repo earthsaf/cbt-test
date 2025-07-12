@@ -19,12 +19,17 @@ function StaffLogin() {
 
   // Redirect if already logged in
   useEffect(() => {
-    if (user) {
-      if (user.role === 'admin') navigate('/admin');
-      else if (user.role === 'teacher') navigate('/teacher');
-      else if (user.role === 'invigilator') navigate('/proctor');
+    // Only redirect if we have a user and we're not in the middle of a login attempt
+    if (user && !loading) {
+      if (user.role === 'admin') {
+        navigate('/admin', { replace: true });
+      } else if (user.role === 'teacher') {
+        navigate('/teacher', { replace: true });
+      } else if (user.role === 'invigilator') {
+        navigate('/proctor', { replace: true });
+      }
     }
-  }, [user, navigate]);
+  }, [user, navigate, loading]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

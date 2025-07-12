@@ -7,17 +7,10 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Initialize user from localStorage on mount
+  // Initialize user from localStorage on mount - but don't auto-login
   useEffect(() => {
-    const savedUser = localStorage.getItem('user');
-    if (savedUser) {
-      try {
-        setUser(JSON.parse(savedUser));
-      } catch (e) {
-        console.error('Failed to parse user data', e);
-        localStorage.removeItem('user');
-      }
-    }
+    // We're not automatically logging in from localStorage anymore
+    // Users must explicitly log in through the login form
     setLoading(false);
   }, []);
 
