@@ -114,7 +114,7 @@ exports.exportExamResults = async (req, res) => {
 
 // Create user (admin only)
 exports.createUser = async (req, res) => {
-  const { username, password, role, name, email, classId, telegramId } = req.body;
+  const { username, password, role, name, email, classId, telegramId: telegram_id } = req.body;
   if (!['student', 'teacher', 'admin', 'invigilator'].includes(role)) return res.status(400).json({ error: 'Invalid role' });
   if (!username || !password || !name) return res.status(400).json({ error: 'Username, password, and name are required' });
   if (role === 'student' && !classId) return res.status(400).json({ error: 'Student must be assigned to a class' });
@@ -125,7 +125,7 @@ exports.createUser = async (req, res) => {
   if (exists) return res.status(400).json({ error: 'Username already exists' });
   const bcrypt = require('bcrypt');
   const password_hash = await bcrypt.hash(password, 10);
-  const userData = { username, password_hash, role, name, email, telegramId };
+  const userData = { username, password_hash, role, name, email, telegram_id };
   if (role === 'student') userData.ClassId = classId;
   const user = await User.create(userData);
   res.json({ ok: true, user });
@@ -141,8 +141,19 @@ exports.deleteUser = async (req, res) => {
   if (!user) {
     return res.status(404).json({ error: 'User not found' });
   }
+
+  // Prevent deletion of admin users
+  if (user.role === 'admin') {
+    return res.status(403).json({ error: 'Cannot delete an admin user' });
+  }
+
+  // Cascade delete teacher-class-subject assignments if the user is a teacher
+  if (user.role === 'teacher') {
+    await TeacherClassSubject.destroy({ where: { teacherId: id } });
+  }
+
   await user.destroy();
-  res.json({ ok: true, message: 'User deleted successfully' });
+  res.json({ ok: true, message: 'User and related assignments deleted successfully' });
 };
 
 // Generate/view invigilator code for an exam

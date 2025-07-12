@@ -44,7 +44,7 @@ function TeacherPanel() {
   const navigate = useNavigate();
   
   // State management
-  const [activeTab, setActiveTab] = useState('assignments');
+  const [activeTab, setActiveTab] = useState(() => localStorage.getItem('teacherActiveTab') || 'assignments');
   const [assignments, setAssignments] = useState([]);
   const [students, setStudents] = useState([]);
   const [analytics, setAnalytics] = useState(null);
@@ -347,8 +347,11 @@ function TeacherPanel() {
     <Box sx={{ flexGrow: 1, p: 3 }}>
       <AppBar position="static" color="default" elevation={1}>
         <Tabs
-          value={activeTab}
-          onChange={(e, newValue) => setActiveTab(newValue)}
+          value={localStorage.getItem('teacherActiveTab') || activeTab}
+          onChange={(event, newValue) => {
+            localStorage.setItem('teacherActiveTab', newValue);
+            setActiveTab(newValue);
+          }}
           indicatorColor="primary"
           textColor="primary"
           variant="fullWidth"

@@ -21,7 +21,12 @@ api.interceptors.response.use(
       // Token is invalid or expired
       localStorage.removeItem('token');
       localStorage.removeItem('role');
-      window.location.href = '/';
+      const currentPath = window.location.pathname;
+      // Only redirect if the user is not on an auth page already
+      const authPages = ['/staff-login', '/student-login', '/login'];
+      if (!authPages.includes(currentPath)) {
+        window.location.href = '/';
+      }
     }
     return Promise.reject(error);
   }

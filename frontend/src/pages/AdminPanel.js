@@ -10,9 +10,11 @@ const tabs = ['Users', 'Classes', 'Exams', 'Subjects', 'Assignments', 'Settings'
 
 function AdminPanel() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const initialTab = parseInt(searchParams.get('tab')) || 0;
+  const initialTab = parseInt(searchParams.get('tab')) || parseInt(localStorage.getItem('adminActiveTab')) || 0;
   const [tab, setTab] = useState(initialTab);
   const [users, setUsers] = useState([]);
+  const [userSearch, setUserSearch] = useState('');
+  const [userRoleFilter, setUserRoleFilter] = useState('all');
   const [classes, setClasses] = useState([]);
   const [exams, setExams] = useState([]);
   const [editUser, setEditUser] = useState(null);
@@ -64,6 +66,7 @@ function AdminPanel() {
 
   useEffect(() => {
     setSearchParams({ tab });
+    localStorage.setItem('adminActiveTab', tab);
   }, [tab, setSearchParams]);
 
   useEffect(() => {
@@ -511,8 +514,35 @@ function AdminPanel() {
               {/* User List */}
               <Box sx={{ mt: 4 }}>
                 <Typography variant="h6" gutterBottom>User List</Typography>
+                <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+                  <TextField
+                    size="small"
+                    label="Search Users"
+                    value={userSearch}
+                    onChange={e => setUserSearch(e.target.value.toLowerCase())}
+                  />
+                  <Select
+                    size="small"
+                    value={userRoleFilter}
+                    onChange={e => setUserRoleFilter(e.target.value)}
+                  >
+                    <MenuItem value="all">All Roles</MenuItem>
+                    <MenuItem value="student">Student</MenuItem>
+                    <MenuItem value="teacher">Teacher</MenuItem>
+                    <MenuItem value="admin">Admin</MenuItem>
+                    <MenuItem value="invigilator">Invigilator</MenuItem>
+                  </Select>
+                </Box>
                 <Grid container spacing={2}>
-                  {users.map(user => (
+                  {users
+                    .filter(u => (userRoleFilter === 'all' || u.role === userRoleFilter))
+                    .filter(u => {
+                      const term = userSearch.trim();
+                      if (!term) return true;
+                      const target = `${u.username} ${u.name || ''} ${u.email || ''}`.toLowerCase();
+                      return target.includes(term);
+                    })
+                    .map(user => (
                     <Grid item xs={12} md={6} key={user.id}>
                       <Card>
                         <CardContent>
