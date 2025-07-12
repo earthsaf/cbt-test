@@ -243,17 +243,7 @@ exports.getTeacherAssignments = async (req, res) => {
       where: { teacherId },
       include: [
         { model: Class, attributes: ['id', 'name'] },
-        { model: Subject, attributes: ['id', 'name'] },
-        { 
-          model: Exam, 
-          as: 'exams',
-          attributes: ['id', 'title', 'startTime', 'endTime', 'durationMinutes'],
-          where: {
-            classId: sequelize.col('TeacherClassSubject.classId'),
-            subjectId: sequelize.col('TeacherClassSubject.subjectId')
-          },
-          required: false
-        }
+        { model: Subject, attributes: ['id', 'name'] }
       ]
     });
 
