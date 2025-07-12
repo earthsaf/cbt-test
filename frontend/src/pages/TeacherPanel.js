@@ -467,7 +467,7 @@ function TeacherPanel() {
                     </Grid>
                   </Box>
                 )}
-              </Box>
+              </Card>
             )}
           </Box>
         )}
