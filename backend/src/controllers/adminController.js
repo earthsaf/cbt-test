@@ -1,4 +1,4 @@
-const { User, Class, Exam, Question, Answer, Session, Log, Subject, TeacherClassSubject } = require('../models');
+const { User, Class, Exam, Question, Answer, Session, Log, Subject, TeacherClassSubject, sequelize } = require('../models');
 const { getSocketIO } = require('../services/proctoring');
 const { Op } = require('sequelize');
 

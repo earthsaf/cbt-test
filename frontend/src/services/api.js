@@ -21,11 +21,13 @@ api.interceptors.response.use(
       // Token is invalid or expired
       localStorage.removeItem('token');
       localStorage.removeItem('role');
-      const currentPath = window.location.pathname;
-      // Only redirect if the user is not on an auth page already
-      const authPages = ['/staff-login', '/student-login', '/login'];
-      if (!authPages.includes(currentPath)) {
-        window.location.href = '/';
+      // Detect current route when using HashRouter ("#/staff-login" etc.)
+      const currentHash = (window.location.hash || '').toLowerCase();
+      const authFragments = ['staff-login', 'student-login', 'login'];
+      const onAuthPage = authFragments.some(frag => currentHash.includes(frag));
+      if (!onAuthPage) {
+        // Default to staff-login so user can choose role again
+        window.location.hash = '#/staff-login';
       }
     }
     return Promise.reject(error);
