@@ -258,44 +258,213 @@ function TeacherPanel() {
                 <li key={a.id}>{a.Class?.name} - {a.Subject?.name}</li>
               ))}
             </ul>
-            <form onSubmit={handleUpload} style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-              <Select value={selectedAssignment} onChange={e => setSelectedAssignment(e.target.value)} displayEmpty style={{ minWidth: 200 }}>
-                <MenuItem value="">Select Class & Subject</MenuItem>
-                {assignments.map(a => (
-                  <MenuItem value={a.id} key={a.id}>{a.Class?.name} - {a.Subject?.name}</MenuItem>
-                ))}
-              </Select>
-              <input type="file" onChange={e => setFile(e.target.files[0])} />
-              <Button type="submit" variant="contained">Upload Questions</Button>
-            </form>
-            <Button variant="outlined" sx={{ mt: 2 }} onClick={() => setShowManualForm(v => !v)} disabled={!selectedAssignment}>
-              {showManualForm ? 'Hide Manual Entry' : 'Add Questions Manually'}
-            </Button>
-            {showManualForm && (
-              <Box sx={{ mt: 2, p: 2, border: '1px solid #ccc', borderRadius: 2 }}>
-                <Typography variant="subtitle1">Manual Question Entry</Typography>
-                <TextField label="Question" fullWidth value={newQ.text} onChange={e => setNewQ({ ...newQ, text: e.target.value })} sx={{ mb: 1 }} />
-                <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
-                  {['a', 'b', 'c', 'd'].map(opt => (
-                    <TextField key={opt} label={opt.toUpperCase()} value={newQ.options[opt]} onChange={e => setNewQ({ ...newQ, options: { ...newQ.options, [opt]: e.target.value } })} />
+            <Card sx={{ p: 3, mb: 3, boxShadow: 3 }}>
+              <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 2 }}>Upload Questions</Typography>
+              
+              <Box sx={{ mb: 3, p: 3, border: '2px dashed #bdbdbd', borderRadius: 2, textAlign: 'center', bgcolor: 'background.paper' }} 
+                   onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                   onDrop={(e) => {
+                     e.preventDefault();
+                     e.stopPropagation();
+                     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                       setFile(e.dataTransfer.files[0]);
+                     }
+                   }}
+              >
+                <Upload sx={{ fontSize: 40, color: 'primary.main', mb: 1 }} />
+                <Typography variant="body1" gutterBottom>
+                  <strong>Drag & drop your file here</strong>
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  or
+                </Typography>
+                <Button
+                  variant="outlined"
+                  component="label"
+                  sx={{ textTransform: 'none' }}
+                >
+                  Choose File
+                  <input
+                    type="file"
+                    hidden
+                    onChange={(e) => setFile(e.target.files?.[0] || null)}
+                  />
+                </Button>
+                {file && (
+                  <Typography variant="body2" sx={{ mt: 2, color: 'success.main' }}>
+                    <strong>Selected:</strong> {file.name}
+                  </Typography>
+                )}
+              </Box>
+
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="subtitle2" gutterBottom>Select Assignment</Typography>
+                <Select 
+                  fullWidth
+                  value={selectedAssignment} 
+                  onChange={e => setSelectedAssignment(e.target.value)} 
+                  displayEmpty
+                  size="small"
+                  sx={{ mb: 2 }}
+                >
+                  <MenuItem value="">
+                    <em>Select an assignment</em>
+                  </MenuItem>
+                  {assignments.map(a => (
+                    <MenuItem value={a.id} key={a.id}>
+                      {a.Class?.name} - {a.Subject?.name}
+                    </MenuItem>
                   ))}
-                </Box>
-                <TextField label="Answer (a/b/c/d)" value={newQ.answer} onChange={e => setNewQ({ ...newQ, answer: e.target.value })} sx={{ mb: 1 }} />
-                <Button onClick={handleAddManualQuestion} variant="contained" sx={{ mb: 2 }}>Add Question</Button>
-                {manualQuestions.length > 0 && (
-                  <Box sx={{ mb: 2 }}>
-                    <Typography>Questions to Add:</Typography>
-                    {manualQuestions.map((q, idx) => (
-                      <Card key={idx} sx={{ mb: 1 }}>
-                        <CardContent>
-                          <Typography><b>{q.text}</b></Typography>
-                          <Typography>a. {q.options.a}  b. {q.options.b}  c. {q.options.c}  d. {q.options.d}</Typography>
-                          <Typography>Answer: {q.answer}</Typography>
-                          <Button color="error" onClick={() => handleRemoveManualQuestion(idx)}>Remove</Button>
-                        </CardContent>
-                      </Card>
+                </Select>
+              </Box>
+
+              <Button 
+                fullWidth 
+                variant="contained" 
+                onClick={handleUpload}
+                disabled={!selectedAssignment || !file}
+                size="large"
+                startIcon={<Upload />}
+              >
+                Upload Questions
+              </Button>
+
+              <Divider sx={{ my: 3 }}>
+                <Typography variant="body2" color="text.secondary">OR</Typography>
+              </Divider>
+
+              <Button 
+                fullWidth 
+                variant="outlined" 
+                onClick={() => setShowManualForm(v => !v)} 
+                disabled={!selectedAssignment}
+                startIcon={<Add />}
+              >
+                {showManualForm ? 'Hide Manual Entry' : 'Add Questions Manually'}
+              </Button>
+            </Card>
+            {showManualForm && (
+              <Card sx={{ mt: 2, p: 3, boxShadow: 3 }}>
+                <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 3 }}>Add Questions Manually</Typography>
+                
+                <Box sx={{ mb: 3, p: 3, bgcolor: 'grey.50', borderRadius: 2 }}>
+                  <Typography variant="subtitle2" gutterBottom>New Question</Typography>
+                  <TextField 
+                    label="Question Text" 
+                    fullWidth 
+                    value={newQ.text} 
+                    onChange={e => setNewQ({ ...newQ, text: e.target.value })} 
+                    multiline
+                    rows={3}
+                    sx={{ mb: 2 }}
+                  />
+                  
+                  <Grid container spacing={2} sx={{ mb: 2 }}>
+                    {['a', 'b', 'c', 'd'].map(opt => (
+                      <Grid item xs={12} sm={6} key={opt}>
+                        <TextField 
+                          fullWidth
+                          label={`Option ${opt.toUpperCase()}`} 
+                          value={newQ.options[opt]} 
+                          onChange={e => setNewQ({ ...newQ, options: { ...newQ.options, [opt]: e.target.value } })}
+                          size="small"
+                          InputProps={{
+                            startAdornment: (
+                              <Typography variant="body2" sx={{ mr: 1, color: 'text.secondary', minWidth: '24px' }}>
+                                {opt.toUpperCase()}.
+                              </Typography>
+                            ),
+                          }}
+                        />
+                      </Grid>
                     ))}
-                    <Button variant="contained" color="success" onClick={handleSubmitManualQuestions} disabled={submittingManual}>Submit All</Button>
+                  </Grid>
+                  
+                  <Select 
+                    fullWidth
+                    value={newQ.answer || ''}
+                    onChange={e => setNewQ({ ...newQ, answer: e.target.value })}
+                    displayEmpty
+                    size="small"
+                    sx={{ mb: 2 }}
+                  >
+                    <MenuItem value="">
+                      <em>Select correct answer</em>
+                    </MenuItem>
+                    {['a', 'b', 'c', 'd'].map(opt => (
+                      <MenuItem value={opt} key={opt}>
+                        Option {opt.toUpperCase()}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                  
+                  <Button 
+                    variant="contained" 
+                    onClick={handleAddManualQuestion}
+                    disabled={!newQ.text || !newQ.options.a || !newQ.options.b || !newQ.options.c || !newQ.options.d || !newQ.answer}
+                    fullWidth
+                  >
+                    Add Question
+                  </Button>
+                </Box>
+                
+                {manualQuestions.length > 0 && (
+                  <Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                      <Typography variant="subtitle1">Questions to Add ({manualQuestions.length})</Typography>
+                      <Button 
+                        variant="contained" 
+                        color="success" 
+                        onClick={handleSubmitManualQuestions} 
+                        disabled={submittingManual}
+                        startIcon={<Upload />}
+                      >
+                        {submittingManual ? 'Submitting...' : 'Submit All Questions'}
+                      </Button>
+                    </Box>
+                    
+                    <Grid container spacing={2}>
+                      {manualQuestions.map((q, idx) => (
+                        <Grid item xs={12} sm={6} key={idx}>
+                          <Card variant="outlined">
+                            <CardContent>
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                <Typography variant="subtitle2" sx={{ fontWeight: 500, mb: 1 }}>
+                                  Question {idx + 1}
+                                </Typography>
+                                <IconButton 
+                                  size="small" 
+                                  color="error" 
+                                  onClick={() => handleRemoveManualQuestion(idx)}
+                                  sx={{ mt: -1, mr: -1 }}
+                                >
+                                  <Delete fontSize="small" />
+                                </IconButton>
+                              </Box>
+                              <Typography variant="body2" sx={{ mb: 1, whiteSpace: 'pre-wrap' }}>{q.text}</Typography>
+                              <Box sx={{ pl: 1 }}>
+                                {Object.entries(q.options).map(([opt, text]) => (
+                                  <Typography 
+                                    key={opt} 
+                                    variant="body2" 
+                                    sx={{ 
+                                      color: q.answer === opt ? 'success.main' : 'text.primary',
+                                      fontWeight: q.answer === opt ? 600 : 'normal',
+                                      display: 'flex',
+                                      alignItems: 'flex-start',
+                                      mb: 0.5
+                                    }}
+                                  >
+                                    <Box component="span" sx={{ minWidth: '24px' }}>{opt.toUpperCase()}.</Box>
+                                    <Box component="span">{text}</Box>
+                                  </Typography>
+                                ))}
+                              </Box>
+                            </CardContent>
+                          </Card>
+                        </Grid>
+                      ))}
+                    </Grid>
                   </Box>
                 )}
               </Box>
