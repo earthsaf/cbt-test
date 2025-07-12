@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { useAuth } from '../contexts/AuthContext';
 
 const roles = [
   { value: 'teacher', label: 'Teacher', color: '#1976d2' },
@@ -13,24 +13,37 @@ function StaffLogin() {
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('teacher');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { user, login } = useAuth();
   const navigate = useNavigate();
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      if (user.role === 'admin') navigate('/admin');
+      else if (user.role === 'teacher') navigate('/teacher');
+      else if (user.role === 'invigilator') navigate('/proctor');
+    }
+  }, [user, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
+    
     try {
-      const apiUrl = process.env.REACT_APP_API_URL || '/api';
-      const res = await axios.post(`${apiUrl}/auth/login`, { username, password, role });
-      if (res.data && res.data.success) {
-        // Cookie is set by backend; no need to check for token in response
-        if (role === 'admin') navigate('/admin');
-        else if (role === 'teacher') navigate('/teacher');
-        else if (role === 'invigilator') navigate('/proctor');
+      const result = await login({ username, password, role });
+      if (result.success) {
+        // The AuthProvider will handle the redirection based on user role
+        return;
       } else {
-        setError('Login failed.');
+        setError(result.error || 'Login failed. Please check your credentials.');
       }
     } catch (err) {
-      setError('Login failed');
+      setError('An error occurred during login. Please try again.');
+      console.error('Login error:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -135,25 +148,38 @@ function StaffLogin() {
           />
           <button
             type="submit"
+            disabled={loading}
             style={{
               width: '100%',
               padding: '12px 0',
-              background: '#23243a',
-              color: '#fff',
-              fontWeight: 800,
-              fontSize: 18,
-              border: 'none',
               borderRadius: 8,
-              cursor: 'pointer',
-              marginTop: 8,
-              marginBottom: 8,
-              fontFamily: 'inherit',
-              letterSpacing: 1,
-              transition: 'background 0.2s',
+              background: loading ? '#b0b3c6' : '#1976d2',
+              color: 'white',
+              border: 'none',
+              fontSize: 16,
+              fontWeight: 700,
+              cursor: loading ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s',
+              marginTop: 20,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
             }}
-            onMouseOver={e => e.target.style.background = '#2d3559'}
-            onMouseOut={e => e.target.style.background = '#23243a'}
           >
+            {loading ? (
+              <>
+                <span>Signing in...</span>
+                <div className="spinner" style={{
+                  width: '16px',
+                  height: '16px',
+                  border: '2px solid rgba(255, 255, 255, 0.3)',
+                  borderRadius: '50%',
+                  borderTopColor: '#fff',
+                  animation: 'spin 1s ease-in-out infinite',
+                }} />
+              </>
+            ) : 'Sign In'}
             Login as {role.charAt(0).toUpperCase() + role.slice(1)}
           </button>
           {error && <div style={{ color: 'crimson', marginTop: 8, fontWeight: 500 }}>{error}</div>}
