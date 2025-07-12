@@ -27,6 +27,9 @@ router.get('/exams/invigilator-code', requireAuth, requireRole('admin'), admin.g
 router.get('/profile', requireAuth, admin.getProfile);
 router.put('/profile', requireAuth, admin.updateProfile);
 
+// Teacher routes
+router.get('/my-assignments', requireAuth, requireRole('teacher'), admin.getTeacherAssignments);
+
 // New: Subject management
 router.get('/subjects', requireAuth, requireRole('admin'), admin.listSubjects);
 router.post('/subjects', requireAuth, requireRole('admin'), admin.addSubject);

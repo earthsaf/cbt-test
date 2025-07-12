@@ -77,6 +77,11 @@ function TeacherPanel() {
 
   useEffect(() => {
     // Check authentication
+    if (user === null) {
+      // Still loading user data
+      return;
+    }
+
     if (!user || user.role !== 'teacher') {
       navigate('/login');
       return;
@@ -86,16 +91,39 @@ function TeacherPanel() {
     const fetchTeacherData = async () => {
       try {
         setLoading(prev => ({ ...prev, assignments: true }));
+        
+        // Fetch teacher's assignments and students in parallel
         const [assignmentsRes, studentsRes] = await Promise.all([
-          api.get('/admin/teacher-assignments'),
-          api.get('/admin/users')
+          api.get('/admin/my-assignments').catch(err => {
+            console.error('Error fetching assignments:', err);
+            return { data: [] }; // Return empty array if endpoint fails
+          }),
+          api.get('/users?role=student').catch(err => {
+            console.error('Error fetching students:', err);
+            return { data: [] }; // Return empty array if endpoint fails
+          })
         ]);
 
-        setAssignments(assignmentsRes.data.filter(a => a.teacher?.id === user.id));
-        setStudents(studentsRes.data.filter(u => u.role === 'student'));
+        console.log('Assignments data:', assignmentsRes.data);
+        
+        // Transform assignments data to match expected format
+        const formattedAssignments = Array.isArray(assignmentsRes.data) 
+          ? assignmentsRes.data.map(assignment => ({
+              ...assignment,
+              id: assignment.id,
+              classId: assignment.Class?.id,
+              className: assignment.Class?.name,
+              subjectId: assignment.Subject?.id,
+              subjectName: assignment.Subject?.name,
+              exams: assignment.exams || []
+            }))
+          : [];
+          
+        setAssignments(formattedAssignments);
+        setStudents(studentsRes.data || []);
       } catch (error) {
-        console.error('Error fetching teacher data:', error);
-        toast.error(t('error.fetching_data'));
+        console.error('Error in fetchTeacherData:', error);
+        toast.error('Error loading teacher data. Please try again.');
       } finally {
         setLoading(prev => ({ ...prev, assignments: false }));
       }

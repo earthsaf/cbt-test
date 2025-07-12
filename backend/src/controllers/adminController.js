@@ -224,6 +224,35 @@ exports.removeTeacherAssignment = async (req, res) => {
   res.json({ ok: true });
 };
 
+exports.getTeacherAssignments = async (req, res) => {
+  try {
+    const teacherId = req.user.id;
+    
+    const assignments = await TeacherClassSubject.findAll({
+      where: { teacherId },
+      include: [
+        { model: Class, attributes: ['id', 'name'] },
+        { model: Subject, attributes: ['id', 'name'] },
+        { 
+          model: Exam, 
+          as: 'exams',
+          attributes: ['id', 'title', 'startTime', 'endTime', 'durationMinutes'],
+          where: {
+            classId: sequelize.col('TeacherClassSubject.classId'),
+            subjectId: sequelize.col('TeacherClassSubject.subjectId')
+          },
+          required: false
+        }
+      ]
+    });
+
+    res.json(assignments);
+  } catch (error) {
+    console.error('Error fetching teacher assignments:', error);
+    res.status(500).json({ error: 'Failed to fetch teacher assignments' });
+  }
+};
+
 exports.uploadQuestions = async (req, res) => {
   const { assignmentId } = req.body;
   const file = req.file;
