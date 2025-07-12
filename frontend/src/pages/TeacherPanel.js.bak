@@ -1,29 +1,30 @@
 // Only accessible by teachers. Teacher dashboard for managing exams, students, and analytics.
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { format } from 'date-fns';
-import { useTranslation } from 'react-i18next';
-import {
-  Box, Button, Card, CardContent, Divider, Grid, IconButton, Paper, Tab, Tabs, TextField, Typography, AppBar, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, CircularProgress, Snackbar, Alert, FormControl, InputLabel, Select, MenuItem, Radio, RadioGroup
-} from '@mui/material';
-import { DataGrid } from '@mui/x-data-grid';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import api from '../services/api';
+import { AppBar, Tabs, Tab, Box, Typography, Card, CardContent, Button, Grid, Snackbar, Alert, Select, MenuItem, TextField, 
+  Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, IconButton, Modal, Backdrop, Fade, 
+  CircularProgress, Stack, AlertTitle, Avatar, Chip, Divider } from '@mui/material';
+import { Bar } from 'react-chartjs-2';
 import { 
-  Add as AddIcon, 
-  Delete as DeleteIcon, 
-  Edit as EditIcon, 
-  Upload as UploadIcon, 
-  Download as DownloadIcon,
-  Book,
+  Upload, 
+  Edit, 
+  Delete, 
+  Add, 
+  Person, 
+  Analytics, 
+  Book, 
   Group,
-  Analytics
+  ArrowBack,
+  Save
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import api from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '@mui/material/styles';
+import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { useTranslation } from 'react-i18next';
 import QuestionForm from '../components/QuestionForm';
 import QuestionList from '../components/QuestionList';
 import ProfileCard from '../components/ProfileCard';
@@ -73,6 +74,7 @@ function TeacherPanel() {
     options: { a: '', b: '', c: '', d: '' },
     answer: ''
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeStep, setActiveStep] = useState(0); // 0: select assignment, 1: add questions
 
   useEffect(() => {
@@ -175,11 +177,11 @@ function TeacherPanel() {
     else setQuestions([]);
   }, [selectedAssignment]);
 
-  const handleEdit = (question) => {
-    setEditingQuestion(question.id);
-    setEditText(question.text);
-    setEditOptions(question.options || { a: '', b: '', c: '', d: '' });
-    setEditAnswer(question.answer || '');
+  const handleEdit = (q) => {
+    setEditingQuestion(q.id);
+    setEditText(q.text);
+    setEditOptions(q.options || { a: '', b: '', c: '', d: '' });
+    setEditAnswer(q.answer || '');
   };
 
   const handleEditSave = async () => {
@@ -190,25 +192,22 @@ function TeacherPanel() {
       await api.put(`/admin/questions/${editingQuestion}`, {
         text: editText,
         options: editOptions,
-        answer: editAnswer
+        answer: editAnswer,
       });
       
-      // Refresh questions
-      const res = await api.get(`/admin/assignment-questions/${selectedAssignment}`);
-      setQuestions(res.data || []);
-      
+      await fetchQuestions(selectedAssignment);
       setEditingQuestion(null);
-      setSnack({
-        open: true,
-        message: 'Question updated successfully',
-        severity: 'success'
+      setSnack({ 
+        open: true, 
+        message: 'Question updated successfully', 
+        severity: 'success' 
       });
     } catch (error) {
       console.error('Error updating question:', error);
-      setSnack({
-        open: true,
-        message: error.response?.data?.message || 'Failed to update question',
-        severity: 'error'
+      setSnack({ 
+        open: true, 
+        message: error.response?.data?.message || 'Failed to update question', 
+        severity: 'error' 
       });
     } finally {
       setLoading(prev => ({ ...prev, questions: false }));
@@ -221,22 +220,18 @@ function TeacherPanel() {
     try {
       setLoading(prev => ({ ...prev, questions: true }));
       await api.delete(`/admin/questions/${id}`);
-      
-      // Refresh questions
-      const res = await api.get(`/admin/assignment-questions/${selectedAssignment}`);
-      setQuestions(res.data || []);
-      
-      setSnack({
-        open: true,
-        message: 'Question deleted successfully',
-        severity: 'success'
+      await fetchQuestions(selectedAssignment);
+      setSnack({ 
+        open: true, 
+        message: 'Question deleted successfully', 
+        severity: 'success' 
       });
     } catch (error) {
       console.error('Error deleting question:', error);
-      setSnack({
-        open: true,
-        message: error.response?.data?.message || 'Failed to delete question',
-        severity: 'error'
+      setSnack({ 
+        open: true, 
+        message: error.response?.data?.message || 'Failed to delete question', 
+        severity: 'error' 
       });
     } finally {
       setLoading(prev => ({ ...prev, questions: false }));
@@ -249,19 +244,18 @@ function TeacherPanel() {
     try {
       setLoading(prev => ({ ...prev, questions: true }));
       await api.delete(`/admin/assignment-questions/${selectedAssignment}`);
-      
-      setQuestions([]);
-      setSnack({
-        open: true,
-        message: 'All questions have been deleted',
-        severity: 'success'
+      await fetchQuestions(selectedAssignment);
+      setSnack({ 
+        open: true, 
+        message: 'All questions have been deleted', 
+        severity: 'success' 
       });
     } catch (error) {
       console.error('Error deleting all questions:', error);
-      setSnack({
-        open: true,
-        message: error.response?.data?.message || 'Failed to delete questions',
-        severity: 'error'
+      setSnack({ 
+        open: true, 
+        message: error.response?.data?.message || 'Failed to delete questions', 
+        severity: 'error' 
       });
     } finally {
       setLoading(prev => ({ ...prev, questions: false }));
@@ -271,68 +265,137 @@ function TeacherPanel() {
   const handleAddQuestion = async () => {
     if (!currentQuestion.text || !currentQuestion.options.a || !currentQuestion.options.b || 
         !currentQuestion.options.c || !currentQuestion.options.d || !currentQuestion.answer) {
-      setSnack({ 
-        open: true, 
-        message: 'Please fill in all fields', 
-        severity: 'error' 
-      });
+      setSnack({ open: true, message: 'Please fill in all fields', severity: 'error' });
       return;
     }
     
     try {
-      setLoading(prev => ({ ...prev, questions: true }));
+      setIsSubmitting(true);
       await api.post(`/admin/assignment-questions/${selectedAssignment}`, {
-        text: currentQuestion.text,
-        options: currentQuestion.options,
-        answer: currentQuestion.answer
-      });
-      
-      // Reset form
-      setCurrentQuestion({
-        text: '',
-        options: { a: '', b: '', c: '', d: '' },
-        answer: ''
-      });
-      
-      // Refresh questions
-      const res = await api.get(`/admin/assignment-questions/${selectedAssignment}`);
-      setQuestions(res.data || []);
-      
-      setSnack({ 
-        open: true, 
-        message: 'Question added successfully', 
-        severity: 'success' 
-      });
-    } catch (error) {
-      console.error('Error adding question:', error);
-      setSnack({ 
-        open: true, 
-        message: error.response?.data?.message || 'Failed to add question', 
-        severity: 'error' 
-      });
-    } finally {
-      setLoading(prev => ({ ...prev, questions: false }));
-    }
-  };
 
-  return (
-    <Box sx={{ flexGrow: 1, p: 3 }}>
-      <AppBar position="static" color="default" elevation={1}>
-        <Tabs
-          value={activeTab}
-          onChange={(e, newValue) => setActiveTab(newValue)}
-          indicatorColor="primary"
-          textColor="primary"
-          variant="fullWidth"
-          sx={{
-            '& .MuiTabs-flexContainer': {
-              justifyContent: 'space-around',
-            },
-          }}
-        >
-          <Tab value="assignments" label="Assignments" icon={<Book />} iconPosition="start" sx={{ minHeight: 64 }} />
-          <Tab value="students" label="Students" icon={<Book />} iconPosition="start" sx={{ minHeight: 64 }} />
-          <Tab value="analytics" label="Analytics" icon={<Book />} iconPosition="start" sx={{ minHeight: 64 }} />
+useEffect(() => {
+  if (selectedAssignment) fetchQuestions(selectedAssignment);
+  else setQuestions([]);
+}, [selectedAssignment]);
+
+const handleEdit = (q) => {
+  setEditingQuestion(q.id);
+  setEditText(q.text);
+  setEditOptions(q.options || { a: '', b: '', c: '', d: '' });
+  setEditAnswer(q.answer || '');
+};
+
+const handleEditSave = async () => {
+  if (!editingQuestion) return;
+  
+  try {
+    setLoading(prev => ({ ...prev, questions: true }));
+    await api.put(`/admin/questions/${editingQuestion}`, {
+      text: editText,
+      options: editOptions,
+      answer: editAnswer,
+    });
+    
+    await fetchQuestions(selectedAssignment);
+    setEditingQuestion(null);
+    setSnack({ 
+      open: true, 
+      message: 'Question updated successfully', 
+      severity: 'success' 
+    });
+  } catch (error) {
+    console.error('Error updating question:', error);
+    setSnack({ 
+      open: true, 
+      message: error.response?.data?.message || 'Failed to update question', 
+      severity: 'error' 
+    });
+  } finally {
+    setLoading(prev => ({ ...prev, questions: false }));
+  }
+};
+
+const handleDelete = async (id) => {
+  if (!window.confirm('Are you sure you want to delete this question?')) return;
+  
+  try {
+    setLoading(prev => ({ ...prev, questions: true }));
+    await api.delete(`/admin/questions/${id}`);
+    await fetchQuestions(selectedAssignment);
+    setSnack({ 
+      open: true, 
+      message: 'Question deleted successfully', 
+      severity: 'success' 
+    });
+  } catch (error) {
+    console.error('Error deleting question:', error);
+    setSnack({ 
+      open: true, 
+      message: error.response?.data?.message || 'Failed to delete question', 
+      severity: 'error' 
+    });
+  } finally {
+    setLoading(prev => ({ ...prev, questions: false }));
+  }
+};
+
+const handleDeleteAll = async () => {
+  if (!window.confirm('Are you sure you want to delete all questions? This action cannot be undone.')) return;
+  
+  try {
+    setLoading(prev => ({ ...prev, questions: true }));
+    await api.delete(`/admin/assignment-questions/${selectedAssignment}`);
+    await fetchQuestions(selectedAssignment);
+    setSnack({ 
+      open: true, 
+      message: 'All questions have been deleted', 
+      severity: 'success' 
+    });
+  } catch (error) {
+    console.error('Error deleting all questions:', error);
+    setSnack({ 
+      open: true, 
+      message: error.response?.data?.message || 'Failed to delete questions', 
+      severity: 'error' 
+    });
+  } finally {
+    setLoading(prev => ({ ...prev, questions: false }));
+  }
+};
+
+const handleAddQuestion = async () => {
+  if (!currentQuestion.text || !currentQuestion.options.a || !currentQuestion.options.b || 
+      !currentQuestion.options.c || !currentQuestion.options.d || !currentQuestion.answer) {
+    setSnack({ open: true, message: 'Please fill in all fields', severity: 'error' });
+    return;
+  }
+  
+  try {
+    setIsSubmitting(true);
+    await api.post(`/admin/assignment-questions/${selectedAssignment}`, {
+      text: currentQuestion.text,
+      options: currentQuestion.options,
+      answer: currentQuestion.answer
+    });
+    
+    setSnack({ open: true, message: 'Question added successfully', severity: 'success' });
+    setCurrentQuestion({
+      text: '',
+      options: { a: '', b: '', c: '', d: '' },
+      answer: ''
+    });
+    fetchQuestions(selectedAssignment);
+  } catch (error) {
+    console.error('Error adding question:', error);
+    setSnack({ 
+      open: true, 
+      message: error.response?.data?.message || 'Failed to add question', 
+      severity: 'error' 
+    });
+  } finally {
+    setIsSubmitting(false);
+  }
+};
         </Tabs>
       </AppBar>
       <Box sx={{ mt: 3 }}>
@@ -521,6 +584,51 @@ function TeacherPanel() {
                     Add Question
                   </Button>
                 </Box>
+                    
+                    <Grid container spacing={2} sx={{ mt: 2 }}>
+                      {manualQuestions.map((q, idx) => (
+                        <Grid item xs={12} sm={6} key={idx}>
+                          <Card variant="outlined">
+                            <CardContent>
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                <Typography variant="subtitle2" sx={{ fontWeight: 500, mb: 1 }}>
+                                  Question {idx + 1}
+                                </Typography>
+                                <IconButton 
+                                  size="small" 
+                                  color="error" 
+                                  onClick={() => handleRemoveManualQuestion(idx)}
+                                  sx={{ mt: -1, mr: -1 }}
+                                >
+                                  <Delete fontSize="small" />
+                                </IconButton>
+                              </Box>
+                              <Typography variant="body2" sx={{ mb: 1, whiteSpace: 'pre-wrap' }}>{q.text}</Typography>
+                              <Box sx={{ pl: 1 }}>
+                                {Object.entries(q.options).map(([opt, text]) => (
+                                  <Typography 
+                                    key={opt} 
+                                    variant="body2" 
+                                    sx={{ 
+                                      color: q.answer === opt ? 'success.main' : 'text.primary',
+                                      fontWeight: q.answer === opt ? 600 : 'normal',
+                                      display: 'flex',
+                                      alignItems: 'flex-start',
+                                      mb: 0.5
+                                    }}
+                                  >
+                                    <Box component="span" sx={{ minWidth: '24px' }}>{opt.toUpperCase()}.</Box>
+                                    <Box component="span">{text}</Box>
+                                  </Typography>
+                                ))}
+                              </Box>
+                            </CardContent>
+                          </Card>
+                        </Grid>
+                      ))}
+                    </Grid>
+                  </Box>
+                )}
               </Card>
             )}
           </Box>
