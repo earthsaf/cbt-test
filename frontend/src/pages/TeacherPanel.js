@@ -302,7 +302,7 @@ function TeacherPanel() {
         !currentQuestion.options.c || !currentQuestion.options.d || !currentQuestion.answer) {
       setSnack({ 
         open: true, 
-        message: 'Please fill in all fields', 
+        message: 'Please fill in all fields and select the correct answer', 
         severity: 'error' 
       });
       return;
@@ -310,11 +310,45 @@ function TeacherPanel() {
     
     try {
       setLoading(prev => ({ ...prev, questions: true }));
-      await api.post(`/admin/assignment-questions/${selectedAssignment}`, {
+      
+      // First, find or create the exam for this assignment
+      const assignment = assignments.find(a => a.id === selectedAssignment);
+      if (!assignment) throw new Error('Assignment not found');
+      
+      // Check if exam exists for this assignment
+      let exam = assignment.exams?.[0];
+      
+      // If no exam exists, create one
+      if (!exam) {
+        const examRes = await api.post('/admin/exams', {
+          title: `Exam - ${assignment.Class?.name} - ${assignment.Subject?.name}`,
+          classId: assignment.classId,
+          subjectId: assignment.subjectId,
+          status: 'draft'
+        });
+        exam = examRes.data;
+        
+        // Update the assignments list with the new exam
+        setAssignments(prev => 
+          prev.map(a => 
+            a.id === selectedAssignment 
+              ? { 
+                  ...a, 
+                  exams: [exam],
+                  examId: exam.id 
+                } 
+              : a
+          )
+        );
+      }
+      
+      // Now add the question to the exam
+      await api.post(`/admin/exams/${exam.id}/questions`, [{
         text: currentQuestion.text,
         options: currentQuestion.options,
-        answer: currentQuestion.answer
-      });
+        answer: currentQuestion.answer,
+        type: 'mcq'
+      }]);
       
       // Reset form
       setCurrentQuestion({
@@ -324,20 +358,25 @@ function TeacherPanel() {
       });
       
       // Refresh questions
-      const res = await api.get(`/admin/assignment-questions/${selectedAssignment}`);
-      setQuestions(res.data || []);
+      const questionsRes = await api.get(`/admin/assignment-questions/${selectedAssignment}`);
+      setQuestions(questionsRes.data || []);
       
       setSnack({ 
         open: true, 
         message: 'Question added successfully', 
         severity: 'success' 
       });
+      
     } catch (error) {
       console.error('Error adding question:', error);
+      const errorMessage = error.response?.data?.message || 'Failed to add question';
+      console.log('Full error response:', error.response);
+      
       setSnack({ 
         open: true, 
-        message: error.response?.data?.message || 'Failed to add question', 
-        severity: 'error' 
+        message: `Error: ${errorMessage}`,
+        severity: 'error',
+        autoHideDuration: 5000
       });
     } finally {
       setLoading(prev => ({ ...prev, questions: false }));
@@ -480,78 +519,192 @@ function TeacherPanel() {
                 </Box>
 
                 {/* Add Question Form */}
-                <Box sx={{ p: 3, borderTop: '1px solid #eee' }}>
-                  <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 500 }}>
-                    Add New Question
-                  </Typography>
+                <Box sx={{ p: 3, bgcolor: 'background.paper', borderRadius: 1 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                    <Box>
+                      <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>Add New Question</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {questions.length < 5 ? (
+                          <span style={{ color: '#d32f2f' }}>Minimum {5 - questions.length} more question{questions.length === 4 ? '' : 's'} required</span>
+                        ) : questions.length >= 80 ? (
+                          <span style={{ color: '#d32f2f' }}>Maximum 80 questions reached</span>
+                        ) : (
+                          `${questions.length} of 80 questions added`
+                        )}
+                      </Typography>
+                    </Box>
+                    <Chip 
+                      label={`${questions.length} / 80`} 
+                      color={
+                        questions.length < 5 ? 'error' : 
+                        questions.length >= 80 ? 'error' : 'primary'
+                      } 
+                      variant={
+                        questions.length < 5 ? 'filled' : 
+                        questions.length >= 80 ? 'filled' : 'outlined'
+                      }
+                      size="small"
+                      sx={{ 
+                        fontWeight: 600,
+                        minWidth: '80px',
+                        justifyContent: 'center'
+                      }}
+                    />
+                  </Box>
                   
-                  <TextField
-                    fullWidth
-                    multiline
-                    rows={2}
-                    placeholder="Type your question here..."
-                    value={currentQuestion.text}
-                    onChange={(e) => setCurrentQuestion({...currentQuestion, text: e.target.value})}
-                    sx={{ mb: 2 }}
-                  />
+                  <Paper variant="outlined" sx={{ p: 2, mb: 3, borderRadius: 1 }}>
+                    <TextField
+                      fullWidth
+                      multiline
+                      rows={3}
+                      placeholder="Type your question here..."
+                      value={currentQuestion.text}
+                      onChange={(e) => setCurrentQuestion({...currentQuestion, text: e.target.value})}
+                      variant="outlined"
+                      sx={{ mb: 3 }}
+                      InputProps={{
+                        style: { fontSize: '1.05rem' },
+                        '&:hover': {
+                          borderColor: 'primary.main',
+                        },
+                      }}
+                    />
 
-                  <Grid container spacing={2} sx={{ mb: 2 }}>
-                    {['a', 'b', 'c', 'd'].map(opt => (
-                      <Grid item xs={12} sm={6} key={opt}>
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <Box sx={{ 
-                            width: 12, 
-                            height: 12, 
-                            borderRadius: '50%', 
-                            bgcolor: 'primary.main',
-                            mr: 1
-                          }} />
-                        </Box>
-                        <TextField
-                          fullWidth
-                          variant="outlined"
-                          label={`Option ${opt.toUpperCase()}`} 
-                          value={currentQuestion.options[opt]} 
-                          onChange={e => setCurrentQuestion({ ...currentQuestion, options: { ...currentQuestion.options, [opt]: e.target.value } })}
-                          size="small"
-                          InputProps={{
-                            startAdornment: (
-                              <Typography variant="body2" sx={{ mr: 1, color: 'text.secondary', minWidth: '24px' }}>
+                    <Grid container spacing={2}>
+                      {['a', 'b', 'c', 'd'].map(opt => (
+                        <Grid item xs={12} sm={6} key={opt}>
+                          <Paper 
+                            variant="outlined"
+                            sx={{
+                              p: 1.5,
+                              borderRadius: 1,
+                              border: '1px solid',
+                              borderColor: currentQuestion.answer === opt ? 'primary.main' : 'divider',
+                              bgcolor: currentQuestion.answer === opt ? 'primary.lighter' : 'background.paper',
+                              transition: 'all 0.2s',
+                              '&:hover': {
+                                borderColor: 'primary.main',
+                                boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                              },
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center'
+                            }}
+                            onClick={() => setCurrentQuestion({ ...currentQuestion, answer: opt })}
+                          >
+                            <Radio
+                              checked={currentQuestion.answer === opt}
+                              value={opt}
+                              name="answer-radio"
+                              size="small"
+                              sx={{ mr: 1 }}
+                            />
+                            <Box sx={{ flex: 1, display: 'flex', alignItems: 'center' }}>
+                              <Typography 
+                                variant="body2" 
+                                sx={{ 
+                                  fontWeight: 500, 
+                                  color: 'text.primary',
+                                  mr: 1,
+                                  minWidth: '20px',
+                                  textAlign: 'center'
+                                }}
+                              >
                                 {opt.toUpperCase()}.
                               </Typography>
-                            ),
-                          }}
-                        />
-                      </Grid>
-                    ))}
-                  </Grid>
-                  
-                  <Select 
-                    fullWidth
-                    value={currentQuestion.answer || ''}
-                    onChange={e => setCurrentQuestion({ ...currentQuestion, answer: e.target.value })}
-                    displayEmpty
-                    size="small"
-                    sx={{ mb: 2 }}
-                  >
-                    <MenuItem value="">
-                      <em>Select correct answer</em>
-                    </MenuItem>
-                    {['a', 'b', 'c', 'd'].map(opt => (
-                      <MenuItem value={opt} key={opt}>
-                        Option {opt.toUpperCase()}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                  
-                  <Button 
-                    variant="contained" 
-                    onClick={handleAddQuestion}
-                    disabled={!currentQuestion.text || !currentQuestion.options.a || !currentQuestion.options.b || !currentQuestion.options.c || !currentQuestion.options.d || !currentQuestion.answer}
-                    fullWidth
-                  >
-                    Add Question
-                  </Button>
+                              <TextField
+                                fullWidth
+                                variant="standard"
+                                placeholder={`Option ${opt.toUpperCase()}`}
+                                value={currentQuestion.options[opt]}
+                                onClick={(e) => e.stopPropagation()}
+                                onChange={e => setCurrentQuestion({ 
+                                  ...currentQuestion, 
+                                  options: { 
+                                    ...currentQuestion.options, 
+                                    [opt]: e.target.value 
+                                  } 
+                                })}
+                                InputProps={{
+                                  disableUnderline: true,
+                                  sx: { 
+                                    '& input': { 
+                                      py: 0.5,
+                                      '&::placeholder': {
+                                        color: 'text.secondary',
+                                        opacity: 0.7
+                                      }
+                                    }
+                                  }
+                                }}
+                              />
+                            </Box>
+                          </Paper>
+                        </Grid>
+                      ))}
+                    </Grid>
+                  </Paper>
+
+                  <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+                    <Button
+                      variant="outlined"
+                      onClick={() => {
+                        setCurrentQuestion({
+                          text: '',
+                          options: { a: '', b: '', c: '', d: '' },
+                          answer: ''
+                        });
+                      }}
+                      disabled={loading.questions}
+                    >
+                      Clear
+                    </Button>
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      onClick={handleAddQuestion}
+                      disabled={
+                        loading.questions || 
+                        !currentQuestion.text || 
+                        !currentQuestion.answer || 
+                        !currentQuestion.options.a || 
+                        !currentQuestion.options.b || 
+                        !currentQuestion.options.c || 
+                        !currentQuestion.options.d ||
+                        questions.length >= 80
+                      }
+                      startIcon={loading.questions ? <CircularProgress size={20} /> : <AddIcon />}
+                      sx={{ minWidth: '140px' }}
+                    >
+                      {loading.questions ? 'Adding...' : 'Add Question'}
+                    </Button>
+                    <Button
+                      variant="contained"
+                      color="success"
+                      onClick={() => {
+                        if (questions.length < 5) {
+                          setSnack({
+                            open: true,
+                            message: `You need to add at least ${5 - questions.length} more question${questions.length === 4 ? '' : 's'} before uploading`,
+                            severity: 'error',
+                            autoHideDuration: 5000
+                          });
+                        } else {
+                          // Handle upload to server
+                          setSnack({
+                            open: true,
+                            message: 'Questions uploaded successfully!',
+                            severity: 'success'
+                          });
+                        }
+                      }}
+                      disabled={questions.length < 5 || loading.questions}
+                      startIcon={<UploadIcon />}
+                      sx={{ minWidth: '140px' }}
+                    >
+                      {questions.length < 5 ? `Need ${5 - questions.length} more` : 'Upload Questions'}
+                    </Button>
+                  </Box>
                 </Box>
               </Card>
             )}
