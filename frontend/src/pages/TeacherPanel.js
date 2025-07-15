@@ -759,7 +759,7 @@ function TeacherPanel() {
         <Box sx={{ mt: 3 }}>
           <Typography variant="h6">Preview Questions</Typography>
           <Button color="error" onClick={handleDeleteAll} sx={{ mb: 2 }}>Delete All</Button>
-          {Array.isArray(questions) ? questions.map(q => (
+          {questions.map(q => (
             <Card key={q.id} sx={{ mb: 2 }}>
               <CardContent>
                 {editingQuestion === q.id ? (
