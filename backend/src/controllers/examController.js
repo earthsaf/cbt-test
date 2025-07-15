@@ -1,4 +1,4 @@
-const { Exam, Question, Answer, Class } = require('../models');
+const { Exam, Question, Answer, Class, Subject } = require('../models');
 const { Op } = require('sequelize');
 
 exports.listExams = async (req, res) => {
@@ -15,6 +15,61 @@ exports.listExams = async (req, res) => {
     order: [['startTime', 'DESC']],
   });
   res.json(exams);
+};
+
+exports.createExam = async (req, res) => {
+  const { title, classId, subjectId, status } = req.body;
+  
+  if (!title || !classId || !subjectId || !status) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  try {
+    const exam = await Exam.create({
+      title,
+      ClassId: classId,
+      SubjectId: subjectId,
+      status,
+      startTime: new Date(), // Set current time as start time
+      endTime: new Date(Date.now() + 2 * 60 * 60 * 1000) // Set end time 2 hours from now
+    });
+    
+    res.status(201).json(exam);
+  } catch (error) {
+    console.error('Error creating exam:', error);
+    res.status(500).json({ error: 'Failed to create exam' });
+  }
+};
+
+exports.addQuestions = async (req, res) => {
+  const examId = req.params.id;
+  const questions = req.body;
+
+  if (!questions || !Array.isArray(questions)) {
+    return res.status(400).json({ error: 'Questions must be an array' });
+  }
+
+  try {
+    const exam = await Exam.findByPk(examId);
+    if (!exam) {
+      return res.status(404).json({ error: 'Exam not found' });
+    }
+
+    const createdQuestions = await Promise.all(
+      questions.map(async (q) => {
+        const question = await Question.create({
+          ...q,
+          ExamId: examId
+        });
+        return question;
+      })
+    );
+
+    res.status(201).json(createdQuestions);
+  } catch (error) {
+    console.error('Error adding questions:', error);
+    res.status(500).json({ error: 'Failed to add questions' });
+  }
 };
 
 exports.getQuestions = async (req, res) => {
