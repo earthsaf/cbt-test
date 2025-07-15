@@ -358,7 +358,7 @@ function TeacherPanel() {
       });
       
       // Refresh questions
-      const questionsRes = await api.get(`/admin/exams/${exam.id}/questions`);
+      const questionsRes = await api.get(`/exams/${exam.id}/questions`);
       setQuestions(questionsRes.data || []);
       
       setSnack({ 
