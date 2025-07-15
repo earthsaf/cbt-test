@@ -484,7 +484,7 @@ function TeacherPanel() {
 
                 {/* Questions List */}
                 <Box sx={{ maxHeight: '400px', overflowY: 'auto', p: 2 }}>
-                  {questions.map((q, idx) => (
+                  {Array.isArray(questions) ? questions.map((q, idx) => (
                     <Card key={q.id} sx={{ mb: 2, p: 2, bgcolor: 'grey.50' }}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <Box>
@@ -515,7 +515,11 @@ function TeacherPanel() {
                         </IconButton>
                       </Box>
                     </Card>
-                  ))}
+                  )) : (
+                    <Typography variant="body2" color="text.secondary" align="center">
+                      No questions added yet
+                    </Typography>
+                  )}
                 </Box>
 
                 {/* Add Question Form */}
@@ -524,7 +528,7 @@ function TeacherPanel() {
                     <Box>
                       <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>Add New Question</Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {questions.length < 5 ? (
+                        {Array.isArray(questions) && questions.length < 5 ? (
                           <span style={{ color: '#d32f2f' }}>Minimum {5 - questions.length} more question{questions.length === 4 ? '' : 's'} required</span>
                         ) : questions.length >= 80 ? (
                           <span style={{ color: '#d32f2f' }}>Maximum 80 questions reached</span>
