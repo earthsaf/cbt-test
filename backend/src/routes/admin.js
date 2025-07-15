@@ -1,5 +1,6 @@
 const express = require('express');
 const admin = require('../controllers/adminController');
+const examController = require('../controllers/examController');
 const { requireAuth } = require('../middlewares/auth');
 const { requireRole } = require('../middlewares/roles');
 const multer = require('multer');
@@ -7,8 +8,8 @@ const upload = multer();
 const router = express.Router();
 
 // Exam routes for teachers
-router.post('/exams', requireAuth, requireRole('teacher'), admin.createExam);
-router.post('/exams/:id/questions', requireAuth, requireRole('teacher'), admin.addQuestions);
+router.post('/exams', requireAuth, requireRole('teacher'), examController.createExam);
+router.post('/exams/:id/questions', requireAuth, requireRole('teacher'), examController.addQuestions);
 
 // Admin routes
 router.get('/users', requireAuth, requireRole('admin'), admin.manageUsers);
