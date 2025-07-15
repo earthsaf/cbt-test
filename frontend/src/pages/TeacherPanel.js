@@ -755,11 +755,11 @@ function TeacherPanel() {
         )}
       </Box>
       {/* Preview and edit questions */}
-      {questions.length > 0 && (
+      {Array.isArray(questions) && questions.length > 0 && (
         <Box sx={{ mt: 3 }}>
           <Typography variant="h6">Preview Questions</Typography>
           <Button color="error" onClick={handleDeleteAll} sx={{ mb: 2 }}>Delete All</Button>
-          {questions.map(q => (
+          {Array.isArray(questions) ? questions.map(q => (
             <Card key={q.id} sx={{ mb: 2 }}>
               <CardContent>
                 {editingQuestion === q.id ? (
