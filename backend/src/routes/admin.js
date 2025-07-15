@@ -6,6 +6,11 @@ const multer = require('multer');
 const upload = multer();
 const router = express.Router();
 
+// Exam routes for teachers
+router.post('/exams', requireAuth, requireRole('teacher'), admin.createExam);
+router.post('/exams/:id/questions', requireAuth, requireRole('teacher'), admin.addQuestions);
+
+// Admin routes
 router.get('/users', requireAuth, requireRole('admin'), admin.manageUsers);
 router.get('/classes', requireAuth, requireRole('admin'), admin.manageClasses);
 router.get('/exams', requireAuth, requireRole('admin'), admin.listExams);

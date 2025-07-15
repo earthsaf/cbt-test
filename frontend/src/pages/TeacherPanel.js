@@ -320,7 +320,7 @@ function TeacherPanel() {
       
       // If no exam exists, create one
       if (!exam) {
-        const examRes = await api.post('/admin/exams', {
+        const examRes = await api.post('/exams', {
           title: `Exam - ${assignment.Class?.name} - ${assignment.Subject?.name}`,
           classId: assignment.classId,
           subjectId: assignment.subjectId,
@@ -343,7 +343,7 @@ function TeacherPanel() {
       }
       
       // Now add the question to the exam
-      await api.post(`/admin/exams/${exam.id}/questions`, [{
+      await api.post(`/exams/${exam.id}/questions`, [{
         text: currentQuestion.text,
         options: currentQuestion.options,
         answer: currentQuestion.answer,

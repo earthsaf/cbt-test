@@ -4,10 +4,13 @@ const { requireAuth } = require('../middlewares/auth');
 const { requireRole } = require('../middlewares/roles');
 const router = express.Router();
 
+// Admin routes
+router.post('/exams', requireAuth, requireRole('teacher'), examController.createExam);
+router.post('/exams/:id/questions', requireAuth, requireRole('teacher'), examController.addQuestions);
+
+// Regular user routes
 router.get('/exams', requireAuth, examController.listExams);
 router.get('/exams/:id/questions', requireAuth, examController.getQuestions);
-router.post('/admin/exams', requireAuth, requireRole('teacher'), examController.createExam);
-router.post('/admin/exams/:id/questions', requireAuth, requireRole('teacher'), examController.addQuestions);
 router.post('/exams/:id/autosave', requireAuth, examController.autosaveAnswers);
 router.post('/exams/:id/submit', requireAuth, examController.submitAnswers);
 router.get('/exams/history', requireAuth, examController.examHistory);
