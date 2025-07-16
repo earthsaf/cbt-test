@@ -50,6 +50,31 @@ function TeacherPanel() {
   const [students, setStudents] = useState([]);
   const [analytics, setAnalytics] = useState(null);
   // Exams list for current teacher
+  const examColumns = [
+    { field: 'title', headerName: 'Title', flex: 1 },
+    {
+      field: 'class', headerName: 'Class', flex: 1,
+      valueGetter: params => params.row.Class?.name || ''
+    },
+    {
+      field: 'subject', headerName: 'Subject', flex: 1,
+      valueGetter: params => params.row.Subject?.name || ''
+    },
+    { field: 'status', headerName: 'Status', flex: 0.6 },
+    {
+      field: 'actions', headerName: 'Actions', sortable: false, flex: 0.4,
+      renderCell: params => (
+        <IconButton
+          color="error"
+          size="small"
+          disabled={params.row.status === 'active'}
+          onClick={() => handleDeleteExam(params.row.id)}
+        >
+          <DeleteIcon fontSize="small" />
+        </IconButton>
+      )
+    },
+  ];
   const [myExams, setMyExams] = useState([]);
   const [loadingExams, setLoadingExams] = useState(false);
   const [file, setFile] = useState(null);
@@ -203,6 +228,34 @@ function TeacherPanel() {
       setLoading(prev => ({ ...prev, questions: false }));
     }
   };
+
+  // ========= EXAMS management =========
+  const fetchMyExams = async () => {
+    setLoadingExams(true);
+    try {
+      const res = await api.get('/teacher/exams');
+      setMyExams(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      console.error('Error fetching exams', err);
+      setMyExams([]);
+    }
+    setLoadingExams(false);
+  };
+
+  const handleDeleteExam = async (id) => {
+    if (!window.confirm('Delete this exam?')) return;
+    try {
+      await api.delete(`/teacher/exams/${id}`);
+      toast.success('Exam deleted');
+      fetchMyExams();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to delete');
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'exams') fetchMyExams();
+  }, [activeTab]);
 
   useEffect(() => {
     if (selectedAssignment) fetchQuestions(selectedAssignment);
@@ -726,6 +779,23 @@ function TeacherPanel() {
             <ul>
               {students.map(s => <li key={s.id}>{s.username} ({s.email})</li>)}
             </ul>
+          </Box>
+        )}
+        {activeTab === 'exams' && (
+          <Box>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6">My Exams</Typography>
+              <Button variant="outlined" color="warning" onClick={handleCleanupDrafts} disabled={loadingExams}>
+                Delete Draft Exams
+              </Button>
+            </Box>
+            {loadingExams ? (
+              <Typography>Loading...</Typography>
+            ) : (
+              <div style={{ height: 420, width: '100%' }}>
+                <DataGrid rows={myExams} columns={examColumns} pageSize={10} autoHeight disableRowSelectionOnClick />
+              </div>
+            )}
           </Box>
         )}
         {activeTab === 'analytics' && (

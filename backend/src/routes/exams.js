@@ -2,6 +2,7 @@ const express = require('express');
 const examController = require('../controllers/examController');
 const { requireAuth } = require('../middlewares/auth');
 const { requireRole } = require('../middlewares/roles');
+const teacherExam = require('../controllers/teacherExamController');
 const router = express.Router();
 
 // Regular user routes
@@ -15,5 +16,8 @@ router.get('/exams/:id/analytics', requireAuth, requireRole('student', 'teacher'
 // Admin routes for teachers
 router.post('/exams', requireAuth, requireRole('teacher'), examController.createExam);
 router.post('/exams/:id/questions', requireAuth, requireRole('teacher'), examController.addQuestions);
+
+router.get('/teacher/exams', requireAuth, requireRole('teacher'), teacherExam.listTeacherExams);
+router.delete('/teacher/exams/:id', requireAuth, requireRole('teacher'), teacherExam.deleteExam);
 
 module.exports = router;
