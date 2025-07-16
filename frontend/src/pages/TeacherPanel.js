@@ -142,6 +142,8 @@ function TeacherPanel() {
 
     const formData = new FormData();
     formData.append('file', file);
+    // Include the assignmentId so the backend knows which assignment / exam to attach the questions to
+    formData.append('assignmentId', selectedAssignment);
 
     try {
       setLoading(prev => ({ ...prev, questions: true }));

@@ -42,7 +42,14 @@ function Dashboard() {
         navigate('/');
       });
     // Only fetch data if user is authenticated (handled above)
-    api.get('/exams').then(res => setExams(res.data)).catch(() => setExams([]));
+    api.get('/exams')
+      .then(res => {
+        // Ensure response is an array, handle fallback structures
+        const payload = res.data;
+        const list = Array.isArray(payload) ? payload : (Array.isArray(payload?.exams) ? payload.exams : []);
+        setExams(list);
+      })
+      .catch(() => setExams([]));
     api.get('/exams/history').then(res => setHistory(res.data)).catch(() => setHistory([]));
     if (tab === 6) {
       setProfileLoading(true);
@@ -68,7 +75,8 @@ function Dashboard() {
   }, []);
 
   // In Available Tests tab, show a Start/Resume button for each available exam
-  const available = exams.filter(e => e.status === 'active');
+  // Guard: make sure exams is an array before filtering
+  const available = Array.isArray(exams) ? exams.filter(e => e.status === 'active') : [];
 
   const handleProfileChange = e => setProfile({ ...profile, [e.target.name]: e.target.value });
   const handleProfileSave = async e => {
