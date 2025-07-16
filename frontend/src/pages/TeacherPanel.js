@@ -793,7 +793,7 @@ function TeacherPanel() {
               <Typography>Loading...</Typography>
             ) : (
               <div style={{ height: 420, width: '100%' }}>
-                <DataGrid rows={myExams} columns={examColumns} pageSize={10} autoHeight disableRowSelectionOnClick />
+                <DataGrid rows={Array.isArray(myExams) ? myExams : []} columns={examColumns} pageSize={10} autoHeight disableRowSelectionOnClick />
               </div>
             )}
           </Box>
