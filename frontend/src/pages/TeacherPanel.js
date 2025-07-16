@@ -49,6 +49,9 @@ function TeacherPanel() {
   const [assignments, setAssignments] = useState([]);
   const [students, setStudents] = useState([]);
   const [analytics, setAnalytics] = useState(null);
+  // Exams list for current teacher
+  const [myExams, setMyExams] = useState([]);
+  const [loadingExams, setLoadingExams] = useState(false);
   const [file, setFile] = useState(null);
   const [openUploadModal, setOpenUploadModal] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState(null);
@@ -405,6 +408,7 @@ function TeacherPanel() {
         >
           <Tab value="assignments" label="Assignments" icon={<Book />} iconPosition="start" sx={{ minHeight: 64 }} />
           <Tab value="students" label="Students" icon={<Book />} iconPosition="start" sx={{ minHeight: 64 }} />
+          <Tab value="exams" label="My Exams" icon={<Book />} iconPosition="start" sx={{ minHeight: 64 }} />
           <Tab value="analytics" label="Analytics" icon={<Book />} iconPosition="start" sx={{ minHeight: 64 }} />
         </Tabs>
       </AppBar>
