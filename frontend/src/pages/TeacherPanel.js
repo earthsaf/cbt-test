@@ -149,7 +149,8 @@ function TeacherPanel() {
           : [];
           
         setAssignments(formattedAssignments);
-        setStudents(studentsRes.data || []);
+        const studentsData = Array.isArray(studentsRes.data) ? studentsRes.data : [];
+        setStudents(studentsData);
       } catch (error) {
         console.error('Error in fetchTeacherData:', error);
         toast.error('Error loading teacher data. Please try again.');
