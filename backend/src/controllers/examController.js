@@ -10,7 +10,10 @@ exports.listExams = async (req, res) => {
     where: {
       ClassId: req.user.ClassId,
       status: 'active',
-      startTime: { [Op.lte]: now },
+      [Op.or]: [
+        { startTime: null },
+        { startTime: { [Op.lte]: now } }
+      ],
     },
     order: [['startTime', 'DESC']],
   });
