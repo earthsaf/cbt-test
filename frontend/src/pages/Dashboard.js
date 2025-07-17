@@ -76,7 +76,9 @@ function Dashboard() {
 
   // In Available Tests tab, show a Start/Resume button for each available exam
   // Guard: make sure exams is an array before filtering
+  // Separate available and completed exam lists for convenience
   const available = Array.isArray(exams) ? exams.filter(e => e.status === 'active') : [];
+  const completed = Array.isArray(exams) ? exams.filter(e => e.status === 'completed') : [];
 
   const handleProfileChange = e => setProfile({ ...profile, [e.target.name]: e.target.value });
   const handleProfileSave = async e => {

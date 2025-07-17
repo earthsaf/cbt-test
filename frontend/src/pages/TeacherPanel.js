@@ -166,16 +166,24 @@ function TeacherPanel() {
 
   // Bulk delete draft exams
   const handleCleanupDrafts = async () => {
-    if (!window.confirm('Delete ALL draft exams? This action cannot be undone.')) return;
+    if (!myExams.length) {
+      toast.info('No exams found');
+      return;
+    }
+    const drafts = myExams.filter(e => e.status === 'draft');
+    if (drafts.length === 0) {
+      toast.info('No draft exams to delete');
+      return;
+    }
+    if (!window.confirm(`Delete ${drafts.length} draft exam${drafts.length > 1 ? 's' : ''}?`)) return;
     try {
       setLoadingExams(true);
-      await api.delete('/admin/exams/cleanup-drafts');
-      // Remove drafts from local state (those with status === 'draft')
-      setMyExams(prev => prev.filter(e => e.status !== 'draft'));
+      await Promise.all(drafts.map(d => api.delete(`/teacher/exams/${d.id}`)));
       toast.success('Draft exams deleted');
-    } catch (error) {
-      console.error('Error cleaning up draft exams:', error);
-      toast.error(error.response?.data?.message || 'Failed to delete draft exams');
+      fetchMyExams();
+    } catch (err) {
+      console.error('Error deleting drafts', err);
+      toast.error('Failed to delete some draft exams');
     } finally {
       setLoadingExams(false);
     }
@@ -276,6 +284,7 @@ function TeacherPanel() {
       setLoadingExams(false);
     }
   };
+
 
 
 
@@ -381,28 +390,57 @@ function TeacherPanel() {
     }
   };
 
-  const handleAddQuestion = async () => {
-    if (!currentQuestion.text || !currentQuestion.options.a || !currentQuestion.options.b || 
+  const handleAddQuestion = () => {
+    if (!currentQuestion.text || !currentQuestion.options.a || !currentQuestion.options.b ||
         !currentQuestion.options.c || !currentQuestion.options.d || !currentQuestion.answer) {
-      setSnack({ 
-        open: true, 
-        message: 'Please fill in all fields and select the correct answer', 
-        severity: 'error' 
+      setSnack({
+        open: true,
+        message: 'Please fill in all fields and select the correct answer',
+        severity: 'error'
       });
       return;
     }
-    
+    if (questions.length >= 80) {
+      setSnack({ open: true, message: 'Maximum 80 questions reached', severity: 'error' });
+      return;
+    }
+
+    // Add question locally; no API call until user uploads
+    setQuestions(prev => [
+      ...prev,
+      { ...currentQuestion, id: Date.now() }
+    ]);
+
+    setCurrentQuestion({
+      text: '',
+      options: { a: '', b: '', c: '', d: '' },
+      answer: ''
+    });
+  };
+
+  // Upload all locally added questions to the server and create a draft exam if needed
+  const handleUploadQuestions = async () => {
+    if (questions.length < 5) {
+      setSnack({
+        open: true,
+        message: `You need to add at least ${5 - questions.length} more question${questions.length === 4 ? '' : 's'} before uploading`,
+        severity: 'error',
+        autoHideDuration: 5000
+      });
+      return;
+    }
+
     try {
       setLoading(prev => ({ ...prev, questions: true }));
-      
-      // First, find or create the exam for this assignment
+
       const assignment = assignments.find(a => a.id === selectedAssignment);
       if (!assignment) throw new Error('Assignment not found');
-      
-      // Check if exam exists for this assignment
-      let exam = assignment.exams?.[0];
-      
-      // If no exam exists, create one
+
+      // Look for an existing draft exam
+      let exam = Array.isArray(assignment.exams)
+        ? assignment.exams.find(e => e.status === 'draft')
+        : null;
+
       if (!exam) {
         const examRes = await api.post('/admin/exams', {
           title: `Exam - ${assignment.Class?.name} - ${assignment.Subject?.name}`,
@@ -411,54 +449,34 @@ function TeacherPanel() {
           status: 'draft'
         });
         exam = examRes.data;
-        
-        // Update the assignments list with the new exam
-        setAssignments(prev => 
-          prev.map(a => 
-            a.id === selectedAssignment 
-              ? { 
-                  ...a, 
-                  exams: [exam],
-                  examId: exam.id 
-                } 
-              : a
+
+        setAssignments(prev =>
+          prev.map(a =>
+            a.id === selectedAssignment ? { ...a, exams: [exam], examId: exam.id } : a
           )
         );
       }
-      
-      // Now add the question to the exam
-      await api.post(`/admin/exams/${exam.id}/questions`, [{
-        text: currentQuestion.text,
-        options: currentQuestion.options,
-        answer: currentQuestion.answer,
+
+      const payload = questions.map(q => ({
+        text: q.text,
+        options: q.options,
+        answer: q.answer,
         type: 'mcq'
-      }]);
-      
-      // Reset form
-      setCurrentQuestion({
-        text: '',
-        options: { a: '', b: '', c: '', d: '' },
-        answer: ''
+      }));
+
+      await api.post(`/admin/exams/${exam.id}/questions`, payload);
+
+      setQuestions([]);
+      setSnack({
+        open: true,
+        message: 'Questions uploaded successfully!',
+        severity: 'success'
       });
-      
-      // Refresh questions
-      const questionsRes = await api.get(`/exams/${exam.id}/questions`);
-      setQuestions(questionsRes.data || []);
-      
-      setSnack({ 
-        open: true, 
-        message: 'Question added successfully', 
-        severity: 'success' 
-      });
-      
     } catch (error) {
-      console.error('Error adding question:', error);
-      const errorMessage = error.response?.data?.message || 'Failed to add question';
-      console.log('Full error response:', error.response);
-      
-      setSnack({ 
-        open: true, 
-        message: `Error: ${errorMessage}`,
+      const msg = error.response?.data?.message || 'Failed to upload questions';
+      setSnack({
+        open: true,
+        message: msg,
         severity: 'error',
         autoHideDuration: 5000
       });
@@ -770,23 +788,7 @@ function TeacherPanel() {
                     <Button
                       variant="contained"
                       color="success"
-                      onClick={() => {
-                        if (questions.length < 5) {
-                          setSnack({
-                            open: true,
-                            message: `You need to add at least ${5 - questions.length} more question${questions.length === 4 ? '' : 's'} before uploading`,
-                            severity: 'error',
-                            autoHideDuration: 5000
-                          });
-                        } else {
-                          // Handle upload to server
-                          setSnack({
-                            open: true,
-                            message: 'Questions uploaded successfully!',
-                            severity: 'success'
-                          });
-                        }
-                      }}
+                      onClick={handleUploadQuestions}
                       disabled={questions.length < 5 || loading.questions}
                       startIcon={<UploadIcon />}
                       sx={{ minWidth: '140px' }}
