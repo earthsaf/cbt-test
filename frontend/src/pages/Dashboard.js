@@ -42,7 +42,7 @@ function Dashboard() {
         navigate('/');
       });
     // Only fetch data if user is authenticated (handled above)
-    api.get('/exams')
+    api.get(`/exams?t=${Date.now()}`)
       .then(res => {
         // Ensure response is an array, handle fallback structures
         const payload = res.data;
