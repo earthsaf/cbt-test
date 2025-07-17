@@ -265,13 +265,19 @@ function TeacherPanel() {
   const handleDeleteExam = async (id) => {
     if (!window.confirm('Delete this exam?')) return;
     try {
+      setLoadingExams(true);
       await api.delete(`/teacher/exams/${id}`);
       toast.success('Exam deleted');
       fetchMyExams();
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Failed to delete');
+      console.error('Error deleting exam', err);
+      toast.error(err.response?.data?.message || 'Failed to delete exam');
+    } finally {
+      setLoadingExams(false);
     }
   };
+
+
 
   useEffect(() => {
     if (activeTab === 'exams') fetchMyExams();
