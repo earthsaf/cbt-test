@@ -614,7 +614,7 @@ function TeacherPanel() {
                           color="error" 
                           onClick={() => handleDelete(q.id)}
                         >
-                          <Delete fontSize="small" />
+                          <DeleteIcon fontSize="small" />
                         </IconButton>
                       </Box>
                     </Card>
