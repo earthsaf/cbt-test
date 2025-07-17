@@ -6,6 +6,9 @@ exports.listExams = async (req, res) => {
     return res.status(400).json({ error: 'User class not found' });
   }
   const now = new Date();
+  // Disable caching – each student may have different exam list
+  res.set('Cache-Control', 'no-store');
+
   const exams = await Exam.findAll({
     where: {
       ClassId: req.user.ClassId,
