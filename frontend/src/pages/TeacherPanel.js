@@ -162,6 +162,60 @@ function TeacherPanel() {
     fetchTeacherData();
   }, [navigate, user, t]);
 
+  // =============================
+  // Exams helpers
+  // =============================
+  const fetchExams = async () => {
+    if (!user) return;
+    try {
+      setLoadingExams(true);
+      const res = await api.get('/admin/my-exams');
+      const examsData = Array.isArray(res.data) ? res.data : [];
+      setMyExams(examsData);
+    } catch (error) {
+      console.error('Error fetching exams:', error);
+      toast.error('Error loading exams');
+    } finally {
+      setLoadingExams(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchExams();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  const handleDeleteExam = async (examId) => {
+    if (!window.confirm('Are you sure you want to delete this exam?')) return;
+    try {
+      setLoadingExams(true);
+      await api.delete(`/admin/exams/${examId}`);
+      setMyExams(prev => prev.filter(e => e.id !== examId));
+      toast.success('Exam deleted');
+    } catch (error) {
+      console.error('Error deleting exam:', error);
+      toast.error(error.response?.data?.message || 'Failed to delete exam');
+    } finally {
+      setLoadingExams(false);
+    }
+  };
+
+  const handleCleanupDrafts = async () => {
+    if (!window.confirm('Delete ALL draft exams? This action cannot be undone.')) return;
+    try {
+      setLoadingExams(true);
+      await api.delete('/admin/exams/cleanup-drafts');
+      // Remove drafts from local state (those with status === 'draft')
+      setMyExams(prev => prev.filter(e => e.status !== 'draft'));
+      toast.success('Draft exams deleted');
+    } catch (error) {
+      console.error('Error cleaning up draft exams:', error);
+      toast.error(error.response?.data?.message || 'Failed to delete draft exams');
+    } finally {
+      setLoadingExams(false);
+    }
+  };
+
   const handleUpload = async (e) => {
     e.preventDefault();
     if (!file) {
