@@ -163,10 +163,10 @@ function ExamPage() {
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   }
 
-  const handleOption = (qid, opt) => {
+  const handleOption = (qid, idx) => {
     setAnswers(prev => {
-      const updated = { ...prev, [qid]: opt };
-      api.post(`/exams/${examId}/autosave`, { answers: updated }); // Autosave
+      const updated = { ...prev, [qid]: Number(idx) };
+      api.post(`/exams/${examId}/autosave`, { answers: updated });
       return updated;
     });
   };
@@ -247,7 +247,8 @@ function ExamPage() {
       <Box sx={{ maxWidth: 900, mx: 'auto', p: 3 }}>
         <Typography variant="h5" sx={{ mb: 2 }}>Review</Typography>
         {questions.map((q, idx) => {
-          const userAns = answers[q.id];
+          const userIdx = answers[q.id];
+          const userAns = userIdx !== undefined ? q.options[userIdx] : undefined;
           const isCorrect = userAns === q.answer;
           return (
             <Card key={q.id} sx={{ mb: 2, borderLeft: `5px solid ${isCorrect ? '#4caf50' : '#f44336'}` }}>
@@ -262,7 +263,7 @@ function ExamPage() {
                     <Typography>{String.fromCharCode(65 + i)}) {opt}</Typography>
                   </Box>
                 ))}
-                <Typography sx={{ mt: 1 }}>Your Answer: <b>{userAns || 'N/A'}</b> — Correct Answer: <b>{q.answer}</b></Typography>
+                <Typography sx={{ mt: 1 }}>Your Answer: <b>{userAns || 'N/A'}</b> — Correct: <b>{q.answer}</b></Typography>
               </CardContent>
             </Card>
           );
@@ -303,13 +304,13 @@ function ExamPage() {
           <FormControl component="fieldset">
             <RadioGroup
               name={`question-${q.id}`}
-              value={answers[q.id] || ''}
+              value={answers[q.id] !== undefined ? answers[q.id] : ''}
               onChange={e => handleOption(q.id, e.target.value)}
             >
               {options.map((opt, i) => (
                 <FormControlLabel
                   key={i}
-                  value={opt}
+                  value={i}
                   control={<Radio />}
                   label={`(${String.fromCharCode(65 + i)}) ${opt}`}
                   sx={{ mb: 1 }}
