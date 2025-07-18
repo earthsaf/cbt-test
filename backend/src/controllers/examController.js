@@ -113,10 +113,19 @@ exports.submitAnswers = async (req, res) => {
   for (const q of questions) {
     const ans = Array.isArray(answers) ? answers.find(a => a.questionId === q.id) : answers[q.id];
     if (!ans) continue;
-    const userAnswer = Array.isArray(answers) ? ans.answer : ans;
+    let userAnswer = Array.isArray(answers) ? ans.answer : ans;
+    // If answers sent as numeric index, convert to option text
+    if (typeof userAnswer === 'number' && Array.isArray(q.options)) {
+      userAnswer = q.options[userAnswer];
+    }
+    // Determine canonical correct answer text
+    let correctText = q.answer;
+    if (typeof correctText === 'number' && Array.isArray(q.options)) {
+      correctText = q.options[correctText];
+    }
     await Answer.create({ UserId: userId, ExamId: examId, QuestionId: q.id, answer: userAnswer });
     total++;
-    if (userAnswer === q.answer) correct++;
+    if (userAnswer === correctText) correct++;
   }
   res.json({ ok: true, score: correct, total });
 };
