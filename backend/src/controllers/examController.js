@@ -2,7 +2,8 @@ const { Exam, Question, Answer, Class, Subject } = require('../models');
 const { Op } = require('sequelize');
 
 exports.listExams = async (req, res) => {
-  if (!req.user || !req.user.ClassId) {
+  const classId = req.user.ClassId || req.user.class_id;
+  if (!req.user || !classId) {
     return res.status(400).json({ error: 'User class not found' });
   }
   const now = new Date();
@@ -11,7 +12,7 @@ exports.listExams = async (req, res) => {
 
   const exams = await Exam.findAll({
     where: {
-      ClassId: req.user.ClassId,
+      ClassId: classId,
       status: 'active',
       [Op.or]: [
         { startTime: null },
