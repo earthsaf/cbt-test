@@ -83,11 +83,13 @@ exports.getQuestions = async (req, res) => {
   const exam = await Exam.findByPk(req.params.id);
   if (!exam) return res.status(404).json({ error: 'Exam not found' });
   let questions = await Question.findAll({ where: { ExamId: req.params.id } });
+  // Attach options as array if stored as object
+  questions = questions.map(q => ({ ...q.toJSON(), options: Array.isArray(q.options) ? q.options : Object.values(q.options || {}) }));
   if (exam.scramble) {
     // Shuffle questions array
     questions = questions.sort(() => Math.random() - 0.5);
   }
-  res.json(questions.map(q => ({ ...q.toJSON(), options: q.options || [] })));
+  res.json({ durationMinutes: exam.durationMinutes || 30, questions });
 };
 
 exports.autosaveAnswers = async (req, res) => {

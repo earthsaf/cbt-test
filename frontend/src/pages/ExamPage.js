@@ -42,10 +42,13 @@ function ExamPage() {
 
   useEffect(() => {
     api.get(`/exams/${examId}/questions`).then(res => {
-      setQuestions(res.data);
-      setDuration(res.data.durationMinutes ? res.data.durationMinutes * 60 : 30 * 60);
-      setTimer(res.data.durationMinutes ? res.data.durationMinutes * 60 : 30 * 60);
-      if (res.data.length > 0 && res.data[0].Subject) setSubject(res.data[0].Subject.name);
+      const payload = res.data;
+      const list = Array.isArray(payload) ? payload : (Array.isArray(payload?.questions) ? payload.questions : []);
+      const durMin = typeof payload?.durationMinutes === 'number' ? payload.durationMinutes : 30;
+      setQuestions(list);
+      setDuration(durMin * 60);
+      setTimer(durMin * 60);
+      if (list.length > 0 && list[0].Subject) setSubject(list[0].Subject.name);
     }).catch(() => setQuestions([]));
     // Fetch user info
     setUser(localStorage.getItem('username') || '');
@@ -128,6 +131,20 @@ function ExamPage() {
     return () => socket.disconnect();
   }, [examId]);
 
+  // Persist progress -- keep these hooks outside of any conditional return
+  useEffect(() => {
+    localStorage.setItem(`exam_${examId}_answers`, JSON.stringify(answers));
+  }, [answers, examId]);
+  useEffect(() => {
+    localStorage.setItem(`exam_${examId}_current`, current);
+  }, [current, examId]);
+  useEffect(() => {
+    localStorage.setItem(`exam_${examId}_timer`, timer);
+  }, [timer, examId]);
+  useEffect(() => {
+    localStorage.setItem(`exam_${examId}_remarks`, JSON.stringify(remarks));
+  }, [remarks, examId]);
+
   if (!questions.length) return <div>Loading...</div>;
 
   // Progress bar logic
@@ -170,12 +187,12 @@ function ExamPage() {
       setSubmitted(true);
       localStorage.setItem(`exam_${examId}_completed`, 'true');
       localStorage.removeItem('inProgressExamId');
-      // Fetch real class results
-      const resultsRes = await api.get(`/exams/${examId}/results`);
-      if (resultsRes.data && Array.isArray(resultsRes.data)) {
+      // Fetch analytics (only participants with answers)
+      const resultsRes = await api.get(`/exams/${examId}/analytics`);
+      if (resultsRes.data && Array.isArray(resultsRes.data.results)) {
         setClassResults({
-          labels: resultsRes.data.map(r => r.username),
-          scores: resultsRes.data.map(r => r.score),
+          labels: resultsRes.data.results.map(r => r.user),
+          scores: resultsRes.data.results.map(r => r.score),
         });
       }
     } catch {
