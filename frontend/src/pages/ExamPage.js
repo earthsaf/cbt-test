@@ -191,20 +191,6 @@ function ExamPage() {
 
   const handleQuickNav = idx => setCurrent(idx);
 
-  // Save progress to localStorage
-  useEffect(() => {
-    localStorage.setItem(`exam_${examId}_answers`, JSON.stringify(answers));
-  }, [answers, examId]);
-  useEffect(() => {
-    localStorage.setItem(`exam_${examId}_current`, current);
-  }, [current, examId]);
-  useEffect(() => {
-    localStorage.setItem(`exam_${examId}_timer`, timer);
-  }, [timer, examId]);
-  useEffect(() => {
-    localStorage.setItem(`exam_${examId}_remarks`, JSON.stringify(remarks));
-  }, [remarks, examId]);
-
   // After submit: only show score, ask for review
   if (submitted && !review) {
     return (
