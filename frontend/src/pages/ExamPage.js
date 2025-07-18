@@ -185,7 +185,9 @@ function ExamPage() {
   // On submit, fetch real class results
   const handleSubmit = async () => {
     try {
-      const res = await api.post(`/exams/${examId}/submit`, { answers });
+      // convert indices to actual option text for backend
+      const payload = Object.fromEntries(Object.entries(answers).map(([qid, idx]) => [qid, questions.find(q => q.id === Number(qid)).options[idx]]));
+      const res = await api.post(`/exams/${examId}/submit`, { answers: payload });
       if (res.data && typeof res.data.score === 'number') {
         setScore(res.data.score);
       }
@@ -343,7 +345,7 @@ function ExamPage() {
             const qid = questions[idx].id;
             let color = 'inherit';
             if (remarks[qid]) color = 'error'; // Red for remarked
-            else if (!answers[qid]) color = 'warning'; // Yellow for unanswered
+            else if (!Object.prototype.hasOwnProperty.call(answers, qid)) color = 'warning'; // Yellow for unanswered
             else color = 'success'; // Green for answered
             return (
               <Grid item key={idx} xs={1} sm={1} md={0.5} lg={0.5}>
