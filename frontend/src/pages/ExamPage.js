@@ -47,7 +47,9 @@ function ExamPage() {
       const durMin = typeof payload?.durationMinutes === 'number' ? payload.durationMinutes : 30;
       setQuestions(list);
       setDuration(durMin * 60);
+      const end = Date.now() + durMin * 60 * 1000;
       setTimer(durMin * 60);
+      localStorage.setItem(`exam_${examId}_end`, String(end));
       if (list.length > 0 && list[0].Subject) setSubject(list[0].Subject.name);
     }).catch(() => setQuestions([]));
     // Fetch user info
@@ -58,10 +60,13 @@ function ExamPage() {
   useEffect(() => {
     const savedAnswers = localStorage.getItem(`exam_${examId}_answers`);
     const savedCurrent = localStorage.getItem(`exam_${examId}_current`);
-    const savedTimer = localStorage.getItem(`exam_${examId}_timer`);
+    const savedEnd = localStorage.getItem(`exam_${examId}_end`);
     if (savedAnswers) setAnswers(JSON.parse(savedAnswers));
     if (savedCurrent) setCurrent(Number(savedCurrent));
-    if (savedTimer) setTimer(Number(savedTimer));
+    if (savedEnd) {
+      const remaining = Math.max(0, Math.floor((Number(savedEnd) - Date.now()) / 1000));
+      setTimer(remaining);
+    }
   }, [examId]);
 
   // Timer logic
@@ -139,7 +144,7 @@ function ExamPage() {
     localStorage.setItem(`exam_${examId}_current`, current);
   }, [current, examId]);
   useEffect(() => {
-    localStorage.setItem(`exam_${examId}_timer`, timer);
+    // timer derived from endTime now; no need to persist each second
   }, [timer, examId]);
   useEffect(() => {
     localStorage.setItem(`exam_${examId}_remarks`, JSON.stringify(remarks));
@@ -239,23 +244,31 @@ function ExamPage() {
 
   if (review) {
     return (
-      <div>
-        <h2>Review Answers</h2>
-        {questions.map((q, idx) => (
-          <div key={q.id} style={{ marginBottom: 16 }}>
-            <b>{idx + 1}. {q.text}</b><br />
-            {q.options.map((opt, i) => (
-              <span key={i} style={{
-                background: answers[q.id] === opt ? '#b2dfdb' : '#eeeeee',
-                marginRight: 8, padding: '4px 6px', borderRadius: 4,
-                display: 'inline-block'
-              }}>{String.fromCharCode(65 + i)}) {opt}</span>
-            ))}
-            <Button onClick={() => { setCurrent(idx); setReview(false); }}>Edit</Button>
-          </div>
-        ))}
-        <Button onClick={handleSubmit}>Final Submit</Button>
-      </div>
+      <Box sx={{ maxWidth: 900, mx: 'auto', p: 3 }}>
+        <Typography variant="h5" sx={{ mb: 2 }}>Review</Typography>
+        {questions.map((q, idx) => {
+          const userAns = answers[q.id];
+          const isCorrect = userAns === q.answer;
+          return (
+            <Card key={q.id} sx={{ mb: 2, borderLeft: `5px solid ${isCorrect ? '#4caf50' : '#f44336'}` }}>
+              <CardContent>
+                <Typography sx={{ fontWeight: 'bold', mb: 1 }}>{idx + 1}. {q.text}</Typography>
+                {q.options.map((opt, i) => (
+                  <Box key={i} sx={{
+                    bgcolor: userAns === opt ? (isCorrect ? '#e8f5e9' : '#ffebee') : '#fafafa',
+                    px: 2, py: 1, borderRadius: 1, mb: 1,
+                    border: opt === q.answer ? '1px solid #4caf50' : '1px solid transparent'
+                  }}>
+                    <Typography>{String.fromCharCode(65 + i)}) {opt}</Typography>
+                  </Box>
+                ))}
+                <Typography sx={{ mt: 1 }}>Your Answer: <b>{userAns || 'N/A'}</b> — Correct Answer: <b>{q.answer}</b></Typography>
+              </CardContent>
+            </Card>
+          );
+        })}
+        <Button variant="contained" sx={{ mt: 2 }} onClick={() => navigate('/dashboard')}>Back to Dashboard</Button>
+      </Box>
     );
   }
 
