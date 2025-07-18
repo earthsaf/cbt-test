@@ -246,9 +246,10 @@ function ExamPage() {
             <b>{idx + 1}. {q.text}</b><br />
             {q.options.map((opt, i) => (
               <span key={i} style={{
-                background: answers[q.id] === opt ? '#cce' : '#eee',
-                marginRight: 8, padding: 4, borderRadius: 4
-              }}>{String.fromCharCode(97 + i)}. {opt}</span>
+                background: answers[q.id] === opt ? '#b2dfdb' : '#eeeeee',
+                marginRight: 8, padding: '4px 6px', borderRadius: 4,
+                display: 'inline-block'
+              }}>{String.fromCharCode(65 + i)}) {opt}</span>
             ))}
             <Button onClick={() => { setCurrent(idx); setReview(false); }}>Edit</Button>
           </div>
@@ -285,8 +286,10 @@ function ExamPage() {
         <CardContent>
           <Typography sx={{ mb: 1, color: 'gray' }}>{q.year || ''}</Typography>
           <Typography sx={{ mb: 2, fontWeight: 'bold' }}>{q.text}</Typography>
+
           <FormControl component="fieldset">
             <RadioGroup
+              name={`question-${q.id}`}
               value={answers[q.id] || ''}
               onChange={e => handleOption(q.id, e.target.value)}
             >
@@ -301,7 +304,13 @@ function ExamPage() {
               ))}
             </RadioGroup>
           </FormControl>
-          <Button onClick={() => handleRemark(q.id)} sx={{ ml: 2 }} color={remarks[q.id] ? 'error' : 'primary'} variant="outlined">
+
+          <Button
+            onClick={() => handleRemark(q.id)}
+            sx={{ ml: 2 }}
+            color={remarks[q.id] ? 'error' : 'primary'}
+            variant="outlined"
+          >
             {remarks[q.id] ? 'Unremark' : 'Remark'}
           </Button>
         </CardContent>
