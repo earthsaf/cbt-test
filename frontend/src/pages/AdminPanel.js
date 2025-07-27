@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { AppBar, Tabs, Tab, Box, Typography, Card, CardContent, Button, Grid, TextField, Select, MenuItem, Snackbar, Alert, Dialog, DialogTitle, DialogContent, DialogActions, Switch, FormControlLabel, DialogContentText } from '@mui/material';
 import { Bar } from 'react-chartjs-2';
 import api from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import dayjs from 'dayjs';
 
@@ -48,6 +49,12 @@ function AdminPanel() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
   const navigate = useNavigate();
+  const { logout } = useAuth();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/staff-login');
+  };
 
   useEffect(() => {
     // Check authentication by requesting the test endpoint
@@ -450,65 +457,41 @@ function AdminPanel() {
           boxShadow: '0 2px 12px rgba(44, 62, 80, 0.10)',
           mb: 2,
         }}>
-          <Tabs
-            value={tab}
-            onChange={(_, v) => setTab(v)}
-            TabIndicatorProps={{ style: { background: 'linear-gradient(90deg, #23243a, #1976d2)' } }}
-            sx={{
-              '.MuiTab-root': {
-                fontWeight: 800,
-                fontSize: 16,
-                color: '#23243a',
-                borderRadius: 2,
-                mx: 1,
-                transition: 'background 0.2s, color 0.2s',
-                '&.Mui-selected': {
-                  color: '#fff',
-                  background: 'linear-gradient(90deg, #23243a, #1976d2)',
-                  boxShadow: '0 2px 8px rgba(44, 62, 80, 0.10)',
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+            <Tabs
+              value={tab}
+              onChange={(_, v) => setTab(v)}
+              TabIndicatorProps={{ style: { background: 'linear-gradient(90deg, #23243a, #1976d2)' } }}
+              sx={{
+                flexGrow: 1,
+                '.MuiTab-root': {
+                  fontWeight: 800,
+                  fontSize: 16,
+                  color: '#23243a',
+                  borderRadius: 2,
+                  mx: 1,
+                  transition: 'background 0.2s, color 0.2s',
+                  '&.Mui-selected': {
+                    color: '#fff',
+                    background: 'linear-gradient(90deg, #23243a, #1976d2)',
+                    boxShadow: '0 2px 8px rgba(44, 62, 80, 0.10)',
+                  },
+                  '&:hover': {
+                    background: 'rgba(44, 62, 80, 0.08)',
+                  },
                 },
-                '&:hover': {
-                  background: 'rgba(44, 62, 80, 0.08)',
-                },
-              },
-            }}
-          >
-            {tabs.map((t, i) => <Tab label={t} key={i} />)}
-          </Tabs>
+              }}
+            >
+              {tabs.map((t, i) => <Tab label={t} key={i} />)}
+            </Tabs>
+            <Button color="inherit" onClick={handleLogout} sx={{ mr: 2, fontWeight: 'bold' }}>Logout</Button>
+          </Box>
         </AppBar>
         <Box sx={{ mt: 3 }}>
           {tab === 0 && (
-            <Box sx={{ mb: 3 }}>
-              <Typography variant="h6">Create User</Typography>
+            <Box>
+              <Typography variant="h6" sx={{ mb: 2 }}>Create User</Typography>
               <form onSubmit={handleCreateUser} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
-                <TextField label="Username" value={newUser.username} onChange={e => setNewUser({ ...newUser, username: e.target.value })} required size="small" />
-                <TextField 
-                  label="Password" 
-                  value={newUser.password} 
-                  onChange={e => {
-                    setNewUser({ ...newUser, password: e.target.value });
-                    if (passwordError && validatePassword(e.target.value)) {
-                      setPasswordError('');
-                    }
-                  }} 
-                  required 
-                  size="small" 
-                  type="password"
-                  error={!!passwordError}
-                  helperText={passwordError || 'Must be at least 5 characters long'}
-                />
-                <TextField label="Name" value={newUser.name} onChange={e => setNewUser({ ...newUser, name: e.target.value })} size="small" />
-                <TextField label="Email" value={newUser.email} onChange={e => setNewUser({ ...newUser, email: e.target.value })} size="small" />
-                {newUser.role === 'teacher' && <TextField label="Telegram ID" value={newUser.telegramId} onChange={e => setNewUser({ ...newUser, telegramId: e.target.value })} size="small" required />}
-                <Select value={newUser.role} onChange={e => setNewUser({ ...newUser, role: e.target.value })} size="small">
-                  <MenuItem value="student">Student</MenuItem>
-                  <MenuItem value="teacher">Teacher</MenuItem>
-                </Select>
-                <Select value={newUser.classId} onChange={e => setNewUser({ ...newUser, classId: e.target.value })} size="small" displayEmpty>
-                  <MenuItem value="">Class</MenuItem>
-                  {classes.map(c => <MenuItem value={c.id} key={c.id}>{c.name}</MenuItem>)}
-                </Select>
-                <Button type="submit" variant="contained" disabled={creatingUser}>Create</Button>
               </form>
               
               {/* User List */}

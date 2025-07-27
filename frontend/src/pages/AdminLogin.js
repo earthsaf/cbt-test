@@ -1,28 +1,36 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { useAuth } from '../contexts/AuthContext';
 
 function AdminLogin() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { login, user } = useAuth();
+
+  useEffect(() => {
+    if (user && user.role === 'admin') {
+      navigate('/admin', { replace: true });
+    }
+  }, [user, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
     try {
-      const apiUrl = process.env.REACT_APP_API_URL || '/api';
-      const res = await axios.post(`${apiUrl}/auth/login`, { username, password, role: 'admin' });
-      if (res.data && res.data.token) {
-        localStorage.setItem('token', res.data.token);
-        localStorage.setItem('role', 'admin');
+      const result = await login({ username, password, role: 'admin' });
+      if (result.success) {
         navigate('/admin');
       } else {
-        setError('Login failed: No token received.');
+        setError(result.error || 'Login failed. Please check your credentials.');
       }
     } catch (err) {
-      setError('Login failed');
+      setError('An unexpected error occurred. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
