@@ -251,7 +251,8 @@ function ExamPage() {
         {questions.map((q, idx) => {
           const userIdx = answers[q.id];
           const userAns = userIdx !== undefined ? q.options[userIdx] : undefined;
-          const isCorrect = userAns === q.answer;
+          const correctAns = q.options[q.answer];
+          const isCorrect = userAns === correctAns;
           return (
             <Card key={q.id} sx={{ mb: 2, borderLeft: `5px solid ${isCorrect ? '#4caf50' : '#f44336'}` }}>
               <CardContent>
@@ -260,12 +261,12 @@ function ExamPage() {
                   <Box key={i} sx={{
                     bgcolor: userAns === opt ? (isCorrect ? '#e8f5e9' : '#ffebee') : '#fafafa',
                     px: 2, py: 1, borderRadius: 1, mb: 1,
-                    border: opt === q.answer ? '1px solid #4caf50' : '1px solid transparent'
+                    border: opt === correctAns ? '1px solid #4caf50' : '1px solid transparent'
                   }}>
                     <Typography>{String.fromCharCode(65 + i)}) {opt}</Typography>
                   </Box>
                 ))}
-                <Typography sx={{ mt: 1 }}>Your Answer: <b>{userAns || 'N/A'}</b> — Correct: <b>{q.answer}</b></Typography>
+                <Typography sx={{ mt: 1 }}>Your Answer: <b>{userAns || 'N/A'}</b> — Correct: <b>{correctAns}</b></Typography>
               </CardContent>
             </Card>
           );

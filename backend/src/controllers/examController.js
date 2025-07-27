@@ -114,15 +114,12 @@ exports.submitAnswers = async (req, res) => {
     const ans = Array.isArray(answers) ? answers.find(a => a.questionId === q.id) : answers[q.id];
     if (!ans) continue;
     let userAnswer = Array.isArray(answers) ? ans.answer : ans;
+    // Ensure options array
+    const optsArray = Array.isArray(q.options) ? q.options : Object.values(q.options || {});
     // If answers sent as numeric index, convert to option text
-    if (typeof userAnswer === 'number' && Array.isArray(q.options)) {
-      userAnswer = q.options[userAnswer];
-    }
-    // Determine canonical correct answer text
-    let correctText = q.answer;
-    if (typeof correctText === 'number' && Array.isArray(q.options)) {
-      correctText = q.options[correctText];
-    }
+    // The user's answer is text, but the correct answer from DB is an index.
+    // We must convert the correct answer's index to its text equivalent for comparison.
+    const correctText = optsArray[q.answer];
     await Answer.create({ UserId: userId, ExamId: examId, QuestionId: q.id, answer: userAnswer });
     total++;
     if (userAnswer === correctText) correct++;
@@ -144,11 +141,12 @@ exports.examHistory = async (req, res) => {
     history[a.ExamId].answers.push({
       question: a.Question.text,
       yourAnswer: a.answer,
-      correct: a.answer === a.Question.answer,
-      correctAnswer: a.Question.answer,
+      correct: a.answer === (Array.isArray(a.Question.options) ? a.Question.options[a.Question.answer] : Object.values(a.Question.options || {})[a.Question.answer]),
+      correctAnswer: (Array.isArray(a.Question.options) ? a.Question.options[a.Question.answer] : Object.values(a.Question.options || {})[a.Question.answer]),
     });
     history[a.ExamId].total += 1;
-    if (a.answer === a.Question.answer) history[a.ExamId].score += 1;
+    const correctAnswerText = Array.isArray(a.Question.options) ? a.Question.options[a.Question.answer] : Object.values(a.Question.options || {})[a.Question.answer];
+    if (a.answer === correctAnswerText) history[a.ExamId].score += 1;
   });
   res.json(Object.values(history));
 };
@@ -166,7 +164,8 @@ exports.examAnalytics = async (req, res) => {
   answers.forEach(a => {
     // Score calculation
     if (!scores[a.UserId]) scores[a.UserId] = { user: a.User?.username || a.UserId, score: 0 };
-    if (a.answer === a.Question.answer) {
+    const correctAnswerText = Array.isArray(a.Question.options) ? a.Question.options[a.Question.answer] : Object.values(a.Question.options || {})[a.Question.answer];
+    if (a.answer === correctAnswerText) {
       scores[a.UserId].score += 1;
     } else {
       // Track failed questions
