@@ -16,7 +16,7 @@ function Dashboard() {
   const [exams, setExams] = useState([]);
   const [role, setRole] = useState('student');
   const [history, setHistory] = useState([]);
-  const [profile, setProfile] = useState({ name: '', email: '' });
+  const [profile, setProfile] = useState({ name: '', email: '', password: '' });
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileMsg, setProfileMsg] = useState('');
   const [selectedExam, setSelectedExam] = useState('');
@@ -24,6 +24,7 @@ function Dashboard() {
   const [loadingAnalytics, setLoadingAnalytics] = useState(false);
   const [debugData, setDebugData] = useState(null);
   const [inProgressExamId, setInProgressExamId] = useState(null);
+  const [notifications, setNotifications] = useState([]);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -51,10 +52,11 @@ function Dashboard() {
       })
       .catch(() => setExams([]));
     api.get('/exams/history').then(res => setHistory(res.data)).catch(() => setHistory([]));
-    if (tab === 6) {
+    api.get('/student/notifications').then(res => setNotifications(res.data)).catch(() => setNotifications([]));
+    if (tab === 4) { // Corrected index for Profile tab
       setProfileLoading(true);
-      api.get('/admin/profile', { headers: { Authorization: 'Bearer ' + localStorage.getItem('token') } })
-        .then(res => setProfile({ name: res.data.user.name || '', email: res.data.user.email || '' }))
+      api.get('/student/profile')
+        .then(res => setProfile({ name: res.data.name || '', email: res.data.email || '', password: '' }))
         .catch(() => setProfile({ name: '', email: '' }))
         .finally(() => setProfileLoading(false));
     }
@@ -86,7 +88,7 @@ function Dashboard() {
     setProfileMsg('');
     setProfileLoading(true);
     try {
-      await api.put('/admin/profile', profile, { headers: { Authorization: 'Bearer ' + localStorage.getItem('token') } });
+      await api.put('/student/profile', profile);
       setProfileMsg('Profile updated!');
     } catch {
       setProfileMsg('Failed to update profile');
@@ -169,8 +171,17 @@ function Dashboard() {
         {tab === 0 && (
           <Card sx={{ mb: 2 }}>
             <CardContent>
-              <Typography variant="h5">Welcome!</Typography>
-              <Typography>Quick stats and notifications will appear here.</Typography>
+              <Typography variant="h5">Notifications</Typography>
+              {notifications.length > 0 ? (
+                notifications.map(notif => (
+                  <Box key={notif.id} sx={{ borderBottom: '1px solid #eee', p: 1 }}>
+                    <Typography variant="body2"><strong>From:</strong> {notif.sender} ({notif.scope})</Typography>
+                    <Typography>{notif.message}</Typography>
+                  </Box>
+                ))
+              ) : (
+                <Typography>No new notifications.</Typography>
+              )}
             </CardContent>
           </Card>
         )}
@@ -203,7 +214,7 @@ function Dashboard() {
             </Grid>
           </>
         )}
-        {tab === 4 && (
+        {tab === 2 && ( // Corrected index for Results tab
           <Card>
             <CardContent>
               <Typography variant="h6">Results & Analytics</Typography>
@@ -238,7 +249,7 @@ function Dashboard() {
             </CardContent>
           </Card>
         )}
-        {tab === 5 && (
+        {tab === 3 && ( // Corrected index for History tab
           <Box>
             <Typography variant="h6" sx={{ mb: 2 }}>Exam History</Typography>
             {history.length === 0 && <Typography>No exam history yet.</Typography>}
@@ -260,7 +271,7 @@ function Dashboard() {
             ))}
           </Box>
         )}
-        {tab === 6 && (
+        {tab === 4 && ( // Corrected index for Profile tab
           <Card sx={{ maxWidth: 400, margin: 'auto' }}>
             <CardContent>
               <Typography variant="h6">Profile</Typography>
@@ -274,7 +285,8 @@ function Dashboard() {
             </CardContent>
           </Card>
         )}
-        {tab === 7 && (
+        {/* This debug tab was using an invalid index, it is removed for now and can be re-added if needed */}
+        {false && tab === 5 && (
           <Card>
             <CardContent>
               <Typography variant="h6">Debug Info</Typography>

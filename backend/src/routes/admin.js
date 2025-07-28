@@ -7,9 +7,7 @@ const multer = require('multer');
 const upload = multer();
 const router = express.Router();
 
-// Exam routes for teachers
-router.post('/exams', requireAuth, requireRole('teacher'), examController.createExam);
-router.post('/exams/:id/questions', requireAuth, requireRole('teacher'), examController.addQuestions);
+// All teacher-specific routes have been moved to teacher.js for better separation of concerns.
 
 // Admin routes
 router.get('/users', requireAuth, requireRole('admin'), admin.manageUsers);
@@ -29,12 +27,9 @@ router.post('/users', requireAuth, requireRole('admin'), admin.createUser);
 router.delete('/users/:id', requireAuth, requireRole('admin'), admin.deleteUser);
 router.post('/exams/invigilator-code', requireAuth, requireRole('admin'), admin.setInvigilatorCode);
 router.get('/exams/invigilator-code', requireAuth, requireRole('admin'), admin.getInvigilatorCode);
-// Profile routes (any authenticated user)
-router.get('/profile', requireAuth, admin.getProfile);
-router.put('/profile', requireAuth, admin.updateProfile);
+// Generic profile routes removed. Profile management is now handled in role-specific route files (e.g., teacher.js).
 
-// Teacher routes
-router.get('/my-assignments', requireAuth, requireRole('teacher'), admin.getTeacherAssignments);
+
 
 // New: Subject management
 router.get('/subjects', requireAuth, requireRole('admin'), admin.listSubjects);
@@ -46,14 +41,7 @@ router.get('/teacher-assignments', requireAuth, requireRole('admin'), admin.list
 router.post('/teacher-assignments', requireAuth, requireRole('admin'), admin.assignTeacher);
 router.delete('/teacher-assignments/:id', requireAuth, requireRole('admin'), admin.removeTeacherAssignment);
 
-// New: Upload questions
-router.post('/upload-questions', requireAuth, upload.single('file'), admin.uploadQuestions);
-
-// New: Teacher-question assignment management
-router.get('/assignment-questions/:assignmentId', requireAuth, admin.listAssignmentQuestions);
-router.put('/questions/:id', requireAuth, admin.editQuestion);
-router.delete('/questions/:id', requireAuth, admin.deleteQuestion);
-router.delete('/assignment-questions/:assignmentId', requireAuth, admin.deleteAssignmentQuestions);
+// Teacher question management routes removed. This is now handled exclusively in teacher.js.
 
 // New: Add class
 router.post('/classes', requireAuth, requireRole('admin'), admin.addClass);
@@ -73,7 +61,6 @@ router.put('/exams/:examId/start', requireAuth, requireRole('admin'), admin.star
 // Auto-end exams whose duration has passed
 router.post('/exams/auto-end', requireAuth, requireRole('admin'), admin.autoEndExams);
 
-// Debug: Show student class and all exams
-router.get('/debug-student-exams', requireAuth, admin.debugStudentExams);
+// Insecure debug routes have been removed.
 
 module.exports = router;

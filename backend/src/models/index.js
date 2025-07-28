@@ -12,6 +12,7 @@ const Log = require('./log')(sequelize, DataTypes);
 const ProctoringEvent = require('./proctoringEvent')(sequelize, DataTypes);
 const Subject = require('./subject')(sequelize, DataTypes);
 const TeacherClassSubject = require('./TeacherClassSubject')(sequelize, DataTypes);
+const Notification = require('./notification')(sequelize, DataTypes);
 
 // Associations
 User.belongsTo(Class);
@@ -37,6 +38,10 @@ TeacherClassSubject.belongsTo(User, { as: 'teacher', foreignKey: 'teacherId' });
 TeacherClassSubject.belongsTo(Class, { foreignKey: 'classId' });
 TeacherClassSubject.belongsTo(Subject, { foreignKey: 'subjectId' });
 
+// Notification associations
+Notification.belongsTo(User, { as: 'recipient', foreignKey: 'recipient_id' });
+User.hasMany(Notification, { foreignKey: 'recipient_id' });
+
 // Export models
 module.exports = {
   sequelize,
@@ -50,4 +55,5 @@ module.exports = {
   ProctoringEvent,
   Subject,
   TeacherClassSubject,
+  Notification,
 }; 

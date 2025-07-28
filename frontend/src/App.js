@@ -1,6 +1,5 @@
 import React from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import LoginPage from './pages/LoginPage';
 import Dashboard from './pages/Dashboard';
 import ExamPage from './pages/ExamPage';
 import AdminPanel from './pages/AdminPanel';
