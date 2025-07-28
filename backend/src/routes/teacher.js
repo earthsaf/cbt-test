@@ -1,12 +1,20 @@
 const express = require('express');
 const router = express.Router();
-const { authenticate, isTeacher } = require('../middleware/auth');
+const { requireAuth } = require('../middlewares/auth');
 const teacherController = require('../controllers/teacherController');
 const multer = require('multer');
 const upload = multer({ dest: 'uploads/' });
 
 // All routes in this file are protected and require teacher role
-router.use(authenticate, isTeacher);
+router.use(requireAuth);
+
+// Check if user is a teacher
+router.use((req, res, next) => {
+  if (req.user.role !== 'teacher') {
+    return res.status(403).json({ error: 'Access denied. Teacher role required.' });
+  }
+  next();
+});
 
 // Get teacher's assignments (classes and subjects they teach)
 router.get('/assignments', teacherController.getAssignments);
