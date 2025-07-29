@@ -16,8 +16,20 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (credentials) => {
     try {
+      console.log('Attempting login with credentials:', { 
+        ...credentials, 
+        password: credentials.password ? '[HIDDEN]' : 'undefined' 
+      });
+      
       const response = await api.post('/auth/login', credentials);
+      console.log('Login response:', response.data);
+      
       const { user, token } = response.data;
+      
+      if (!user || !token) {
+        console.error('Missing user or token in response:', response.data);
+        throw new Error('Invalid response from server');
+      }
       
       // Save user data and token
       localStorage.setItem('user', JSON.stringify(user));
@@ -26,8 +38,33 @@ export const AuthProvider = ({ children }) => {
       setUser(user);
       return { success: true, user };
     } catch (error) {
-      console.error('Login error:', error);
-      return { success: false, error: error.response?.data?.message || 'Login failed' };
+      console.error('Login error details:', {
+        message: error.message,
+        response: {
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          data: error.response?.data,
+          headers: error.response?.headers,
+        },
+        config: {
+          url: error.config?.url,
+          method: error.config?.method,
+          data: error.config?.data,
+          headers: error.config?.headers,
+        },
+      });
+      
+      const errorMessage = error.response?.data?.message || 
+                         error.response?.data?.error || 
+                         error.message || 
+                         'Login failed. Please check your credentials and try again.';
+      
+      return { 
+        success: false, 
+        error: errorMessage,
+        status: error.response?.status,
+        data: error.response?.data
+      };
     }
   };
 

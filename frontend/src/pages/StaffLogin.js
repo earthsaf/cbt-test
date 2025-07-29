@@ -51,11 +51,36 @@ function StaffLogin() {
     e.preventDefault();
     setError('');
     setLoading(true);
+    
+    // Basic validation
+    if (!username.trim() || !password) {
+      setError('Please enter both username and password');
+      setLoading(false);
+      return;
+    }
+    
     try {
-      await login({ username, password, role });
-      // On success, the user state will update and the useEffect will trigger redirection.
+      const result = await login({ username, password, role });
+      
+      if (!result.success) {
+        console.error('Login failed:', result);
+        let errorMessage = result.error || 'Login failed';
+        
+        // Provide more specific error messages based on the status code
+        if (result.status === 401) {
+          errorMessage = 'Invalid username or password. Please try again.';
+        } else if (result.status === 500) {
+          errorMessage = 'Server error. Please try again later.';
+        } else if (result.data?.error) {
+          errorMessage = result.data.error;
+        }
+        
+        setError(errorMessage);
+      }
+      // On success, the user state will update and the useEffect will trigger redirection
     } catch (err) {
-      setError(err.message || 'Login failed. Please check your credentials.');
+      console.error('Unexpected error during login:', err);
+      setError('An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
     }
