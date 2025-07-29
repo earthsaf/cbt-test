@@ -26,18 +26,53 @@ const allowedOrigins = [
 const corsOptions = {
   origin: function(origin, callback) {
     // Allow requests without origin (like mobile apps, curl, etc.)
-    // Also allow undefined origin for Socket.IO requests
-    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+    // Also allow undefined origin for development and testing
+    if (!origin || allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
+    
+    // Log blocked CORS requests for debugging
+    console.log('Blocked CORS request from origin:', origin);
     return callback(new Error('CORS not allowed from this origin: ' + origin), false);
   },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Access-Control-Allow-Origin']
+  credentials: true, // Required for cookies, authorization headers with HTTPS
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Requested-With',
+    'X-CSRF-Token',
+    'X-Forwarded-For',
+    'X-Forwarded-Proto',
+    'X-Forwarded-Port'
+  ],
+  exposedHeaders: [
+    'Content-Length',
+    'Content-Type',
+    'Authorization',
+    'X-CSRF-Token'
+  ],
+  maxAge: 86400, // 24 hours
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 };
 
+// Apply CORS with the options
 app.use(cors(corsOptions));
+
+// Handle preflight requests
+app.options('*', cors(corsOptions));
+
+// Log all incoming requests for debugging
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`, {
+    headers: req.headers,
+    body: req.body,
+    query: req.query,
+    params: req.params
+  });
+  next();
+});
 app.use(express.json());
 app.use(cookieParser());
 app.use('/api', routes);

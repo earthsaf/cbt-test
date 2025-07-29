@@ -21,14 +21,25 @@ export const AuthProvider = ({ children }) => {
         password: credentials.password ? '[HIDDEN]' : 'undefined' 
       });
       
+      // Log the full request being sent
+      console.log('Sending request to:', '/auth/login');
+      console.log('Request method:', 'POST');
+      console.log('Request headers:', {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'withCredentials': true
+      });
+      
       const response = await api.post('/auth/login', credentials);
-      console.log('Login response:', response.data);
+      console.log('Login response status:', response.status);
+      console.log('Login response headers:', response.headers);
+      console.log('Login response data:', response.data);
       
       const { user, token } = response.data;
       
       if (!user || !token) {
         console.error('Missing user or token in response:', response.data);
-        throw new Error('Invalid response from server');
+        throw new Error('Invalid response from server - missing user or token');
       }
       
       // Save user data and token
@@ -38,32 +49,63 @@ export const AuthProvider = ({ children }) => {
       setUser(user);
       return { success: true, user };
     } catch (error) {
-      console.error('Login error details:', {
+      const errorDetails = {
         message: error.message,
-        response: {
-          status: error.response?.status,
-          statusText: error.response?.statusText,
-          data: error.response?.data,
-          headers: error.response?.headers,
-        },
-        config: {
-          url: error.config?.url,
+        name: error.name,
+        code: error.code,
+        response: error.response ? {
+          status: error.response.status,
+          statusText: error.response.statusText,
+          data: error.response.data,
+          headers: error.response.headers,
+        } : null,
+        request: error.request ? {
           method: error.config?.method,
+          url: error.config?.url,
           data: error.config?.data,
           headers: error.config?.headers,
-        },
-      });
+        } : null,
+        config: error.config ? {
+          url: error.config.url,
+          method: error.config.method,
+          baseURL: error.config.baseURL,
+          headers: error.config.headers,
+          timeout: error.config.timeout,
+          withCredentials: error.config.withCredentials,
+          xsrfCookieName: error.config.xsrfCookieName,
+          xsrfHeaderName: error.config.xsrfHeaderName,
+        } : null
+      };
       
-      const errorMessage = error.response?.data?.message || 
-                         error.response?.data?.error || 
-                         error.message || 
-                         'Login failed. Please check your credentials and try again.';
+      console.error('Login error details:', JSON.stringify(errorDetails, null, 2));
+      
+      // Extract error message from response or use default
+      let errorMessage = 'Login failed. Please check your credentials and try again.';
+      
+      if (error.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        if (error.response.data) {
+          errorMessage = error.response.data.error || 
+                        error.response.data.message || 
+                        `Server responded with status ${error.response.status}`;
+        } else {
+          errorMessage = `Server responded with status ${error.response.status} and no data`;
+        }
+      } else if (error.request) {
+        // The request was made but no response was received
+        errorMessage = 'No response received from server. Please check your internet connection.';
+      } else {
+        // Something happened in setting up the request that triggered an Error
+        errorMessage = error.message || 'An error occurred during login';
+      }
       
       return { 
         success: false, 
         error: errorMessage,
         status: error.response?.status,
-        data: error.response?.data
+        data: error.response?.data,
+        details: errorDetails
       };
     }
   };
