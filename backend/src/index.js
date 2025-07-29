@@ -135,6 +135,10 @@ app.use((req, res) => {
 
 // Serve static files from the React app in production
 const isProduction = process.env.NODE_ENV === 'production';
+
+// API routes should always be available
+app.use('/api', routes);
+
 if (isProduction) {
   const frontendBuildPath = path.join(__dirname, '../../frontend/build');
   console.log('Frontend build path:', frontendBuildPath);
@@ -163,10 +167,8 @@ if (isProduction) {
       }
     }));
     
-    // API routes should come before the catch-all route
-    app.use('/api', routes);
-    
     // Handle React routing, return all other requests to React app
+    // This must come after the static files middleware
     app.get('*', (req, res) => {
       console.log(`[${new Date().toISOString()}] Serving index.html for route: ${req.originalUrl}`);
       res.sendFile(path.join(frontendBuildPath, 'index.html'), {
@@ -175,6 +177,19 @@ if (isProduction) {
           'Pragma': 'no-cache',
           'Expires': '0',
           'Surrogate-Control': 'no-store'
+        },
+        lastModified: false,
+        etag: false
+      }, (err) => {
+        if (err) {
+          console.error('Error sending index.html:', err);
+          if (!res.headersSent) {
+            res.status(500).json({
+              success: false,
+              error: 'Failed to load application',
+              message: 'An error occurred while loading the application.'
+            });
+          }
         }
       });
     });
@@ -191,8 +206,6 @@ if (isProduction) {
     });
   }
 }
-
-setupBot();
 
 const PORT = process.env.PORT || 4000;
 if (!PORT) {
