@@ -6,7 +6,7 @@ const getBaseURL = () => {
     return 'http://localhost:4000/api';
   }
   // For production, use the same origin as the frontend
-  return 'https://cbt-test.onrender.com/api';
+  return `${window.location.origin}/api`;
 };
 
 const api = axios.create({
