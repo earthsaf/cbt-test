@@ -138,29 +138,55 @@ const isProduction = process.env.NODE_ENV === 'production';
 if (isProduction) {
   const frontendBuildPath = path.join(__dirname, '../../frontend/build');
   console.log('Frontend build path:', frontendBuildPath);
-
-  // Check if frontend build exists
+  
+  // Check if the frontend build directory exists
   const fs = require('fs');
   if (fs.existsSync(frontendBuildPath)) {
-    console.log('Frontend build found, serving static files');
+    console.log('Serving frontend from:', frontendBuildPath);
     
-    // Serve static files
-    app.use(express.static(frontendBuildPath, { index: false }));
+    // Serve static files from the React app
+    app.use(express.static(frontendBuildPath, {
+      etag: true,
+      lastModified: true,
+      setHeaders: (res, path) => {
+        // Set cache control headers for static assets
+        if (path.endsWith('.html')) {
+          // Don't cache HTML files
+          res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+          res.setHeader('Pragma', 'no-cache');
+          res.setHeader('Expires', '0');
+          res.setHeader('Surrogate-Control', 'no-store');
+        } else {
+          // Cache other static assets for 1 year
+          res.setHeader('Cache-Control', 'public, max-age=31536000');
+        }
+      }
+    }));
     
-    // Handle all other routes by serving index.html
+    // API routes should come before the catch-all route
+    app.use('/api', routes);
+    
+    // Handle React routing, return all other requests to React app
     app.get('*', (req, res) => {
-      console.log('Serving index.html for route:', req.path);
-      res.sendFile(path.join(frontendBuildPath, 'index.html'));
+      console.log(`[${new Date().toISOString()}] Serving index.html for route: ${req.originalUrl}`);
+      res.sendFile(path.join(frontendBuildPath, 'index.html'), {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+          'Surrogate-Control': 'no-store'
+        }
+      });
     });
   } else {
-    console.log('Frontend build not found at:', frontendBuildPath);
+    console.warn('Frontend build directory not found at:', frontendBuildPath);
     
-    // Fallback route for root path
-    app.get('/', (req, res) => {
-      res.json({ 
-        message: 'Backend is running. Frontend build not found.',
-        frontendPath: frontendBuildPath,
-        currentDir: __dirname
+    // If frontend build is not found, at least serve a basic message
+    app.get('*', (req, res) => {
+      res.status(404).json({
+        success: false,
+        error: 'Frontend not built',
+        message: 'The frontend build directory was not found. Please build the frontend before starting the server.'
       });
     });
   }
