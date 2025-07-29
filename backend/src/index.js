@@ -2,25 +2,27 @@ require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const cors = require('cors');
-const { sequelize } = require('./models');
+const cookieParser = require('cookie-parser');
+const socketIo = require('socket.io');
 const routes = require('./routes');
+const { sequelize } = require('./models');
 const { setupBot } = require('./bot/bot');
 const socketService = require('./services/socket');
 const bcrypt = require('bcrypt');
 const { User } = require('./models');
-const cookieParser = require('cookie-parser');
 const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
-const io = socketService.init(server);
 
-const isProduction = process.env.NODE_ENV === 'production';
-
+// CORS configuration - allow all origins for now
 const allowedOrigins = [
-  'https://cbt-test-urrr.onrender.com', // old frontend URL
-  'https://cbt-test.onrender.com', // new combined URL
-  'http://localhost:3000', // local dev
+  'http://localhost:3000',
+  'http://localhost:4000',
+  'https://cbt-test.onrender.com',
+  'https://cbt-test-api.onrender.com',
+  'https://cbt-test-frontend.onrender.com',
+  'https://cbt-test-urrr.onrender.com'
 ];
 
 const corsOptions = {
@@ -63,21 +65,76 @@ app.use(cors(corsOptions));
 // Handle preflight requests
 app.options('*', cors(corsOptions));
 
+// Increase the limit for JSON and URL-encoded bodies
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
+app.use(cookieParser());
+
 // Log all incoming requests for debugging
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`, {
-    headers: req.headers,
+    headers: {
+      ...req.headers,
+      authorization: req.headers.authorization ? '***REDACTED***' : undefined,
+      cookie: req.headers.cookie ? '***REDACTED***' : undefined
+    },
     body: req.body,
     query: req.query,
     params: req.params
   });
   next();
 });
-app.use(express.json());
-app.use(cookieParser());
+
+// Routes
 app.use('/api', routes);
 
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Initialize Socket.IO
+const io = socketService.init(server, {
+  cors: {
+    origin: allowedOrigins,
+    methods: ['GET', 'POST'],
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    transports: ['websocket', 'polling']
+  },
+  allowEIO3: true
+});
+
+// Initialize socket connection handling
+setupBot(io);
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', {
+    message: err.message,
+    stack: err.stack,
+    ...(process.env.NODE_ENV === 'development' && { fullError: err })
+  });
+  
+  res.status(err.status || 500).json({
+    success: false,
+    error: 'Internal server error',
+    message: process.env.NODE_ENV === 'development' ? err.message : undefined,
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+  });
+});
+
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    error: 'Not Found',
+    message: `Cannot ${req.method} ${req.originalUrl}`
+  });
+});
+
 // Serve static files from the React app in production
+const isProduction = process.env.NODE_ENV === 'production';
 if (isProduction) {
   const frontendBuildPath = path.join(__dirname, '../../frontend/build');
   console.log('Frontend build path:', frontendBuildPath);
