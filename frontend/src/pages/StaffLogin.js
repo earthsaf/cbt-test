@@ -77,7 +77,11 @@ function StaffLogin() {
         
         setError(errorMessage);
       }
-      // On success, the user state will update and the useEffect will trigger redirection
+      // On success, hide the login form so the redirect effect runs
+      if (result.success) {
+        setShowLoginForm(false);
+      }
+      // The user state will update in AuthContext and the useEffect will trigger redirection
     } catch (err) {
       console.error('Unexpected error during login:', err);
       setError('An unexpected error occurred. Please try again.');
