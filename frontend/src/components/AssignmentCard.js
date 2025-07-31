@@ -15,13 +15,14 @@ import {
 } from '@mui/material';
 
 const AssignmentCard = ({ 
-  assignment, 
+  assignment = {}, // Add default empty object
   onUpload, 
   onViewQuestions, 
   onEdit, 
   onDelete,
   loading = false 
 }) => {
+  // Add validation check
   if (!assignment || typeof assignment !== 'object') {
     return (
       <Card sx={{ mb: 2 }}>
@@ -31,6 +32,17 @@ const AssignmentCard = ({
       </Card>
     );
   }
+
+  // Add default values when accessing properties
+  const {
+    title = 'Untitled Assignment',
+    subject = '',
+    description = 'No description provided',
+    dueDate = new Date(),
+    studentCount = 0,
+    questionCount = 0
+  } = assignment;
+
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -47,28 +59,28 @@ const AssignmentCard = ({
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
           <FaBook size={24} color="#1976d2" />
           <Typography variant="h6" component="div" sx={{ ml: 1 }}>
-            {assignment.title || 'Untitled Assignment'}
-            {assignment.subject ? ` (${assignment.subject})` : ''}
+            {title}
+            {subject ? ` (${subject})` : ''}
           </Typography>
         </Box>
 
         <Typography variant="body2" color="text.secondary" paragraph>
-          {assignment.description || 'No description provided'}
+          {description}
         </Typography>
 
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 2 }}>
           <Chip
             icon={<FaClock />}
-            label={`Due: ${formatDate(assignment.dueDate)}`}
+            label={`Due: ${formatDate(dueDate)}`}
             color="primary"
           />
           <Chip
             icon={<FaUsers />}
-            label={`Students: ${assignment.studentCount || 0}`}
+            label={`Students: ${studentCount}`}
             color="secondary"
           />
           <Chip
-            label={`Questions: ${assignment.questionCount || 0}`}
+            label={`Questions: ${questionCount}`}
             color="default"
           />
         </Box>
