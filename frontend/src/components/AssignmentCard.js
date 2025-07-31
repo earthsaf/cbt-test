@@ -22,6 +22,15 @@ const AssignmentCard = ({
   onDelete,
   loading = false 
 }) => {
+  if (!assignment || typeof assignment !== 'object') {
+    return (
+      <Card sx={{ mb: 2 }}>
+        <CardContent>
+          <Typography color="error">Invalid assignment data.</Typography>
+        </CardContent>
+      </Card>
+    );
+  }
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -38,7 +47,8 @@ const AssignmentCard = ({
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
           <FaBook size={24} color="#1976d2" />
           <Typography variant="h6" component="div" sx={{ ml: 1 }}>
-            {assignment.subject}
+            {assignment.title || 'Untitled Assignment'}
+            {assignment.subject ? ` (${assignment.subject})` : ''}
           </Typography>
         </Box>
 
