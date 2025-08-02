@@ -21,19 +21,15 @@ function StaffLogin() {
   const [showLoginForm, setShowLoginForm] = useState(!user);
 
   useEffect(() => {
-    // If user is logged in and not explicitly trying to log in as someone else, redirect them.
-    if (user && !showLoginForm) {
+    // Reset form state when component mounts or when user logs out
+    setShowLoginForm(!user);
+    
+    // If user is already logged in, redirect them
+    if (user) {
       const destination = user.role === 'invigilator' ? '/proctor' : `/${user.role}`;
       navigate(destination, { replace: true });
     }
-  }, [user, navigate, showLoginForm]);
-
-  // When user logs out, ensure the login form is visible
-  useEffect(() => {
-    if (!user) {
-      setShowLoginForm(true);
-    }
-  }, [user]);
+  }, [user, navigate]);
 
 
   const handleRoleChange = (event, newRole) => {
