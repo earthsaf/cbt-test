@@ -18,38 +18,52 @@ function StaffLogin() {
   const [loading, setLoading] = useState(false);
   const { user, login, logout } = useAuth();
   const navigate = useNavigate();
-  const [showLoginForm, setShowLoginForm] = useState(!user);
+  // Always start with login form hidden - we'll show it after checking if we should auto-login
+  const [showLoginForm, setShowLoginForm] = useState(false);
+  const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
-    // Reset form state when component mounts or when user logs out
+    // Check if we have a stored user and token
     const storedUser = JSON.parse(localStorage.getItem('user'));
     const token = localStorage.getItem('token');
     
-    if (storedUser && token) {
-      // If we have a stored user and token, update the auth context
-      // The login function will handle setting the user in the context
+    // If user explicitly navigated to staff login, show the form regardless of stored auth
+    const showLogin = !storedUser || !token || !initialized;
+    setShowLoginForm(showLogin);
+    
+    if (storedUser && token && !initialized) {
+      // If we have valid stored credentials and this is the initial load,
+      // try to auto-login
       login({ 
         username: storedUser.username, 
         password: '', // Password not needed here as we already have a token
         role: storedUser.role 
-      }).then(() => {
-        const destination = storedUser.role === 'invigilator' ? '/proctor' : `/${storedUser.role}`;
-        navigate(destination, { replace: true });
-      }).catch(error => {
+      })
+      .then(() => {
+        // Only redirect if we're not explicitly on the staff login page
+        if (window.location.pathname !== '/staff-login') {
+          const destination = storedUser.role === 'invigilator' ? '/proctor' : `/${storedUser.role}`;
+          navigate(destination, { replace: true });
+        }
+      })
+      .catch(error => {
         console.error('Auto-login failed:', error);
         // Clear invalid auth data
         localStorage.removeItem('user');
         localStorage.removeItem('token');
         setShowLoginForm(true);
+      })
+      .finally(() => {
+        setInitialized(true);
       });
     } else {
-      // No user is logged in, show the login form
-      setShowLoginForm(true);
-      // Clear any potential stale state
-      setUsername('');
-      setPassword('');
-      setError('');
+      setInitialized(true);
     }
+    
+    // Clear any potential stale state
+    setUsername('');
+    setPassword('');
+    setError('');
   }, [navigate, login]);
 
 
