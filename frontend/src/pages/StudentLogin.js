@@ -163,10 +163,26 @@ function StudentLogin() {
         <div style={{ color: '#666', fontSize: 14, marginTop: 16 }}>
           Having trouble logging in? Contact your teacher.
         </div>
-        <div style={{ marginTop: 18 }}>
-          <span style={{ color: '#1976d2', textDecoration: 'underline', cursor: 'pointer' }} onClick={() => navigate('/staff-login')}>
+        <div style={{ marginTop: 18, textAlign: 'center' }}>
+          <button 
+            onClick={() => navigate('/staff-login')}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#1976d2',
+              textDecoration: 'underline',
+              cursor: 'pointer',
+              fontSize: '14px',
+              padding: '4px 8px',
+              borderRadius: '4px',
+              transition: 'all 0.2s',
+              ':hover': {
+                background: 'rgba(25, 118, 210, 0.1)'
+              }
+            }}
+          >
             Staff? Sign in here
-          </span>
+          </button>
         </div>
       </div>
     </div>
