@@ -14,20 +14,25 @@ import {
   UploadFile
 } from '@mui/material';
 
-const AssignmentCard = ({ 
-  assignment = {}, // Add default empty object
-  onUpload, 
-  onViewQuestions, 
-  onEdit, 
-  onDelete,
-  loading = false 
-}) => {
+const AssignmentCard = (props) => {
+  // Destructure with default empty object and function placeholders
+  const { 
+    assignment = {}, 
+    onUpload = () => console.warn('onUpload prop not provided'), 
+    onViewQuestions = () => console.warn('onViewQuestions prop not provided'), 
+    onEdit = () => console.warn('onEdit prop not provided'), 
+    onDelete = () => console.warn('onDelete prop not provided'),
+    loading = false 
+  } = props || {};
+
   // Add validation check
-  if (!assignment || typeof assignment !== 'object') {
+  if (!assignment || typeof assignment !== 'object' || Object.keys(assignment).length === 0) {
     return (
-      <Card sx={{ mb: 2 }}>
+      <Card sx={{ mb: 2, opacity: 0.7 }}>
         <CardContent>
-          <Typography color="error">Invalid assignment data.</Typography>
+          <Typography color="text.secondary" fontStyle="italic">
+            No assignment data available
+          </Typography>
         </CardContent>
       </Card>
     );

@@ -255,20 +255,15 @@ function TeacherPanel() {
 
       <Box>
         {activeTab === 'assignments' && (
-          <AssignmentCard 
-            assignments={assignments} 
-            loading={loading.assignments}
-            selectedAssignment={selectedAssignment}
-            setSelectedAssignment={setSelectedAssignment}
-            questions={questions}
-            handleDeleteAll={handleDeleteAll}
-            handleDelete={handleDelete}
-            handleEdit={handleEdit}
-            handleUpload={handleUpload}
-            setFile={setFile}
-            openUploadModal={openUploadModal}
-            setOpenUploadModal={setOpenUploadModal}
-          />
+          <Box>
+            {assignments.map((assignment) => (
+              <AssignmentCard 
+                key={assignment.id} 
+                assignment={assignment} 
+                onDelete={handleDelete}
+              />
+            ))}
+          </Box>
         )}
         {activeTab === 'students' && <StudentList students={students} loading={loading.students} />}
         {activeTab === 'analytics' && <AnalyticsChart data={analytics} loading={loadingAnalytics} onFetch={fetchAnalytics} assignments={assignments} />}
