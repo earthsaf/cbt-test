@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Box, Paper, Typography, TextField, ToggleButton, ToggleButtonGroup, Alert, Button, Link as MuiLink } from '@mui/material';
@@ -16,55 +16,11 @@ function StaffLogin() {
   const [role, setRole] = useState('teacher');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { user, login, logout } = useAuth();
+  const { login } = useAuth();
   const navigate = useNavigate();
-  // Always start with login form hidden - we'll show it after checking if we should auto-login
-  const [showLoginForm, setShowLoginForm] = useState(false);
-  const [initialized, setInitialized] = useState(false);
 
-  useEffect(() => {
-    // Check if we have a stored user and token
-    const storedUser = JSON.parse(localStorage.getItem('user'));
-    const token = localStorage.getItem('token');
-    
-    // If user explicitly navigated to staff login, show the form regardless of stored auth
-    const showLogin = !storedUser || !token || !initialized;
-    setShowLoginForm(showLogin);
-    
-    if (storedUser && token && !initialized) {
-      // If we have valid stored credentials and this is the initial load,
-      // try to auto-login
-      login({ 
-        username: storedUser.username, 
-        password: '', // Password not needed here as we already have a token
-        role: storedUser.role 
-      })
-      .then(() => {
-        // Only redirect if we're not explicitly on the staff login page
-        if (window.location.pathname !== '/staff-login') {
-          const destination = storedUser.role === 'invigilator' ? '/proctor' : `/${storedUser.role}`;
-          navigate(destination, { replace: true });
-        }
-      })
-      .catch(error => {
-        console.error('Auto-login failed:', error);
-        // Clear invalid auth data
-        localStorage.removeItem('user');
-        localStorage.removeItem('token');
-        setShowLoginForm(true);
-      })
-      .finally(() => {
-        setInitialized(true);
-      });
-    } else {
-      setInitialized(true);
-    }
-    
-    // Clear any potential stale state
-    setUsername('');
-    setPassword('');
-    setError('');
-  }, [navigate, login]);
+  // Always show the login form when this component is loaded
+  const showLoginForm = true;
 
 
   const handleRoleChange = (event, newRole) => {
