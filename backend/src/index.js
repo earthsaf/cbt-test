@@ -124,17 +124,17 @@ sequelize.sync().then(async () => {
   console.log('Database synced successfully');
   // Create default admin if not exists
   try {
-    const admin = await User.findOne({ where: { role: 'admin' } });
+    const admin = await User.findOne({ where: { role: 'admin', username: 'admin' } });
     if (!admin) {
       const passwordHash = await bcrypt.hash('0000', 10);
       await User.create({ 
-        username: '0000', 
+        username: 'admin', 
         password_hash: passwordHash, 
         role: 'admin', 
-        name: 'Default Admin', 
-        email: '' 
+        name: 'Administrator', 
+        email: 'admin@example.com' 
       });
-      console.log('Default admin user created: username=0000, password=0000');
+      console.log('Default admin user created: username=admin, password=0000');
     }
   } catch (error) {
     console.error('Error creating default admin:', error);
