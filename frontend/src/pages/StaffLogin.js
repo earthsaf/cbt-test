@@ -22,14 +22,23 @@ function StaffLogin() {
 
   useEffect(() => {
     // Reset form state when component mounts or when user logs out
-    setShowLoginForm(!user);
+    const storedUser = JSON.parse(localStorage.getItem('user'));
+    const token = localStorage.getItem('token');
     
-    // If user is already logged in, redirect them
-    if (user) {
-      const destination = user.role === 'invigilator' ? '/proctor' : `/${user.role}`;
+    if (storedUser && token) {
+      // If we have a stored user and token, set the user
+      setUser(storedUser);
+      const destination = storedUser.role === 'invigilator' ? '/proctor' : `/${storedUser.role}`;
       navigate(destination, { replace: true });
+    } else {
+      // No user is logged in, show the login form
+      setShowLoginForm(true);
+      // Clear any potential stale state
+      setUsername('');
+      setPassword('');
+      setError('');
     }
-  }, [user, navigate]);
+  }, [navigate]);
 
 
   const handleRoleChange = (event, newRole) => {
