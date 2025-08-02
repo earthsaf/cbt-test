@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Box, Paper, Typography, TextField, ToggleButton, ToggleButtonGroup, Alert, Button, Link as MuiLink } from '@mui/material';
@@ -16,12 +16,27 @@ function StaffLogin() {
   const [role, setRole] = useState('teacher');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const { user, login, logout } = useAuth();
   const navigate = useNavigate();
+  // Always show login form when this component mounts
+  const [showLoginForm, setShowLoginForm] = useState(true);
 
-  // Always show the login form when this component is loaded
-  const showLoginForm = true;
-
+  useEffect(() => {
+    // Clear any existing auth data to prevent auto-redirect
+    localStorage.removeItem('user');
+    localStorage.removeItem('token');
+    
+    // Clear form state
+    setUsername('');
+    setPassword('');
+    setError('');
+    
+    // Force the user state to null in the auth context
+    if (user) {
+      // This will trigger a re-render with user=null
+      logout();
+    }
+  }, [user, logout]);
 
   const handleRoleChange = (event, newRole) => {
     if (newRole !== null) {
