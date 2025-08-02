@@ -26,10 +26,22 @@ function StaffLogin() {
     const token = localStorage.getItem('token');
     
     if (storedUser && token) {
-      // If we have a stored user and token, set the user
-      setUser(storedUser);
-      const destination = storedUser.role === 'invigilator' ? '/proctor' : `/${storedUser.role}`;
-      navigate(destination, { replace: true });
+      // If we have a stored user and token, update the auth context
+      // The login function will handle setting the user in the context
+      login({ 
+        username: storedUser.username, 
+        password: '', // Password not needed here as we already have a token
+        role: storedUser.role 
+      }).then(() => {
+        const destination = storedUser.role === 'invigilator' ? '/proctor' : `/${storedUser.role}`;
+        navigate(destination, { replace: true });
+      }).catch(error => {
+        console.error('Auto-login failed:', error);
+        // Clear invalid auth data
+        localStorage.removeItem('user');
+        localStorage.removeItem('token');
+        setShowLoginForm(true);
+      });
     } else {
       // No user is logged in, show the login form
       setShowLoginForm(true);
@@ -38,7 +50,7 @@ function StaffLogin() {
       setPassword('');
       setError('');
     }
-  }, [navigate]);
+  }, [navigate, login]);
 
 
   const handleRoleChange = (event, newRole) => {
