@@ -63,11 +63,11 @@ exports.login = async (req, res) => {
       });
     }
     
-    // Handle regular user login (admin/teacher)
-    if (!['admin', 'teacher'].includes(role)) {
+    // Handle regular user login (admin/teacher/student)
+    if (!['admin', 'teacher', 'student'].includes(role)) {
       return res.status(400).json({ 
         success: false,
-        error: 'Invalid role specified' 
+        error: 'Invalid role specified. Role must be admin, teacher, or student.' 
       });
     }
     

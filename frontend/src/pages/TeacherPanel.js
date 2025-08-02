@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Box, AppBar, Tabs, Tab, Typography, CircularProgress, Dialog, DialogTitle, 
-  DialogContent, DialogActions, Button, Snackbar, Alert, useTheme
+  DialogContent, DialogActions, Button, Snackbar, Alert, useTheme, Toolbar, IconButton
 } from '@mui/material';
 import { 
-  Assignment, People, BarChart, AccountCircle 
+  Assignment, People, BarChart, AccountCircle, Logout 
 } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import api from '../services/api';
 import AssignmentCard from '../components/teacher/AssignmentCard';
@@ -15,6 +16,7 @@ import ProfileCard from '../components/common/ProfileCard';
 import QuestionForm from '../components/teacher/QuestionForm';
 
 function TeacherPanel() {
+  const navigate = useNavigate();
   const theme = useTheme();
   const [activeTab, setActiveTab] = useState(() => localStorage.getItem('teacherActiveTab') || 'assignments');
   const [assignments, setAssignments] = useState([]);
@@ -56,16 +58,14 @@ function TeacherPanel() {
     }
   }, []);
 
-  const fetchStudents = useCallback(async (classId) => {
-    if (!classId) return;
+  const fetchStudents = useCallback(async () => {
     try {
       setLoading(prev => ({ ...prev, students: true }));
-      const res = await api.get(`/teacher/classes/${classId}/students`);
+      const res = await api.get('/teacher/students');
       setStudents(res.data || []);
     } catch (error) {
       console.error('Error fetching students:', error);
-      toast.error('Failed to load students for the class.');
-      setStudents([]);
+      toast.error('Failed to load students.');
     } finally {
       setLoading(prev => ({ ...prev, students: false }));
     }
@@ -80,7 +80,6 @@ function TeacherPanel() {
     } catch (error) {
       console.error('Error fetching questions:', error);
       toast.error('Failed to load questions.');
-      setQuestions([]);
     } finally {
       setLoading(prev => ({ ...prev, questions: false }));
     }
@@ -113,99 +112,72 @@ function TeacherPanel() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchAssignments();
-  }, [fetchAssignments]);
-
-  useEffect(() => {
-    if (selectedAssignment) {
-      const assignment = assignments.find(a => a.id === selectedAssignment);
-      if (assignment) {
-        fetchStudents(assignment.class_id);
-        fetchQuestions(selectedAssignment);
-      }
-    } else {
-      setStudents([]);
-      setQuestions([]);
-    }
-  }, [selectedAssignment, assignments, fetchStudents, fetchQuestions]);
-
-  useEffect(() => {
-    if (activeTab === 'profile' && !profile) {
-      fetchProfile();
-    }
-  }, [activeTab, profile, fetchProfile]);
-
   const handleUpload = async () => {
     if (!file || !selectedAssignment) return;
-    const formData = new FormData();
-    formData.append('questions', file);
-
+    
     try {
-      setLoading(prev => ({ ...prev, questions: true }));
+      const formData = new FormData();
+      formData.append('file', file);
+      
       await api.post(`/teacher/assignments/${selectedAssignment}/questions/upload`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
       });
-      await fetchQuestions(selectedAssignment);
+      
+      toast.success('Questions uploaded successfully!');
+      fetchQuestions(selectedAssignment);
       setOpenUploadModal(false);
       setFile(null);
-      toast.success('Questions uploaded successfully!');
     } catch (error) {
       console.error('Error uploading questions:', error);
-      toast.error(error.response?.data?.message || 'Failed to upload questions.');
-    } finally {
-      setLoading(prev => ({ ...prev, questions: false }));
+      toast.error('Failed to upload questions.');
     }
   };
 
   const handleEdit = (question) => {
-    setCurrentQuestion(question);
     setEditingQuestion(question.id);
+    setCurrentQuestion(question);
   };
 
   const handleEditSave = async () => {
     if (!editingQuestion) return;
+    
     try {
-      setLoading(prev => ({ ...prev, questions: true }));
       await api.put(`/teacher/questions/${editingQuestion}`, currentQuestion);
-      await fetchQuestions(selectedAssignment);
+      toast.success('Question updated successfully!');
       setEditingQuestion(null);
-      setSnack({ open: true, message: 'Question updated successfully', severity: 'success' });
+      fetchQuestions(selectedAssignment);
     } catch (error) {
       console.error('Error updating question:', error);
-      setSnack({ open: true, message: error.response?.data?.message || 'Failed to update question', severity: 'error' });
-    } finally {
-      setLoading(prev => ({ ...prev, questions: false }));
+      toast.error('Failed to update question.');
     }
   };
 
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to delete this question?')) return;
+    
     try {
-      setLoading(prev => ({ ...prev, questions: true }));
       await api.delete(`/teacher/questions/${id}`);
-      await fetchQuestions(selectedAssignment);
-      setSnack({ open: true, message: 'Question deleted successfully', severity: 'success' });
+      toast.success('Question deleted successfully!');
+      fetchQuestions(selectedAssignment);
     } catch (error) {
       console.error('Error deleting question:', error);
-      setSnack({ open: true, message: error.response?.data?.message || 'Failed to delete question', severity: 'error' });
-    } finally {
-      setLoading(prev => ({ ...prev, questions: false }));
+      toast.error('Failed to delete question.');
     }
   };
 
   const handleDeleteAll = async () => {
-    if (!selectedAssignment || !window.confirm('Are you sure you want to delete all questions? This action cannot be undone.')) return;
+    if (!selectedAssignment) return;
+    if (!window.confirm('Are you sure you want to delete all questions for this assignment?')) return;
+    
     try {
-      setLoading(prev => ({ ...prev, questions: true }));
       await api.delete(`/teacher/assignments/${selectedAssignment}/questions`);
+      toast.success('All questions deleted successfully!');
       setQuestions([]);
-      setSnack({ open: true, message: 'All questions have been deleted', severity: 'success' });
     } catch (error) {
       console.error('Error deleting all questions:', error);
-      setSnack({ open: true, message: error.response?.data?.message || 'Failed to delete questions', severity: 'error' });
-    } finally {
-      setLoading(prev => ({ ...prev, questions: false }));
+      toast.error('Failed to delete all questions.');
     }
   };
 
@@ -234,23 +206,54 @@ function TeacherPanel() {
     }
   };
 
+  const handleLogout = () => {
+    // Clear local storage
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    // Redirect to login page
+    navigate('/login');
+  };
+
+  useEffect(() => {
+    fetchAssignments();
+    fetchProfile();
+  }, [fetchAssignments, fetchProfile]);
+
+  useEffect(() => {
+    if (selectedAssignment) {
+      fetchQuestions(selectedAssignment);
+    }
+  }, [selectedAssignment, fetchQuestions]);
+
   return (
     <Box sx={{ flexGrow: 1, p: 3, backgroundColor: theme.palette.background.default, minHeight: '100vh' }}>
       <AppBar position="static" color="default" sx={{ mb: 3, borderRadius: 1 }}>
-        <Tabs
-          value={activeTab}
-          onChange={(e, newValue) => {
-            setActiveTab(newValue);
-            localStorage.setItem('teacherActiveTab', newValue);
-          }}
-          indicatorColor="primary"
-          textColor="primary"
-          variant="fullWidth"
-        >
-          {tabs.map((tab) => (
-            <Tab key={tab.id} value={tab.id} label={tab.label} icon={tab.icon} iconPosition="start" />
-          ))}
-        </Tabs>
+        <Toolbar>
+          <Tabs
+            value={activeTab}
+            onChange={(event, newValue) => {
+              setActiveTab(newValue);
+              localStorage.setItem('teacherActiveTab', newValue);
+            }}
+            indicatorColor="primary"
+            textColor="primary"
+            variant="scrollable"
+            scrollButtons="auto"
+            sx={{ flexGrow: 1 }}
+          >
+            {tabs.map((tab) => (
+              <Tab key={tab.id} value={tab.id} label={tab.label} icon={tab.icon} iconPosition="start" />
+            ))}
+          </Tabs>
+          <IconButton 
+            color="inherit" 
+            onClick={handleLogout}
+            aria-label="logout"
+            sx={{ ml: 2 }}
+          >
+            <Logout />
+          </IconButton>
+        </Toolbar>
       </AppBar>
 
       <Box>
@@ -261,6 +264,8 @@ function TeacherPanel() {
                 key={assignment.id} 
                 assignment={assignment} 
                 onDelete={handleDelete}
+                onEdit={handleEdit}
+                onViewQuestions={() => setSelectedAssignment(assignment.id)}
               />
             ))}
           </Box>
@@ -268,23 +273,45 @@ function TeacherPanel() {
         {activeTab === 'students' && <StudentList students={students} loading={loading.students} />}
         {activeTab === 'analytics' && <AnalyticsChart data={analytics} loading={loadingAnalytics} onFetch={fetchAnalytics} assignments={assignments} />}
         {activeTab === 'profile' && (
-            loading.profile ? <CircularProgress /> : 
-            profile ? <ProfileCard user={profile} onUpdate={handleProfileUpdate} /> : <Typography>Could not load profile.</Typography>
+          loading.profile ? <CircularProgress /> : 
+          profile ? <ProfileCard user={profile} onUpdate={handleProfileUpdate} /> : <Typography>Could not load profile.</Typography>
         )}
       </Box>
 
       <Dialog open={!!editingQuestion} onClose={() => setEditingQuestion(null)} fullWidth maxWidth="md">
         <DialogTitle>Edit Question</DialogTitle>
         <DialogContent>
-            <QuestionForm 
-                question={currentQuestion} 
-                setQuestion={setCurrentQuestion}
-                onSave={handleEditSave} 
-            />
+          <QuestionForm 
+            question={currentQuestion} 
+            setQuestion={setCurrentQuestion}
+            onSave={handleEditSave} 
+          />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setEditingQuestion(null)}>Cancel</Button>
           <Button onClick={handleEditSave} variant="contained">Save</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={openUploadModal} onClose={() => setOpenUploadModal(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Upload Questions</DialogTitle>
+        <DialogContent>
+          <input
+            type="file"
+            accept=".csv,.xlsx,.xls"
+            onChange={(e) => setFile(e.target.files?.[0])}
+            style={{ margin: '20px 0' }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenUploadModal(false)}>Cancel</Button>
+          <Button 
+            onClick={handleUpload} 
+            variant="contained" 
+            disabled={!file}
+          >
+            Upload
+          </Button>
         </DialogActions>
       </Dialog>
 
@@ -294,7 +321,11 @@ function TeacherPanel() {
         onClose={() => setSnack({ ...snack, open: false })}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert onClose={() => setSnack({ ...snack, open: false })} severity={snack.severity} sx={{ width: '100%' }}>
+        <Alert 
+          onClose={() => setSnack({ ...snack, open: false })} 
+          severity={snack.severity}
+          variant="filled"
+        >
           {snack.message}
         </Alert>
       </Snackbar>
