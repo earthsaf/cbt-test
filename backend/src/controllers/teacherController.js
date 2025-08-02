@@ -236,15 +236,30 @@ exports.deleteAllQuestionsForAssignment = async (req, res) => {
 exports.getProfile = async (req, res) => {
   try {
     const teacher = await User.findByPk(req.user.id, {
-      attributes: ['id', 'name', 'email', 'username', 'profilePicture'],
+      attributes: ['id', 'name', 'email', 'username', 'role', 'telegram_id', 'class_id'],
     });
     if (!teacher) {
       return res.status(404).json({ error: 'Teacher not found.' });
     }
-    res.json(teacher);
+    
+    // Format the response to match the frontend's expected format
+    const profile = {
+      id: teacher.id,
+      name: teacher.name,
+      email: teacher.email,
+      username: teacher.username,
+      role: teacher.role,
+      telegramId: teacher.telegram_id,
+      classId: teacher.class_id
+    };
+    
+    res.json(profile);
   } catch (error) {
     console.error('Error fetching teacher profile:', error);
-    res.status(500).json({ error: 'Failed to fetch profile.' });
+    res.status(500).json({ 
+      error: 'Failed to fetch profile.',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined 
+    });
   }
 };
 
