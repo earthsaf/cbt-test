@@ -18,32 +18,8 @@ const corsConfig = require('./middlewares/corsConfig');
 const app = express();
 const server = http.createServer(app);
 
-// CORS configuration
-const allowedOrigins = [
-  'http://localhost:3000',
-  'http://localhost:4000',
-  'https://cbt-test.onrender.com',
-  'https://cbt-test-api.onrender.com',
-  'https://cbt-test-frontend.onrender.com',
-  'https://cbt-test-urrr.onrender.com'
-];
-
-const corsOptions = {
-  origin: function(origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  exposedHeaders: ['set-cookie']
-};
-
 // Apply CORS configuration before other middleware
-app.use(cors(corsOptions));
+app.use(corsConfig);
 
 // Handle preflight requests
 app.options('*', corsConfig);
