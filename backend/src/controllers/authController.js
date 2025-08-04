@@ -111,16 +111,13 @@ exports.login = async (req, res) => {
     // Set cookie with secure settings
     const cookieOptions = {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      secure: true, // Always secure for production
+      sameSite: 'none', // Required for cross-origin
       maxAge: 8 * 60 * 60 * 1000, // 8 hours
-      domain: process.env.NODE_ENV === 'production' ? '.onrender.com' : undefined,
       path: '/',
-      // Important for cross-site cookies
-      ...(process.env.NODE_ENV === 'production' && { secure: true, sameSite: 'none' })
     };
     
-    console.log('Setting cookie with options:', JSON.stringify(cookieOptions, null, 2));
+    console.log('Setting cookie with options:', cookieOptions);
     res.cookie('token', token, cookieOptions);
     
     res.json({ 
