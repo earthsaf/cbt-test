@@ -69,12 +69,32 @@ function AdminPanel() {
       
       try {
         console.log('Making auth test request with token:', token.substring(0, 10) + '...');
-        const response = await api.get('/auth/test');
-        console.log('Auth test response:', response.data);
         
-        if (!response.data.success) {
-          console.log('Auth test failed:', response.data.error);
-          throw new Error(response.data.error || 'Authentication failed');
+        // Log request details
+        console.log('Request URL:', api.defaults.baseURL + '/auth/test');
+        console.log('Request headers:', {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
+        });
+        
+        const response = await api.get('/auth/test', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          withCredentials: true
+        });
+        
+        console.log('Auth test response:', {
+          status: response.status,
+          statusText: response.statusText,
+          headers: response.headers,
+          data: response.data
+        });
+        
+        if (!response.data || !response.data.success) {
+          console.error('Auth test failed:', response.data?.error || 'No success flag in response');
+          throw new Error(response.data?.error || 'Authentication failed: Invalid response format');
         }
         
         if (response.data.user?.role !== 'admin') {

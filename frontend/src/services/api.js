@@ -11,13 +11,14 @@ const getBaseURL = () => {
 
 const api = axios.create({
   baseURL: getBaseURL(),
-  withCredentials: true,
+  withCredentials: true, // Important: This is needed for cookies to be sent with requests
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
-    'Cache-Control': 'no-cache',
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
     'Pragma': 'no-cache',
-    'Expires': '0'
+    'Expires': '0',
+    'Access-Control-Allow-Credentials': 'true'
   },
   timeout: 30000, // 30 seconds timeout
   xsrfCookieName: 'csrftoken',

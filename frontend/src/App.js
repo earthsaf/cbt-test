@@ -7,7 +7,8 @@ import ProctoringPage from './pages/ProctoringPage';
 import TeacherPanel from './pages/TeacherPanel';
 import StudentLogin from './pages/StudentLogin';
 import StaffLogin from './pages/StaffLogin';
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { ProtectedRoute } from './components/ProtectedRoute';
 
 function App() {
   return (
@@ -17,11 +18,46 @@ function App() {
           <Route path="/" element={<Navigate to="/student-login" replace />} />
           <Route path="/student-login" element={<StudentLogin />} />
           <Route path="/staff-login" element={<StaffLogin />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/exam/:examId" element={<ExamPage />} />
-          <Route path="/admin" element={<AdminPanel />} />
-          <Route path="/proctor" element={<ProctoringPage />} />
-          <Route path="/teacher" element={<TeacherPanel />} />
+          <Route 
+            path="/dashboard" 
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/exam/:examId" 
+            element={
+              <ProtectedRoute>
+                <ExamPage />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/admin" 
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <AdminPanel />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/proctor" 
+            element={
+              <ProtectedRoute requiredRole="invigilator">
+                <ProctoringPage />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/teacher" 
+            element={
+              <ProtectedRoute requiredRole="teacher">
+                <TeacherPanel />
+              </ProtectedRoute>
+            } 
+          />
           <Route path="*" element={<Navigate to="/student-login" replace />} />
         </Routes>
       </Router>
