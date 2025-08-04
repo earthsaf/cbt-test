@@ -3,6 +3,7 @@ const express = require('express');
 const http = require('http');
 const cookieParser = require('cookie-parser');
 const socketIo = require('socket.io');
+const cors = require('cors');
 const routes = require('./routes');
 const { sequelize } = require('./models');
 const { setupBot } = require('./bot/bot');
