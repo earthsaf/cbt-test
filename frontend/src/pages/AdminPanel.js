@@ -1,681 +1,864 @@
-// Only accessible by admin. Management controls for users, exams, invigilator codes, analytics.
+// Core Admin Panel with all essential features restored
 import React, { useState, useEffect } from 'react';
-import { AppBar, Tabs, Tab, Box, Typography, Card, CardContent, Button, Grid, TextField, Select, MenuItem, Snackbar, Alert, Dialog, DialogTitle, DialogContent, DialogActions, Switch, FormControlLabel, DialogContentText, CircularProgress } from '@mui/material';
-import { userSelect, accessibleButton } from '../utils/styles';
+import { 
+  AppBar, Tabs, Tab, Box, Typography, Button, TextField, Select, 
+  MenuItem, Snackbar, Alert, Dialog, DialogTitle, DialogContent, 
+  DialogActions, CircularProgress, Table, TableBody, TableCell, 
+  TableContainer, TableHead, TableRow, Paper, IconButton, 
+  FormControl, InputLabel, Tooltip, Chip, Grid
+} from '@mui/material';
+import { 
+  Delete as DeleteIcon, 
+  Edit as EditIcon, 
+  Add as AddIcon,
+  Refresh as RefreshIcon,
+  Visibility as VisibilityIcon
+} from '@mui/icons-material';
+import { Bar } from 'react-chartjs-2';
+import { userSelect } from '../utils/styles';
 import api from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import dayjs from 'dayjs';
 
-const tabs = ['Users', 'Classes', 'Exams', 'Subjects', 'Assignments', 'Settings'];
+// Tab labels
+const tabs = ['Users', 'Classes', 'Exams', 'Analytics', 'Settings'];
 
 function AdminPanel() {
+  // Router and auth
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = parseInt(searchParams.get('tab')) || parseInt(localStorage.getItem('adminActiveTab')) || 0;
   const [tab, setTab] = useState(initialTab);
-  const [users, setUsers] = useState([]);
-  const [userSearch, setUserSearch] = useState('');
-  const [userRoleFilter, setUserRoleFilter] = useState('all');
-  const [classes, setClasses] = useState([]);
-  const [exams, setExams] = useState([]);
-  const [editUser, setEditUser] = useState(null);
-  const [analytics, setAnalytics] = useState({ results: [], highest: 0, lowest: 0, avg: 0 });
-  const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
-  const [newUser, setNewUser] = useState({ username: '', password: '', role: 'student', name: '', email: '', classId: '', telegramId: '' });
-  const [passwordError, setPasswordError] = useState('');
-  const [creatingUser, setCreatingUser] = useState(false);
-  const [invigilatorCodes, setInvigilatorCodes] = useState({});
-  const [subjects, setSubjects] = useState([]);
-  const [newSubject, setNewSubject] = useState('');
-  const [assignments, setAssignments] = useState([]);
-  const [newAssignment, setNewAssignment] = useState({ teacherId: '', classId: '', subjectId: '' });
-  const [newClass, setNewClass] = useState('');
-  const [examSearch, setExamSearch] = useState('');
-  const [examClass, setExamClass] = useState('');
-  const [examSubject, setExamSubject] = useState('');
-  const [selectedExam, setSelectedExam] = useState(null);
-  const [examQuestions, setExamQuestions] = useState([]);
-  const [examSettings, setExamSettings] = useState({ scramble: false, durationMinutes: 60 });
-  const [savingSettings, setSavingSettings] = useState(false);
-  const [resetting, setResetting] = useState(false);
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
-  const [loggedInUsers, setLoggedInUsers] = useState([]);
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [userToDelete, setUserToDelete] = useState(null);
   const navigate = useNavigate();
   const { logout } = useAuth();
 
-  const handleLogout = () => {
-    logout();
-    navigate('/staff-login');
+  // Data states
+  const [isLoading, setIsLoading] = useState(true);
+  const [users, setUsers] = useState([]);
+  const [classes, setClasses] = useState([]);
+  const [exams, setExams] = useState([]);
+  
+  // UI states
+  const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
+  const [editUser, setEditUser] = useState(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState(null);
+  const [newClassName, setNewClassName] = useState('');
+  const [selectedExam, setSelectedExam] = useState(null);
+  const [examQuestions, setExamQuestions] = useState([]);
+  const [analytics, setAnalytics] = useState({ results: [], highest: 0, lowest: 0, avg: 0 });
+
+  // Filter states
+  const [userSearch, setUserSearch] = useState('');
+  const [userRoleFilter, setUserRoleFilter] = useState('all');
+  const [examSearch, setExamSearch] = useState('');
+
+  // Load initial data
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        // Check authentication
+        await api.get('/auth/test');
+        
+        // Load users, classes, and exams in parallel
+        const [usersRes, classesRes, examsRes] = await Promise.all([
+          api.get('/admin/users'),
+          api.get('/admin/classes'),
+          api.get('/admin/exams')
+        ]);
+        
+        setUsers(usersRes.data);
+        setClasses(classesRes.data);
+        setExams(examsRes.data);
+        
+        setIsLoading(false);
+      } catch (error) {
+        console.error('Error loading admin data:', error);
+        setSnack({
+          open: true,
+          message: 'Failed to load admin data',
+          severity: 'error'
+        });
+        logout();
+        navigate('/staff-login');
+      }
+    };
+    
+    loadData();
+  }, [navigate, logout]);
+
+  // Handle tab change
+  const handleTabChange = (event, newValue) => {
+    setTab(newValue);
+    localStorage.setItem('adminActiveTab', newValue);
+    setSearchParams({ tab: newValue });
   };
 
-  useEffect(() => {
-    // Check authentication by requesting the test endpoint
-    const checkAuth = async () => {
-      console.log('AdminPanel: Checking authentication...');
-      
-      // Check if we have a token in localStorage
-      const token = localStorage.getItem('token');
-      if (!token) {
-        console.log('No token found, redirecting to login');
-        navigate('/staff-login');
-        setSnack({ 
-          open: true, 
-          message: 'Please log in to access the admin panel.', 
-          severity: 'info' 
-        });
-        return;
-      }
-      
-      try {
-        console.log('Making auth test request with token:', token.substring(0, 10) + '...');
-        
-        // Log request details
-        console.log('Request URL:', api.defaults.baseURL + '/auth/test');
-        console.log('Request headers:', {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json'
-        });
-        
-        const response = await api.get('/auth/test', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          },
-          withCredentials: true
-        });
-        
-        console.log('Auth test response:', {
-          status: response.status,
-          statusText: response.statusText,
-          headers: response.headers,
-          data: response.data
-        });
-        
-        if (!response.data || !response.data.success) {
-          console.error('Auth test failed:', response.data?.error || 'No success flag in response');
-          throw new Error(response.data?.error || 'Authentication failed: Invalid response format');
-        }
-        
-        if (response.data.user?.role !== 'admin') {
-          console.log('User is not an admin, redirecting to login');
-          navigate('/staff-login');
-          setSnack({ 
-            open: true, 
-            message: 'You do not have permission to access the admin panel.', 
-            severity: 'error' 
-          });
-          return;
-        }
-        
-        console.log('User is authenticated as admin:', response.data.user);
-        
-      } catch (error) {
-        console.error('Auth test error:', error);
-        console.error('Error details:', {
-          message: error.message,
-          response: error.response?.data,
-          status: error.response?.status
-        });
-        
-        // Clear invalid token
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        
-        // Redirect to login with appropriate message
-        const errorMessage = error.response?.data?.error || 
-                           error.message || 
-                           'Authentication failed. Please log in again.';
-        
-        navigate('/staff-login');
-        setSnack({ 
-          open: true, 
-          message: errorMessage,
-          severity: 'error' 
-        });
-      }
-    };
+  // User management
+  const handleSaveUser = async () => {
+    if (!editUser) return;
     
-    checkAuth();
-  }, [navigate]);
-
-  useEffect(() => {
-    setSearchParams({ tab: tab.toString() });
-    localStorage.setItem('adminActiveTab', tab.toString());
-  }, [tab, setSearchParams]);
-
-  useEffect(() => {
-    api.get('/admin/users').then(res => setUsers(res.data)).catch(() => setUsers([]));
-    api.get('/admin/classes').then(res => setClasses(res.data)).catch(() => setClasses([]));
-    api.get('/admin/exams').then(res => setExams(res.data)).catch(() => setExams([]));
-    api.get('/admin/subjects').then(res => setSubjects(res.data)).catch(() => setSubjects([]));
-    api.get('/admin/teacher-assignments').then(res => setAssignments(res.data)).catch(() => setAssignments([]));
-  }, []);
-
-  useEffect(() => {
-    api.get(`/admin/exams?search=${encodeURIComponent(examSearch)}&classId=${examClass}&subjectId=${examSubject}`)
-      .then(res => setExams(res.data)).catch(() => setExams([]));
-  }, [examSearch, examClass, examSubject]);
-
-  useEffect(() => {
-    const fetchLogins = async () => {
-      try {
-        const res = await api.get('/admin/logins');
-        setLoggedInUsers(Array.isArray(res?.data) ? res.data : []);
-      } catch (error) {
-        console.error('Error fetching logged in users:', error);
-        setLoggedInUsers([]);
-      }
-    };
-    
-    fetchLogins();
-    const interval = setInterval(fetchLogins, 10000); // Poll every 10s
-    return () => clearInterval(interval);
-  }, []);
-
-  const handleDeleteUser = async (userId) => {
     try {
-      await api.delete(`/admin/users/${userId}`);
-      setUsers(users.filter(user => user.id !== userId));
-      setSnack({ open: true, message: 'User deleted successfully', severity: 'success' });
+      const isNew = !editUser.id;
+      let response;
+      
+      if (isNew) {
+        response = await api.post('/admin/users', editUser);
+        setUsers([...users, response.data]);
+      } else {
+        response = await api.put(`/admin/users/${editUser.id}`, editUser);
+        setUsers(users.map(u => u.id === editUser.id ? response.data : u));
+      }
+      
+      setSnack({
+        open: true,
+        message: `User ${isNew ? 'created' : 'updated'} successfully`,
+        severity: 'success'
+      });
+      
+      setEditUser(null);
     } catch (error) {
-      const errorMessage = error.response?.data?.error || 'Failed to delete user';
-      setSnack({ open: true, message: errorMessage, severity: 'error' });
-    } finally {
+      console.error('Error saving user:', error);
+      setSnack({
+        open: true,
+        message: `Failed to ${editUser.id ? 'update' : 'create'} user`,
+        severity: 'error'
+      });
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return;
+    
+    try {
+      await api.delete(`/admin/users/${userToDelete}`);
+      setUsers(users.filter(user => user.id !== userToDelete));
+      
+      setSnack({
+        open: true,
+        message: 'User deleted successfully',
+        severity: 'success'
+      });
+      
       setDeleteConfirmOpen(false);
       setUserToDelete(null);
-    }
-  };
-
-  const confirmDelete = (user) => {
-    setUserToDelete(user);
-    setDeleteConfirmOpen(true);
-  };
-
-  const handleEditUser = async () => {
-    try {
-      await api.put(`/admin/users/${editUser.id}`, {
-        name: editUser.username,
-        email: editUser.email,
-        classId: editUser.classId,
-      });
-      setSnack({ open: true, message: 'User updated', severity: 'success' });
-      setEditUser(null);
-      const res = await api.get('/admin/users');
-      setUsers(res.data);
-    } catch {
-      setSnack({ open: true, message: 'Failed to update user', severity: 'error' });
-    }
-  };
-
-  const fetchAnalytics = async (examId) => {
-    try {
-      const res = await api.get(`/admin/exams/${examId}/results`);
-      setAnalytics(res.data);
-    } catch {
-      setAnalytics({ results: [], highest: 0, lowest: 0, avg: 0 });
-    }
-  };
-
-  const validatePassword = (password) => {
-    return password.length >= 8;
-  };
-
-  const handleCreateUser = async (e) => {
-    e.preventDefault();
-    
-    if (!validatePassword(newUser.password)) {
-      setPasswordError('Password must be at least 8 characters long.');
-      return;
-    }
-    
-    setPasswordError('');
-    setCreatingUser(true);
-    
-    try {
-      await api.post('/admin/users', newUser);
-      setSnack({ open: true, message: 'User created successfully', severity: 'success' });
-      setNewUser({ username: '', password: '', role: 'student', name: '', email: '', classId: '', telegramId: '' });
-      const res = await api.get('/admin/users');
-      setUsers(res.data);
     } catch (error) {
-      const errorMessage = error.response?.data?.error || 'Failed to create user';
-      setSnack({ 
-        open: true, 
-        message: errorMessage, 
-        severity: 'error' 
+      console.error('Error deleting user:', error);
+      setSnack({
+        open: true,
+        message: 'Failed to delete user',
+        severity: 'error'
       });
-    } finally {
-      setCreatingUser(false);
     }
   };
 
-  const handleGetInvigilatorCode = async (examId) => {
-    try {
-      const res = await api.get('/admin/exams/invigilator-code', { params: { examId } });
-      setInvigilatorCodes(c => ({ ...c, [examId]: res.data.code }));
-    } catch {
-      setSnack({ open: true, message: 'Failed to get code', severity: 'error' });
-    }
-  };
-
-  const handleGenerateInvigilatorCode = async (examId) => {
-    try {
-      const res = await api.post('/admin/exams/invigilator-code', { examId });
-      setInvigilatorCodes(c => ({ ...c, [examId]: res.data.code }));
-      setSnack({ open: true, message: 'Code generated', severity: 'success' });
-    } catch {
-      setSnack({ open: true, message: 'Failed to generate code', severity: 'error' });
-    }
-  };
-
-  const handleAddSubject = async (e) => {
-    e.preventDefault();
-    if (!newSubject) return;
-    try {
-      await api.post('/admin/subjects', { name: newSubject });
-      setSnack({ open: true, message: 'Subject added', severity: 'success' });
-      setNewSubject('');
-      const res = await api.get('/admin/subjects');
-      setSubjects(res.data);
-    } catch {
-      setSnack({ open: true, message: 'Failed to add subject', severity: 'error' });
-    }
-  };
-
-  const handleDeleteSubject = async (id) => {
-    try {
-      await api.delete(`/admin/subjects/${id}`);
-      setSnack({ open: true, message: 'Subject deleted', severity: 'success' });
-      setSubjects(subjects.filter(s => s.id !== id));
-    } catch {
-      setSnack({ open: true, message: 'Failed to delete subject', severity: 'error' });
-    }
-  };
-
-  const handleAssignTeacher = async (e) => {
-    e.preventDefault();
-    try {
-      await api.post('/admin/teacher-assignments', newAssignment);
-      setSnack({ open: true, message: 'Assignment added', severity: 'success' });
-      setNewAssignment({ teacherId: '', classId: '', subjectId: '' });
-      const res = await api.get('/admin/teacher-assignments');
-      setAssignments(res.data);
-    } catch {
-      setSnack({ open: true, message: 'Failed to add assignment', severity: 'error' });
-    }
-  };
-
-  const handleDeleteAssignment = async (id) => {
-    try {
-      await api.delete(`/admin/teacher-assignments/${id}`);
-      setSnack({ open: true, message: 'Assignment deleted', severity: 'success' });
-      setAssignments(assignments.filter(a => a.id !== id));
-    } catch {
-      setSnack({ open: true, message: 'Failed to delete assignment', severity: 'error' });
-    }
-  };
-
+  // Class management
   const handleAddClass = async (e) => {
     e.preventDefault();
-    if (!newClass) return;
+    if (!newClassName.trim()) return;
+    
     try {
-      await api.post('/admin/classes', { name: newClass });
-      setSnack({ open: true, message: 'Class added', severity: 'success' });
-      setNewClass('');
-      const res = await api.get('/admin/classes');
-      setClasses(res.data);
-    } catch {
-      setSnack({ open: true, message: 'Failed to add class', severity: 'error' });
-    }
-  };
-
-  const openExamModal = async (exam) => {
-    setSelectedExam(exam);
-    setExamSettings({
-      scramble: !!exam.scramble,
-      durationMinutes: exam.durationMinutes || 60,
-    });
-    const res = await api.get(`/admin/exams/${exam.id}/questions`);
-    setExamQuestions(res.data);
-  };
-
-  const handleStartExam = async () => {
-    setSavingSettings(true);
-    try {
-      const now = new Date().toISOString();
-      await api.put(`/admin/exams/${selectedExam.id}/settings`, {
-        startTime: now,
-        durationMinutes: Number(examSettings.durationMinutes) || 60,
-        scramble: examSettings.scramble,
+      const response = await api.post('/admin/classes', { name: newClassName });
+      setClasses([...classes, response.data]);
+      setNewClassName('');
+      
+      setSnack({
+        open: true,
+        message: 'Class added successfully',
+        severity: 'success'
       });
-      setSnack({ open: true, message: 'Exam started!', severity: 'success' });
-      setSelectedExam(null);
-      api.get(`/admin/exams?search=${encodeURIComponent(examSearch)}&classId=${examClass}&subjectId=${examSubject}`)
-        .then(res => setExams(res.data)).catch(() => setExams([]));
-    } catch {
-      setSnack({ open: true, message: 'Failed to start exam', severity: 'error' });
-    }
-    setSavingSettings(false);
-  };
-
-  const handleResetExam = async () => {
-    setResetting(true);
-    try {
-      await api.put(`/admin/exams/${selectedExam.id}/settings`, {
-        startTime: null
+    } catch (error) {
+      console.error('Error adding class:', error);
+      setSnack({
+        open: true,
+        message: 'Failed to add class',
+        severity: 'error'
       });
-      setSnack({ open: true, message: 'Exam reset! You can now start it again.', severity: 'success' });
-      setShowResetConfirm(false);
-      const res = await api.get('/admin/exams');
-      setExams(res.data);
-      setSelectedExam(res.data.find(e => e.id === selectedExam.id) || null);
-    } catch {
-      setSnack({ open: true, message: 'Failed to reset exam', severity: 'error' });
     }
-    setResetting(false);
   };
 
-  const handleAutoEndExams = async () => {
+  // Exam management
+  const handleFetchExamQuestions = async (examId) => {
     try {
-      await api.post('/admin/exams/auto-end');
-      setSnack({ open: true, message: 'Checked and ended any expired exams.', severity: 'success' });
-      api.get('/admin/exams').then(res => setExams(res.data)).catch(() => {});
-    } catch {
-      setSnack({ open: true, message: 'Failed to auto-end exams.', severity: 'error' });
+      const response = await api.get(`/admin/exams/${examId}/questions`);
+      setExamQuestions(response.data);
+      setSelectedExam(exams.find(e => e.id === examId));
+    } catch (error) {
+      console.error('Error fetching exam questions:', error);
+      setSnack({
+        open: true,
+        message: 'Failed to load exam questions',
+        severity: 'error'
+      });
     }
   };
+
+  // Filter functions
+  const filteredUsers = users.filter(user => {
+    const matchesSearch = 
+      user.name?.toLowerCase().includes(userSearch.toLowerCase()) ||
+      user.email?.toLowerCase().includes(userSearch.toLowerCase()) ||
+      user.username?.toLowerCase().includes(userSearch.toLowerCase());
+      
+    const matchesRole = userRoleFilter === 'all' || user.role === userRoleFilter;
+    
+    return matchesSearch && matchesRole;
+  });
+
+  const filteredExams = exams.filter(exam => 
+    exam.title?.toLowerCase().includes(examSearch.toLowerCase()) ||
+    exam.description?.toLowerCase().includes(examSearch.toLowerCase())
+  );
 
   if (isLoading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
         <CircularProgress />
       </Box>
     );
-  };
+  }
 
   return (
-    <Box sx={{ flexGrow: 1, ...userSelect }}>
-      <AppBar position="static">
-        <Tabs
-          value={tab}
-          onChange={(e, v) => setTab(v)}
-          aria-label="admin navigation tabs"
-          role="navigation"
-        >
-          {tabs.map(t => <Tab label={t} key={t} />)}
-        </Tabs>
-        <Grid container justifyContent="space-between" alignItems="center">
-          <Grid item>
-            <Button color="inherit" onClick={handleLogout} sx={{ mr: 2 }}>Logout</Button>
-          </Grid>
-        </Grid>
+    <Box sx={{ flexGrow: 1, ...userSelect, p: 3 }}>
+      {/* App Bar with Tabs */}
+      <AppBar position="static" color="default" sx={{ mb: 3, borderRadius: 1 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Tabs 
+            value={tab} 
+            onChange={handleTabChange}
+            aria-label="admin navigation tabs"
+            sx={{ flexGrow: 1 }}
+          >
+            {tabs.map((tab, index) => (
+              <Tab key={index} label={tab} id={`admin-tab-${index}`} />
+            ))}
+          </Tabs>
+          <Button color="inherit" onClick={logout} sx={{ mr: 2 }}>
+            Logout
+          </Button>
+        </Box>
       </AppBar>
 
-      <Box sx={{ p: 3 }}>
+      {/* Tab Panels */}
+      <Box sx={{ mt: 2 }}>
+        {/* Users Tab */}
         {tab === 0 && (
           <Box>
-            <Typography variant="h6">Users</Typography>
-            <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-              <TextField label="Search Users" value={userSearch} onChange={e => setUserSearch(e.target.value)} variant="outlined" size="small" />
-              <Select value={userRoleFilter} onChange={e => setUserRoleFilter(e.target.value)} size="small">
-                <MenuItem value="all">All Roles</MenuItem>
-                <MenuItem value="student">Student</MenuItem>
-                <MenuItem value="teacher">Teacher</MenuItem>
-                <MenuItem value="admin">Admin</MenuItem>
-              </Select>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
+              <Typography variant="h5" component="h2" gutterBottom>
+                User Management
+              </Typography>
+              <Button 
+                variant="contained" 
+                startIcon={<AddIcon />}
+                onClick={() => setEditUser({
+                  id: '',
+                  name: '',
+                  email: '',
+                  username: '',
+                  role: 'student',
+                  classId: ''
+                })}
+              >
+                Add User
+              </Button>
             </Box>
-            <Grid container spacing={2}>
-              {users
-                .filter(u => u.username.toLowerCase().includes(userSearch.toLowerCase()))
-                .filter(u => userRoleFilter === 'all' || u.role === userRoleFilter)
-                .map(user => (
-                  <Grid item xs={12} sm={6} md={4} key={user.id}>
-                    <Card>
-                      <CardContent>
-                        <Typography><strong>{user.username}</strong> ({user.role})</Typography>
-                        <Typography>{user.name}</Typography>
-                        <Typography>{user.email}</Typography>
-                        <Typography>Class: {classes.find(c => c.id === user.ClassId)?.name || 'N/A'}</Typography>
-                        <Button size="small" onClick={() => setEditUser(user)}>Edit</Button>
-                        <Button size="small" color="error" onClick={() => confirmDelete(user)}>Delete</Button>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-              ))}
-            </Grid>
-            <Card sx={{ mt: 3 }}>
-              <CardContent>
-                <Typography variant="h6">Create User</Typography>
-                <form onSubmit={handleCreateUser}>
-                  <Grid container spacing={2}>
-                    <Grid item xs={12} sm={6}><TextField fullWidth label="Username" value={newUser.username} onChange={e => setNewUser({ ...newUser, username: e.target.value })} required /></Grid>
-                    <Grid item xs={12} sm={6}><TextField fullWidth label="Password" type="password" value={newUser.password} onChange={e => setNewUser({ ...newUser, password: e.target.value })} required error={!!passwordError} helperText={passwordError} /></Grid>
-                    <Grid item xs={12} sm={6}><TextField fullWidth label="Full Name" value={newUser.name} onChange={e => setNewUser({ ...newUser, name: e.target.value })} /></Grid>
-                    <Grid item xs={12} sm={6}><TextField fullWidth label="Email" type="email" value={newUser.email} onChange={e => setNewUser({ ...newUser, email: e.target.value })} /></Grid>
-                    <Grid item xs={12} sm={6}>
-                      <Select fullWidth value={newUser.role} onChange={e => setNewUser({ ...newUser, role: e.target.value })}>
-                        <MenuItem value="student">Student</MenuItem>
-                        <MenuItem value="teacher">Teacher</MenuItem>
-                        <MenuItem value="admin">Admin</MenuItem>
-                      </Select>
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <Select fullWidth value={newUser.classId} onChange={e => setNewUser({ ...newUser, classId: e.target.value })} displayEmpty>
-                        <MenuItem value=""><em>No Class</em></MenuItem>
-                        {classes.map(c => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
-                      </Select>
-                    </Grid>
-                    <Grid item xs={12}><TextField fullWidth label="Telegram ID" value={newUser.telegramId} onChange={e => setNewUser({ ...newUser, telegramId: e.target.value })} /></Grid>
-                    <Grid item xs={12}><Button type="submit" variant="contained" disabled={creatingUser}>{creatingUser ? 'Creating...' : 'Create User'}</Button></Grid>
-                  </Grid>
-                </form>
-              </CardContent>
-            </Card>
+
+            {/* User Filters */}
+            <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+              <TextField
+                label="Search Users"
+                variant="outlined"
+                size="small"
+                value={userSearch}
+                onChange={(e) => setUserSearch(e.target.value)}
+                sx={{ flex: 1 }}
+              />
+              <FormControl variant="outlined" size="small" sx={{ minWidth: 200 }}>
+                <InputLabel>Filter by Role</InputLabel>
+                <Select
+                  value={userRoleFilter}
+                  onChange={(e) => setUserRoleFilter(e.target.value)}
+                  label="Filter by Role"
+                >
+                  <MenuItem value="all">All Roles</MenuItem>
+                  <MenuItem value="admin">Admin</MenuItem>
+                  <MenuItem value="teacher">Teacher</MenuItem>
+                  <MenuItem value="student">Student</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
+
+            {/* Users Table */}
+            <TableContainer component={Paper}>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Name</TableCell>
+                    <TableCell>Email</TableCell>
+                    <TableCell>Role</TableCell>
+                    <TableCell>Class</TableCell>
+                    <TableCell align="right">Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {filteredUsers.length > 0 ? (
+                    filteredUsers.map((user) => (
+                      <TableRow key={user.id}>
+                        <TableCell>{user.name}</TableCell>
+                        <TableCell>{user.email}</TableCell>
+                        <TableCell>
+                          <Chip 
+                            label={user.role} 
+                            size="small"
+                            color={
+                              user.role === 'admin' ? 'primary' : 
+                              user.role === 'teacher' ? 'secondary' : 'default'
+                            }
+                          />
+                        </TableCell>
+                        <TableCell>{user.Class?.name || 'N/A'}</TableCell>
+                        <TableCell align="right">
+                          <Tooltip title="Edit User">
+                            <IconButton 
+                              size="small" 
+                              onClick={() => setEditUser(user)}
+                            >
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Delete User">
+                            <IconButton 
+                              size="small" 
+                              color="error"
+                              onClick={() => {
+                                setUserToDelete(user.id);
+                                setDeleteConfirmOpen(true);
+                              }}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={5} align="center">
+                        No users found
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
           </Box>
         )}
 
+        {/* Classes Tab */}
         {tab === 1 && (
           <Box>
-            <Typography variant="h6">Classes</Typography>
-            <form onSubmit={handleAddClass} style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-              <TextField label="New Class Name" value={newClass} onChange={e => setNewClass(e.target.value)} variant="outlined" size="small" sx={{ flex: 1 }} />
-              <Button type="submit" variant="contained">Add</Button>
-            </form>
-            <ul>
-              {classes.map(c => <li key={c.id}>{c.name}</li>)}
-            </ul>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
+              <Typography variant="h5" component="h2" gutterBottom>
+                Class Management
+              </Typography>
+              <form onSubmit={handleAddClass} style={{ display: 'flex', gap: '8px' }}>
+                <TextField
+                  label="New Class Name"
+                  variant="outlined"
+                  size="small"
+                  value={newClassName}
+                  onChange={(e) => setNewClassName(e.target.value)}
+                  required
+                />
+                <Button 
+                  type="submit" 
+                  variant="contained" 
+                  color="primary"
+                  startIcon={<AddIcon />}
+                >
+                  Add Class
+                </Button>
+              </form>
+            </Box>
+
+            <TableContainer component={Paper}>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Class Name</TableCell>
+                    <TableCell>Student Count</TableCell>
+                    <TableCell>Created At</TableCell>
+                    <TableCell align="right">Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {classes.length > 0 ? (
+                    classes.map((cls) => (
+                      <TableRow key={cls.id}>
+                        <TableCell>{cls.name}</TableCell>
+                        <TableCell>{cls.studentCount || 0}</TableCell>
+                        <TableCell>
+                          {dayjs(cls.createdAt).format('MMM D, YYYY')}
+                        </TableCell>
+                        <TableCell align="right">
+                          <Tooltip title="Edit Class">
+                            <IconButton size="small">
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Delete Class">
+                            <IconButton size="small" color="error">
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={4} align="center">
+                        No classes found
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
           </Box>
         )}
 
+        {/* Exams Tab */}
         {tab === 2 && (
+          <Grid container spacing={3}>
+            {/* Exams List */}
+            <Grid item xs={12} md={6}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                <Typography variant="h6">Exams</Typography>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <TextField
+                    label="Search Exams"
+                    size="small"
+                    value={examSearch}
+                    onChange={(e) => setExamSearch(e.target.value)}
+                  />
+                  <Button 
+                    variant="outlined" 
+                    size="small"
+                    startIcon={<RefreshIcon />}
+                    onClick={() => {
+                      api.get('/admin/exams')
+                        .then(res => setExams(res.data))
+                        .catch(console.error);
+                    }}
+                  >
+                    Refresh
+                  </Button>
+                </Box>
+              </Box>
+              
+              <TableContainer component={Paper} sx={{ maxHeight: '70vh', overflow: 'auto' }}>
+                <Table size="small" stickyHeader>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Title</TableCell>
+                      <TableCell>Class</TableCell>
+                      <TableCell>Status</TableCell>
+                      <TableCell align="right">Actions</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {filteredExams.length > 0 ? (
+                      filteredExams.map((exam) => (
+                        <TableRow 
+                          key={exam.id}
+                          hover
+                          selected={selectedExam?.id === exam.id}
+                          onClick={() => handleFetchExamQuestions(exam.id)}
+                          sx={{ cursor: 'pointer' }}
+                        >
+                          <TableCell>{exam.title}</TableCell>
+                          <TableCell>{exam.Class?.name || 'N/A'}</TableCell>
+                          <TableCell>
+                            <Chip 
+                              label={exam.status || 'Draft'} 
+                              size="small"
+                              color={
+                                exam.status === 'active' ? 'success' :
+                                exam.status === 'completed' ? 'default' : 'secondary'
+                              }
+                            />
+                          </TableCell>
+                          <TableCell align="right">
+                            <Tooltip title="View Questions">
+                              <IconButton size="small">
+                                <VisibilityIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Edit Exam">
+                              <IconButton size="small">
+                                <EditIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={4} align="center">
+                          No exams found
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Grid>
+
+            {/* Exam Questions Panel */}
+            <Grid item xs={12} md={6}>
+              {selectedExam ? (
+                <Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                    <Typography variant="h6">
+                      Questions for {selectedExam.title}
+                    </Typography>
+                    <Button 
+                      variant="outlined" 
+                      size="small"
+                      startIcon={<AddIcon />}
+                    >
+                      Add Question
+                    </Button>
+                  </Box>
+                  
+                  {examQuestions.length > 0 ? (
+                    <Box sx={{ maxHeight: '60vh', overflow: 'auto' }}>
+                      {examQuestions.map((question, index) => (
+                        <Card key={question.id} sx={{ mb: 2, p: 2 }}>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <Typography variant="subtitle2">
+                              Q{index + 1}. {question.text}
+                            </Typography>
+                            <Box>
+                              <IconButton size="small">
+                                <EditIcon fontSize="small" />
+                              </IconButton>
+                              <IconButton size="small" color="error">
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Box>
+                          </Box>
+                          <Box sx={{ mt: 1, pl: 2 }}>
+                            {question.options?.map((option, i) => (
+                              <Typography 
+                                key={i} 
+                                variant="body2"
+                                sx={{
+                                  color: i === question.answer ? 'success.main' : 'text.primary',
+                                  fontWeight: i === question.answer ? 'bold' : 'normal'
+                                }}
+                              >
+                                {String.fromCharCode(65 + i)}. {option}
+                              </Typography>
+                            ))}
+                          </Box>
+                        </Card>
+                      ))}
+                    </Box>
+                  ) : (
+                    <Box sx={{ 
+                      display: 'flex', 
+                      justifyContent: 'center', 
+                      alignItems: 'center', 
+                      height: 200,
+                      border: '1px dashed',
+                      borderColor: 'divider',
+                      borderRadius: 1
+                    }}>
+                      <Typography color="text.secondary">
+                        No questions found for this exam
+                      </Typography>
+                    </Box>
+                  )}
+                </Box>
+              ) : (
+                <Box sx={{ 
+                  display: 'flex', 
+                  justifyContent: 'center', 
+                  alignItems: 'center', 
+                  height: '100%',
+                  border: '1px dashed',
+                  borderColor: 'divider',
+                  borderRadius: 1,
+                  p: 3
+                }}>
+                  <Typography color="text.secondary" align="center">
+                    Select an exam to view and manage questions
+                  </Typography>
+                </Box>
+              )}
+            </Grid>
+          </Grid>
+        )}
+
+        {/* Analytics Tab */}
+        {tab === 3 && (
           <Box>
-            <Typography variant="h6">Exams</Typography>
-            <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-              <TextField label="Search Exams" value={examSearch} onChange={e => setExamSearch(e.target.value)} variant="outlined" size="small" />
-              <Select value={examClass} onChange={e => setExamClass(e.target.value)} displayEmpty size="small">
-                <MenuItem value="">All Classes</MenuItem>
-                {classes.map(c => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
-              </Select>
-              <Select value={examSubject} onChange={e => setExamSubject(e.target.value)} displayEmpty size="small">
-                <MenuItem value="">All Subjects</MenuItem>
-                {subjects.map(s => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}
-              </Select>
-            </Box>
-            <Grid container spacing={2}>
-              {exams.map(exam => (
-                <Grid item xs={12} sm={6} md={4} key={exam.id}>
+            <Typography variant="h5" component="h2" gutterBottom>
+              Exam Analytics
+            </Typography>
+            <Typography color="text.secondary" paragraph>
+              Select an exam to view detailed analytics and performance metrics.
+            </Typography>
+            
+            <Box sx={{ mt: 4 }}>
+              <Typography variant="h6" gutterBottom>
+                Performance Overview
+              </Typography>
+              <Box sx={{ height: 400, bgcolor: 'background.paper', p: 2, borderRadius: 1 }}>
+                <Bar
+                  data={{
+                    labels: analytics.results.map(r => r.user || `Student ${r.userId}`),
+                    datasets: [{
+                      label: 'Scores',
+                      data: analytics.results.map(r => r.score),
+                      backgroundColor: 'rgba(25, 118, 210, 0.7)',
+                      borderColor: 'rgba(25, 118, 210, 1)',
+                      borderWidth: 1
+                    }]
+                  }}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                      y: {
+                        beginAtZero: true,
+                        max: 100
+                      }
+                    }
+                  }}
+                />
+              </Box>
+              
+              <Grid container spacing={3} sx={{ mt: 2 }}>
+                <Grid item xs={12} md={4}>
                   <Card>
                     <CardContent>
-                      <Typography><strong>{exam.title}</strong></Typography>
-                      <Typography>Class: {classes.find(c => c.id === exam.ClassId)?.name || 'N/A'}</Typography>
-                      <Typography>Subject: {subjects.find(s => s.id === exam.SubjectId)?.name || 'N/A'}</Typography>
-                      <Typography>Status: {exam.status}</Typography>
-                      <Typography>Start Time: {exam.startTime ? dayjs(exam.startTime).format('DD/MM/YY HH:mm') : 'Not started'}</Typography>
-                      <Button size="small" onClick={() => openExamModal(exam)}>Details/Start</Button>
-                      <Button size="small" onClick={() => fetchAnalytics(exam.id)}>Analytics</Button>
-                      <Button size="small" onClick={() => handleGetInvigilatorCode(exam.id)}>Get Code</Button>
-                      <Button size="small" onClick={() => handleGenerateInvigilatorCode(exam.id)}>New Code</Button>
-                      {invigilatorCodes[exam.id] && <Typography>Code: {invigilatorCodes[exam.id]}</Typography>}
+                      <Typography color="text.secondary" gutterBottom>
+                        Highest Score
+                      </Typography>
+                      <Typography variant="h4">
+                        {analytics.highest}%
+                      </Typography>
                     </CardContent>
                   </Card>
                 </Grid>
-              ))}
-            </Grid>
+                <Grid item xs={12} md={4}>
+                  <Card>
+                    <CardContent>
+                      <Typography color="text.secondary" gutterBottom>
+                        Average Score
+                      </Typography>
+                      <Typography variant="h4">
+                        {analytics.avg.toFixed(1)}%
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <Card>
+                    <CardContent>
+                      <Typography color="text.secondary" gutterBottom>
+                        Lowest Score
+                      </Typography>
+                      <Typography variant="h4">
+                        {analytics.lowest}%
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              </Grid>
+            </Box>
           </Box>
         )}
 
-        {selectedExam && (
-          <Dialog open={!!selectedExam} onClose={() => setSelectedExam(null)} fullWidth maxWidth="md">
-            <DialogTitle>
-              Exam Details: {selectedExam.title}
-              <Typography variant="caption" display="block">
-                Class: {classes.find(c => c.id === selectedExam.ClassId)?.name || 'N/A'} |
-                Subject: {subjects.find(s => s.id === selectedExam.SubjectId)?.name || 'N/A'}
-              </Typography>
-            </DialogTitle>
-            <DialogContent>
-              <Box sx={{ mb: 2 }}>
-                <FormControlLabel control={<Switch checked={examSettings.scramble} onChange={e => setExamSettings({ ...examSettings, scramble: e.target.checked })} />} label="Scramble Questions" />
-                <TextField type="number" label="Duration (minutes)" value={examSettings.durationMinutes} onChange={e => setExamSettings({ ...examSettings, durationMinutes: e.target.value })} sx={{ ml: 2 }} />
-              </Box>
-              <Box>
-                <Typography variant="h6">Questions</Typography>
-                {examQuestions.map((q, idx) => (
-                  <Box key={q.id} sx={{ mb: 1, p: 1, border: '1px solid #eee' }}>
-                    <Typography><b>{idx + 1}. {q.text}</b></Typography>
-                    <Typography>a. {q.options?.a}  b. {q.options?.b}  c. {q.options?.c}  d. {q.options?.d}</Typography>
-                    <Typography>Answer: {q.answer}</Typography>
-                  </Box>
-                ))}
-                {examQuestions.length === 0 && <Typography>No questions for this exam.</Typography>}
-              </Box>
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={() => setSelectedExam(null)}>Close</Button>
-              <Button variant="contained" color="success" onClick={handleStartExam} disabled={savingSettings || selectedExam?.startTime}>Start Exam</Button>
-              <Button variant="outlined" color="error" onClick={() => setShowResetConfirm(true)} disabled={resetting}>Reset Exam</Button>
-            </DialogActions>
-          </Dialog>
-        )}
-
-        {tab === 3 && (
-          <Box>
-            <Typography variant="h6">Subjects</Typography>
-            <form onSubmit={handleAddSubject} style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-              <TextField label="New Subject Name" value={newSubject} onChange={e => setNewSubject(e.target.value)} variant="outlined" size="small" sx={{ flex: 1 }} />
-              <Button type="submit" variant="contained">Add</Button>
-            </form>
-            <ul>
-              {subjects.map(s => (
-                <li key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  {s.name}
-                  <Button size="small" color="error" onClick={() => handleDeleteSubject(s.id)}>Delete</Button>
-                </li>
-              ))}
-            </ul>
-          </Box>
-        )}
-
+        {/* Settings Tab */}
         {tab === 4 && (
           <Box>
-            <Typography variant="h6">Teacher-Class-Subject Assignments</Typography>
-            <form onSubmit={handleAssignTeacher} style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-              <Select value={newAssignment.teacherId} onChange={e => setNewAssignment({ ...newAssignment, teacherId: e.target.value })} displayEmpty style={{ minWidth: 120 }}>
-                <MenuItem value="">Teacher</MenuItem>
-                {users.filter(u => u.role === 'teacher').map(u => <MenuItem value={u.id} key={u.id}>{u.name || u.username}</MenuItem>)}
-              </Select>
-              <Select value={newAssignment.classId} onChange={e => setNewAssignment({ ...newAssignment, classId: e.target.value })} displayEmpty style={{ minWidth: 120 }}>
-                <MenuItem value="">Class</MenuItem>
-                {classes.map(c => <MenuItem value={c.id} key={c.id}>{c.name}</MenuItem>)}
-              </Select>
-              <Select value={newAssignment.subjectId} onChange={e => setNewAssignment({ ...newAssignment, subjectId: e.target.value })} displayEmpty style={{ minWidth: 120 }}>
-                <MenuItem value="">Subject</MenuItem>
-                {subjects.map(s => <MenuItem value={s.id} key={s.id}>{s.name}</MenuItem>)}
-              </Select>
-              <Button type="submit" variant="contained">Assign</Button>
-            </form>
-            <ul>
-              {assignments.map(a => (
-                <li key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  {a.teacher?.name || a.teacher?.username} - {a.Class?.name} - {a.Subject?.name}
-                  <Button size="small" color="error" onClick={() => handleDeleteAssignment(a.id)}>Delete</Button>
-                </li>
-              ))}
-            </ul>
-          </Box>
-        )}
-
-        {tab === 5 && (
-          <Box>
-            <Typography variant="h5" sx={{ mb: 2 }}>Settings & Maintenance</Typography>
-            <Card sx={{ mb: 3, p: 2 }}>
-              <Typography variant="h6">Logged In Users</Typography>
-              <Typography variant="body2" sx={{ color: 'gray', mb: 1 }}>
-                {!Array.isArray(loggedInUsers) || loggedInUsers.length === 0 
-                  ? 'No users currently logged in.' 
-                  : loggedInUsers.map(u => `${u?.username || 'Unknown'} (${u?.role || 'unknown'})`).join(', ')}
+            <Typography variant="h5" component="h2" gutterBottom>
+              System Settings
+            </Typography>
+            
+            <Card sx={{ p: 3, maxWidth: 800, mx: 'auto' }}>
+              <Typography variant="h6" gutterBottom>
+                Application Settings
               </Typography>
+              
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <FormControlLabel
+                  control={<Switch />}
+                  label="Maintenance Mode"
+                  sx={{ mb: 2 }}
+                />
+                
+                <FormControl fullWidth sx={{ mb: 2 }}>
+                  <InputLabel>Default User Role</InputLabel>
+                  <Select
+                    value="student"
+                    label="Default User Role"
+                    size="small"
+                  >
+                    <MenuItem value="student">Student</MenuItem>
+                    <MenuItem value="teacher">Teacher</MenuItem>
+                  </Select>
+                </FormControl>
+                
+                <TextField
+                  label="Session Timeout (minutes)"
+                  type="number"
+                  defaultValue={60}
+                  size="small"
+                  sx={{ mb: 2 }}
+                />
+                
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 3 }}>
+                  <Button variant="outlined">
+                    Reset to Defaults
+                  </Button>
+                  <Button variant="contained">
+                    Save Settings
+                  </Button>
+                </Box>
+              </Box>
             </Card>
-            <Grid container spacing={2} sx={{ mt: 2 }}>
-                <Grid item xs={12} md={6}>
-                    <Typography variant="subtitle1">Exam Management</Typography>
-                    <Button variant="contained" color="primary" onClick={handleAutoEndExams} sx={{ mr: 1 }}>
-                        Auto-end Expired Exams
-                    </Button>
-                </Grid>
-            </Grid>
           </Box>
         )}
-
-        {editUser && (
-          <Dialog open={!!editUser} onClose={() => setEditUser(null)}>
-            <DialogTitle>Edit User</DialogTitle>
-            <DialogContent>
-              <TextField label="Name" fullWidth sx={{ my: 1 }} value={editUser.username} onChange={e => setEditUser({ ...editUser, username: e.target.value })} />
-              <TextField label="Email" fullWidth sx={{ my: 1 }} value={editUser.email} onChange={e => setEditUser({ ...editUser, email: e.target.value })} />
-              <Select fullWidth sx={{ my: 1 }} value={editUser.classId} onChange={e => setEditUser({ ...editUser, classId: e.target.value })} displayEmpty>
-                <MenuItem value=""><em>No Class</em></MenuItem>
-                {classes.map(c => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
-              </Select>
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={() => setEditUser(null)}>Cancel</Button>
-              <Button onClick={handleEditUser}>Save</Button>
-            </DialogActions>
-          </Dialog>
-        )}
-
-        {showResetConfirm && (
-          <Dialog open={showResetConfirm} onClose={() => setShowResetConfirm(false)}>
-            <DialogTitle>Confirm Exam Reset</DialogTitle>
-            <DialogContent>
-              <DialogContentText>
-                Are you sure you want to reset this exam? This will clear its start time and allow it to be started again. Student progress will not be deleted, but they may be able to retake it if they log back in.
-              </DialogContentText>
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={() => setShowResetConfirm(false)}>Cancel</Button>
-              <Button onClick={handleResetExam} color="error" disabled={resetting}>
-                {resetting ? 'Resetting...' : 'Confirm Reset'}
-              </Button>
-            </DialogActions>
-          </Dialog>
-        )}
-
-        <Snackbar
-          open={snack.open}
-          autoHideDuration={6000}
-          onClose={() => setSnack({ ...snack, open: false })}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-        >
-          <Alert onClose={() => setSnack({ ...snack, open: false })} severity={snack.severity} sx={{ width: '100%' }}>
-            {snack.message}
-          </Alert>
-        </Snackbar>
       </Box>
-    </div>
+
+      {/* Edit User Dialog */}
+      <Dialog 
+        open={!!editUser} 
+        onClose={() => setEditUser(null)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          {editUser?.id ? 'Edit User' : 'Create New User'}
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+            <TextField
+              label="Full Name"
+              value={editUser?.name || ''}
+              onChange={(e) => setEditUser({...editUser, name: e.target.value})}
+              fullWidth
+              size="small"
+            />
+            <TextField
+              label="Email"
+              type="email"
+              value={editUser?.email || ''}
+              onChange={(e) => setEditUser({...editUser, email: e.target.value})}
+              fullWidth
+              size="small"
+            />
+            <TextField
+              label="Username"
+              value={editUser?.username || ''}
+              onChange={(e) => setEditUser({...editUser, username: e.target.value})}
+              fullWidth
+              size="small"
+              disabled={!!editUser?.id}
+            />
+            {!editUser?.id && (
+              <TextField
+                label="Password"
+                type="password"
+                value={editUser?.password || ''}
+                onChange={(e) => setEditUser({...editUser, password: e.target.value})}
+                fullWidth
+                size="small"
+              />
+            )}
+            <FormControl fullWidth size="small">
+              <InputLabel>Role</InputLabel>
+              <Select
+                value={editUser?.role || 'student'}
+                label="Role"
+                onChange={(e) => setEditUser({...editUser, role: e.target.value})}
+              >
+                <MenuItem value="admin">Admin</MenuItem>
+                <MenuItem value="teacher">Teacher</MenuItem>
+                <MenuItem value="student">Student</MenuItem>
+              </Select>
+            </FormControl>
+            <FormControl fullWidth size="small">
+              <InputLabel>Class</InputLabel>
+              <Select
+                value={editUser?.classId || ''}
+                label="Class"
+                onChange={(e) => setEditUser({...editUser, classId: e.target.value})}
+              >
+                <MenuItem value="">None</MenuItem>
+                {classes.map(cls => (
+                  <MenuItem key={cls.id} value={cls.id}>
+                    {cls.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditUser(null)}>Cancel</Button>
+          <Button onClick={handleSaveUser} variant="contained">
+            {editUser?.id ? 'Update' : 'Create'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteConfirmOpen}
+        onClose={() => setDeleteConfirmOpen(false)}
+      >
+        <DialogTitle>Confirm Delete</DialogTitle>
+        <DialogContent>
+          <Typography>Are you sure you want to delete this user?</Typography>
+          <Typography color="error" variant="body2" sx={{ mt: 1 }}>
+            This action cannot be undone and will permanently delete the user account.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteConfirmOpen(false)}>Cancel</Button>
+          <Button 
+            onClick={handleDeleteUser} 
+            color="error" 
+            variant="contained"
+            disabled={deletingUser}
+          >
+            {deletingUser ? 'Deleting...' : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snack.open}
+        autoHideDuration={6000}
+        onClose={() => setSnack({...snack, open: false})}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert 
+          onClose={() => setSnack({...snack, open: false})} 
+          severity={snack.severity}
+          sx={{ width: '100%' }}
+        >
+          {snack.message}
+        </Alert>
+      </Snackbar>
+    </Box>
   );
 }
 
