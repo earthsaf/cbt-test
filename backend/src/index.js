@@ -18,22 +18,21 @@ const { corsMiddleware, allowedOrigins } = require('./middlewares/corsConfig');
 const app = express();
 const server = http.createServer(app);
 
-// Enable CORS pre-flight across the board
-app.options('*', cors());
-
 // Apply CORS configuration
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   
+  // Check if the origin is in the allowed list
   if (origin && allowedOrigins.includes(origin)) {
     res.header('Access-Control-Allow-Origin', origin);
     res.header('Access-Control-Allow-Credentials', 'true');
-    res.header('Access-Control-Allow-Methods', 'GET, PUT, POST, DELETE, PATCH, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, X-CSRF-Token, X-XSRF-TOKEN');
     
-    // Handle preflight
+    // Handle preflight requests
     if (req.method === 'OPTIONS') {
-      return res.status(200).end();
+      res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+      res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, X-CSRF-Token, X-XSRF-TOKEN');
+      res.header('Access-Control-Max-Age', '86400'); // 24 hours
+      return res.status(204).end();
     }
   }
   
