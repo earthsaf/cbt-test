@@ -29,9 +29,18 @@ const corsOptions = {
     'Content-Type',
     'Accept',
     'Authorization',
+    'X-XSRF-TOKEN',
+    'X-CSRF-TOKEN',
+    'X-Requested-With',
+    'XMLHttpRequest'
   ],
-  exposedHeaders: ['set-cookie'],
-  optionsSuccessStatus: 204
+  exposedHeaders: [
+    'set-cookie',
+    'xsrf-token'
+  ],
+  optionsSuccessStatus: 204,
+  preflightContinue: false,
+  maxAge: 86400 // 24 hours
 };
 
 // Export both the CORS middleware and the allowedOrigins array
