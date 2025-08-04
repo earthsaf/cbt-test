@@ -13,32 +13,28 @@ const api = axios.create({
   withCredentials: true, // Important: This is needed for cookies to be sent with requests
   headers: {
     'Content-Type': 'application/json',
-    'Accept': 'application/json',
-  },
-  timeout: 30000, // 30 seconds timeout
+    'Accept': 'application/json'
+  }
 });
 
 // Request interceptor
 api.interceptors.request.use(
-  (config) => {
+  config => {
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    
     return config;
   },
-  (error) => {
-    console.error('[API] Request error:', error);
-    return Promise.reject(error);
-  }
+  error => Promise.reject(error)
 );
 
 // Add response interceptor to handle authentication errors
 api.interceptors.response.use(
   response => response,
   error => {
-    if (error.response && error.response.status === 401) {
+    console.error('API Error:', error);
+    if (error.response?.status === 401) {
       // Token is invalid or expired
       localStorage.removeItem('token');
       localStorage.removeItem('user');

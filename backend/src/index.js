@@ -1,7 +1,6 @@
 require('dotenv').config();
 const express = require('express');
 const http = require('http');
-const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const socketIo = require('socket.io');
 const routes = require('./routes');
@@ -13,41 +12,26 @@ const { User } = require('./models');
 const path = require('path');
 const fs = require('fs');
 const securityHeaders = require('./middlewares/securityHeaders');
+const corsConfig = require('./middlewares/corsConfig');
 
 const app = express();
 const server = http.createServer(app);
 
-// CORS configuration
-const allowedOrigins = [
-  'http://localhost:3000',
-  'http://localhost:4000',
-  'https://cbt-test.onrender.com',
-  'https://cbt-test-api.onrender.com',
-  'https://cbt-test-frontend.onrender.com'
-];
+// Apply CORS configuration before other middleware
+app.use(corsConfig);
 
-const corsOptions = {
-  origin: function(origin, callback) {
-    // Allow requests with no origin (like mobile apps, curl, postman)
-    if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  exposedHeaders: ['set-cookie']
-};
+// Handle preflight requests
+app.options('*', corsConfig);
 
-// Apply CORS with the above options
-app.use(cors(corsOptions));
-
-// Enable pre-flight across-the-board
-app.options('*', cors(corsOptions));
+// Set security headers
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
+  if (req.headers.origin) {
+    res.header('Access-Control-Allow-Origin', req.headers.origin);
+  }
+  next();
+});
 
 // Trust first proxy (important for secure cookies in production)
 app.set('trust proxy', 1);
