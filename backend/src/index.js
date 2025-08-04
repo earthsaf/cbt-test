@@ -28,23 +28,50 @@ const allowedOrigins = [
 
 const corsOptions = {
   origin: function(origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
+    // Allow requests with no origin (like mobile apps, curl, postman)
+    if (!origin) return callback(null, true);
+    
+    // Check if the origin is in the allowed origins
+    if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
+    
     console.log('Blocked CORS request from origin:', origin);
     return callback(new Error('CORS not allowed from this origin: ' + origin), false);
   },
-  credentials: true,
+  credentials: true, // This is important for cookies, authorization headers with HTTPS
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-CSRF-Token', 'X-Forwarded-For', 'X-Forwarded-Proto', 'X-Forwarded-Port'],
-  exposedHeaders: ['Content-Length', 'Content-Type', 'Authorization', 'X-CSRF-Token'],
-  maxAge: 86400,
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'X-Requested-With', 
+    'X-CSRF-Token', 
+    'X-Forwarded-For', 
+    'X-Forwarded-Proto', 
+    'X-Forwarded-Port',
+    'Set-Cookie',
+    'Cookie'
+  ],
+  exposedHeaders: [
+    'Content-Length', 
+    'Content-Type', 
+    'Authorization', 
+    'X-CSRF-Token',
+    'Set-Cookie'
+  ],
+  maxAge: 86400, // 24 hours
   preflightContinue: false,
   optionsSuccessStatus: 204
 };
 
+// Apply CORS with the above options
 app.use(cors(corsOptions));
+
+// Enable pre-flight across-the-board
 app.options('*', cors(corsOptions));
+
+// Trust first proxy (important for secure cookies in production)
+app.set('trust proxy', 1);
 
 // Middleware
 app.use(express.json({ limit: '10mb' }));

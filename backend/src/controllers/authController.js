@@ -108,12 +108,20 @@ exports.login = async (req, res) => {
       }
     );
     
-    res.cookie('token', token, {
+    // Set cookie with secure settings
+    const cookieOptions = {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 8 * 60 * 60 * 1000
-    });
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      maxAge: 8 * 60 * 60 * 1000, // 8 hours
+      domain: process.env.NODE_ENV === 'production' ? '.onrender.com' : undefined,
+      path: '/',
+      // Important for cross-site cookies
+      ...(process.env.NODE_ENV === 'production' && { secure: true, sameSite: 'none' })
+    };
+    
+    console.log('Setting cookie with options:', JSON.stringify(cookieOptions, null, 2));
+    res.cookie('token', token, cookieOptions);
     
     res.json({ 
       success: true, 
@@ -147,13 +155,42 @@ exports.logout = (req, res) => {
 // Test authentication endpoint
 exports.testAuth = async (req, res) => {
   try {
+    console.log('testAuth: Checking authentication for user:', req.user);
+    
+    if (!req.user || !req.user.id) {
+      console.error('testAuth: No user ID in request');
+      return res.status(401).json({ 
+        success: false,
+        error: 'Authentication required' 
+      });
+    }
+    
     // Get fresh user data from the database
     const user = await User.findByPk(req.user.id, {
       attributes: ['id', 'username', 'role', 'name', 'email', 'classId']
     });
     
     if (!user) {
-      return res.status(401).json({ error: 'User not found' });
+      console.error('testAuth: User not found in database');
+      return res.status(401).json({ 
+        success: false,
+        error: 'User not found' 
+      });
+    }
+
+    console.log('testAuth: User found:', {
+      id: user.id,
+      username: user.username,
+      role: user.role
+    });
+
+    // Check if user is admin
+    if (user.role !== 'admin') {
+      console.error('testAuth: User is not an admin');
+      return res.status(403).json({
+        success: false,
+        error: 'Admin access required'
+      });
     }
 
     res.json({
@@ -169,6 +206,10 @@ exports.testAuth = async (req, res) => {
     });
   } catch (error) {
     console.error('Error in testAuth:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ 
+      success: false,
+      error: 'Internal server error',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };

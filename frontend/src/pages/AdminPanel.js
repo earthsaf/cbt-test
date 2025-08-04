@@ -51,24 +51,72 @@ function AdminPanel() {
 
   useEffect(() => {
     // Check authentication by requesting the test endpoint
-    console.log('AdminPanel: Checking authentication...');
-    api.get('/auth/test')
-      .then(res => {
-        console.log('Auth test response:', res.data);
-        if (res.data?.user?.role !== 'admin') {
+    const checkAuth = async () => {
+      console.log('AdminPanel: Checking authentication...');
+      
+      // Check if we have a token in localStorage
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.log('No token found, redirecting to login');
+        navigate('/staff-login');
+        setSnack({ 
+          open: true, 
+          message: 'Please log in to access the admin panel.', 
+          severity: 'info' 
+        });
+        return;
+      }
+      
+      try {
+        console.log('Making auth test request with token:', token.substring(0, 10) + '...');
+        const response = await api.get('/auth/test');
+        console.log('Auth test response:', response.data);
+        
+        if (!response.data.success) {
+          console.log('Auth test failed:', response.data.error);
+          throw new Error(response.data.error || 'Authentication failed');
+        }
+        
+        if (response.data.user?.role !== 'admin') {
           console.log('User is not an admin, redirecting to login');
           navigate('/staff-login');
-          setSnack({ open: true, message: 'You must be signed in as admin.', severity: 'error' });
-        } else {
-          console.log('User is authenticated as admin');
+          setSnack({ 
+            open: true, 
+            message: 'You do not have permission to access the admin panel.', 
+            severity: 'error' 
+          });
+          return;
         }
-      })
-      .catch((error) => {
+        
+        console.log('User is authenticated as admin:', response.data.user);
+        
+      } catch (error) {
         console.error('Auth test error:', error);
-        console.error('Error response:', error.response);
+        console.error('Error details:', {
+          message: error.message,
+          response: error.response?.data,
+          status: error.response?.status
+        });
+        
+        // Clear invalid token
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        
+        // Redirect to login with appropriate message
+        const errorMessage = error.response?.data?.error || 
+                           error.message || 
+                           'Authentication failed. Please log in again.';
+        
         navigate('/staff-login');
-        setSnack({ open: true, message: 'You must be signed in as admin.', severity: 'error' });
-      });
+        setSnack({ 
+          open: true, 
+          message: errorMessage,
+          severity: 'error' 
+        });
+      }
+    };
+    
+    checkAuth();
   }, [navigate]);
 
   useEffect(() => {
