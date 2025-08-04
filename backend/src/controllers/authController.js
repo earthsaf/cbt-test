@@ -146,13 +146,29 @@ exports.logout = (req, res) => {
 
 // Test authentication endpoint
 exports.testAuth = async (req, res) => {
-  res.json({
-    message: 'Authentication successful',
-    user: {
-      id: req.user.id,
-      username: req.user.username,
-      role: req.user.role,
-      classId: req.user.ClassId
+  try {
+    // Get fresh user data from the database
+    const user = await User.findByPk(req.user.id, {
+      attributes: ['id', 'username', 'role', 'name', 'email', 'classId']
+    });
+    
+    if (!user) {
+      return res.status(401).json({ error: 'User not found' });
     }
-  });
+
+    res.json({
+      success: true,
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+        name: user.name,
+        email: user.email,
+        classId: user.classId || null
+      }
+    });
+  } catch (error) {
+    console.error('Error in testAuth:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 };
