@@ -40,15 +40,32 @@ const corsOptions = {
   exposedHeaders: [
     'set-cookie',
     'xsrf-token',
-    'authorization'
+    'authorization',
+    'x-content-type-options',
+    'x-frame-options',
+    'x-xss-protection'
   ],
-  optionsSuccessStatus: 200, // Some legacy browsers choke on 204
+  optionsSuccessStatus: 204, // Use 204 for preflight responses
   preflightContinue: false,
-  maxAge: 86400 // 24 hours
+  maxAge: 86400, // 24 hours
+  // Add support for legacy browsers
+  optionsPreflight: {
+    optionsSuccessStatus: 204
+  }
 };
 
-// Create CORS middleware
-const corsMiddleware = cors(corsOptions);
+// Create CORS middleware with error handling
+const corsMiddleware = (req, res, next) => {
+  const corsHandler = cors(corsOptions);
+  
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    return corsHandler(req, res, () => res.status(204).end());
+  }
+  
+  // Handle regular requests
+  return corsHandler(req, res, next);
+};
 
 // Export both the CORS middleware and the allowedOrigins array
 module.exports = {
