@@ -11,18 +11,21 @@ const allowedOrigins = [
 ];
 
 const corsOptions = {
-  origin: (origin, callback) => {
-    // Allow requests with no origin (mobile apps, curl, etc) or if in allowed origins
-    if (!origin || allowedOrigins.includes(origin)) {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    // Check if the origin is in the allowed list
+    if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
     
     // Log blocked origins for debugging
     console.log('Blocked by CORS:', origin);
-    callback(new Error(`Origin ${origin} not allowed by CORS`));
+    return callback(new Error(`Not allowed by CORS: ${origin}`), false);
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: [
     'Origin',
     'X-Requested-With',
@@ -31,14 +34,14 @@ const corsOptions = {
     'Authorization',
     'X-XSRF-TOKEN',
     'X-CSRF-TOKEN',
-    'X-Requested-With',
     'XMLHttpRequest'
   ],
   exposedHeaders: [
     'set-cookie',
-    'xsrf-token'
+    'xsrf-token',
+    'authorization'
   ],
-  optionsSuccessStatus: 204,
+  optionsSuccessStatus: 200, // Some legacy browsers choke on 204
   preflightContinue: false,
   maxAge: 86400 // 24 hours
 };

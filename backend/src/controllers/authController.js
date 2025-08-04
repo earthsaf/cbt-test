@@ -2,11 +2,31 @@ const { User, Exam } = require('../models');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 
+// Helper function to set CORS headers
+const setCorsHeaders = (res, req) => {
+  const origin = req.headers.origin;
+  if (origin) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Allow-Methods', 'GET, PUT, POST, DELETE, PATCH, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  }
+};
+
 exports.login = async (req, res) => {
   try {
+    // Set CORS headers for all responses
+    setCorsHeaders(res, req);
+    
+    // Handle preflight
+    if (req.method === 'OPTIONS') {
+      return res.status(200).end();
+    }
+    
     console.log('Login attempt:', { 
       ...req.body, 
-      password: req.body.password ? '[HIDDEN]' : 'undefined' 
+      password: req.body.password ? '[HIDDEN]' : 'undefined',
+      headers: req.headers
     });
     
     const { username, password, role, examId, invigilatorCode } = req.body;
@@ -16,7 +36,8 @@ exports.login = async (req, res) => {
       console.log('Missing credentials');
       return res.status(400).json({ 
         success: false, 
-        error: 'Username and password are required' 
+        error: 'Username and password are required',
+        code: 'MISSING_CREDENTIALS'
       });
     }
     
@@ -109,16 +130,21 @@ exports.login = async (req, res) => {
     );
     
     // Set cookie with secure settings
+    const isProduction = process.env.NODE_ENV === 'production';
     const cookieOptions = {
       httpOnly: true,
-      secure: true, // Always secure for production
-      sameSite: 'none', // Required for cross-origin
+      secure: isProduction, // Only secure in production
+      sameSite: isProduction ? 'none' : 'lax', // None for cross-site in production
       maxAge: 8 * 60 * 60 * 1000, // 8 hours
       path: '/',
+      domain: isProduction ? '.onrender.com' : undefined // Set domain in production
     };
     
     console.log('Setting cookie with options:', cookieOptions);
     res.cookie('token', token, cookieOptions);
+    
+    // Set CORS headers for the response
+    setCorsHeaders(res, req);
     
     res.json({ 
       success: true, 
@@ -141,12 +167,24 @@ exports.login = async (req, res) => {
 };
 
 exports.logout = (req, res) => {
+  const isProduction = process.env.NODE_ENV === 'production';
+  
+  // Clear the cookie with the same options it was set with
   res.clearCookie('token', {
     httpOnly: true,
-    secure: true, // Always secure for cross-site
-    sameSite: 'none', // Always none for cross-site
+    secure: isProduction,
+    sameSite: isProduction ? 'none' : 'lax',
+    path: '/',
+    domain: isProduction ? '.onrender.com' : undefined
   });
-  res.json({ success: true });
+  
+  // Set CORS headers for the response
+  setCorsHeaders(res, req);
+  
+  res.json({ 
+    success: true,
+    message: 'Successfully logged out'
+  });
 };
 
 // Test authentication endpoint

@@ -18,26 +18,25 @@ const { corsMiddleware, allowedOrigins } = require('./middlewares/corsConfig');
 const app = express();
 const server = http.createServer(app);
 
-// Apply CORS configuration before other middleware
-app.use(corsMiddleware);
+// Enable CORS pre-flight across the board
+app.options('*', cors());
 
-// Handle preflight requests for all routes
-app.options('*', corsMiddleware);
-
-// Set security headers
+// Apply CORS configuration
 app.use((req, res, next) => {
   const origin = req.headers.origin;
+  
   if (origin && allowedOrigins.includes(origin)) {
     res.header('Access-Control-Allow-Origin', origin);
     res.header('Access-Control-Allow-Credentials', 'true');
-    res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Content-Length, X-Requested-With, X-CSRF-Token');
+    res.header('Access-Control-Allow-Methods', 'GET, PUT, POST, DELETE, PATCH, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, X-CSRF-Token, X-XSRF-TOKEN');
     
     // Handle preflight
     if (req.method === 'OPTIONS') {
       return res.status(200).end();
     }
   }
+  
   next();
 });
 
