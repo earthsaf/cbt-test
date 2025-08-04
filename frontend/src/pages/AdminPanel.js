@@ -51,14 +51,21 @@ function AdminPanel() {
 
   useEffect(() => {
     // Check authentication by requesting the test endpoint
+    console.log('AdminPanel: Checking authentication...');
     api.get('/auth/test')
       .then(res => {
-        if (res.data.user.role !== 'admin') {
+        console.log('Auth test response:', res.data);
+        if (res.data?.user?.role !== 'admin') {
+          console.log('User is not an admin, redirecting to login');
           navigate('/staff-login');
           setSnack({ open: true, message: 'You must be signed in as admin.', severity: 'error' });
+        } else {
+          console.log('User is authenticated as admin');
         }
       })
-      .catch(() => {
+      .catch((error) => {
+        console.error('Auth test error:', error);
+        console.error('Error response:', error.response);
         navigate('/staff-login');
         setSnack({ open: true, message: 'You must be signed in as admin.', severity: 'error' });
       });

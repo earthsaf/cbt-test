@@ -16,38 +16,43 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (credentials) => {
     try {
-      console.log('Attempting login with credentials:', { 
+      console.log('AuthContext: Attempting login with credentials:', { 
         ...credentials, 
         password: credentials.password ? '[HIDDEN]' : 'undefined' 
       });
       
-      // Log the full request being sent
-      console.log('Sending request to:', '/auth/login');
-      console.log('Request method:', 'POST');
-      console.log('Request headers:', {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'withCredentials': true
-      });
+      console.log('AuthContext: Sending login request to /auth/login');
       
       const response = await api.post('/auth/login', credentials);
-      console.log('Login response status:', response.status);
-      console.log('Login response headers:', response.headers);
-      console.log('Login response data:', response.data);
+      console.log('AuthContext: Login response received:', {
+        status: response.status,
+        statusText: response.statusText,
+        data: response.data,
+        headers: response.headers
+      });
       
       const { user, token } = response.data;
       
       if (!user || !token) {
-        console.error('Missing user or token in response:', response.data);
-        throw new Error('Invalid response from server - missing user or token');
+        const errorMsg = 'Invalid response from server - missing user or token';
+        console.error('AuthContext:', errorMsg, response.data);
+        throw new Error(errorMsg);
       }
+      
+      console.log('AuthContext: Login successful, saving user and token to localStorage');
       
       // Save user data and token
       localStorage.setItem('user', JSON.stringify(user));
       localStorage.setItem('token', token);
       
+      console.log('AuthContext: Updating user state with:', user);
       setUser(user);
-      return { success: true, user };
+      
+      // Log the stored values to verify they were saved correctly
+      console.log('AuthContext: Stored user in localStorage:', localStorage.getItem('user'));
+      console.log('AuthContext: Stored token in localStorage:', localStorage.getItem('token'));
+      
+      return { success: true, user, status: response.status };
     } catch (error) {
       const errorDetails = {
         message: error.message,

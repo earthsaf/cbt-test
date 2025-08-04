@@ -54,15 +54,21 @@ function StaffLogin() {
     setError('');
     setLoading(true);
     
+    console.log('Login attempt:', { username, role });
+    
     // Basic validation
     if (!username.trim() || !password) {
-      setError('Please enter both username and password');
+      const errorMsg = 'Please enter both username and password';
+      console.log('Validation error:', errorMsg);
+      setError(errorMsg);
       setLoading(false);
       return;
     }
     
     try {
+      console.log('Calling login function...');
       const result = await login({ username, password, role });
+      console.log('Login result:', result);
       
       if (!result.success) {
         console.error('Login failed:', result);
@@ -77,17 +83,24 @@ function StaffLogin() {
           errorMessage = result.data.error;
         }
         
+        console.log('Setting error message:', errorMessage);
         setError(errorMessage);
-      }
-      // On success, hide the login form so the redirect effect runs
-      if (result.success) {
+      } else {
+        console.log('Login successful, setting showLoginForm to false');
+        // On success, hide the login form so the redirect effect runs
         setShowLoginForm(false);
       }
-      // The user state will update in AuthContext and the useEffect will trigger redirection
     } catch (err) {
       console.error('Unexpected error during login:', err);
+      console.error('Error details:', {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status,
+        headers: err.response?.headers
+      });
       setError('An unexpected error occurred. Please try again.');
     } finally {
+      console.log('Login process completed, setting loading to false');
       setLoading(false);
     }
   };
