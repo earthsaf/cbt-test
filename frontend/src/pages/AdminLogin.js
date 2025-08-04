@@ -20,15 +20,24 @@ function AdminLogin() {
     e.preventDefault();
     setError('');
     setLoading(true);
+    
     try {
-      const result = await login({ username, password, role: 'admin' });
-      if (result.success) {
+      console.log('Attempting admin login...');
+      const result = await login({ 
+        username, 
+        password, 
+        role: 'admin'  // Explicitly specify admin role
+      });
+
+      if (result.success && result.user.role === 'admin') {
+        console.log('Admin login successful, navigating to /admin');
         navigate('/admin');
       } else {
-        setError(result.error || 'Login failed. Please check your credentials.');
+        setError('Access denied. Admin privileges required.');
       }
     } catch (err) {
-      setError('An unexpected error occurred. Please try again.');
+      console.error('Admin login error:', err);
+      setError(err.message || 'Login failed. Please check your credentials.');
     } finally {
       setLoading(false);
     }

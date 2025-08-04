@@ -57,41 +57,32 @@ export const AuthProvider = ({ children }) => {
     try {
       console.log('AuthContext: Attempting login with credentials:', { 
         ...credentials, 
-        password: credentials.password ? '[HIDDEN]' : 'undefined' 
+        password: credentials.password ? '[HIDDEN]' : 'undefined',
+        role: credentials.role 
       });
       
-      console.log('AuthContext: Sending login request to /auth/login');
-      
+      if (!credentials.role) {
+        throw new Error('Role must be specified for login');
+      }
+
       const response = await api.post('/auth/login', credentials);
-      console.log('AuthContext: Login response received:', {
-        status: response.status,
-        statusText: response.statusText,
-        data: response.data,
-        headers: response.headers
-      });
       
       const { user, token } = response.data;
       
-      if (!user || !token) {
-        const errorMsg = 'Invalid response from server - missing user or token';
-        console.error('AuthContext:', errorMsg, response.data);
-        throw new Error(errorMsg);
+      // Validate user role matches requested role
+      if (user.role !== credentials.role) {
+        throw new Error(`Invalid role: expected ${credentials.role}, got ${user.role}`);
       }
-      
-      console.log('AuthContext: Login successful, saving user and token to localStorage');
       
       // Save user data and token
       localStorage.setItem('user', JSON.stringify(user));
       localStorage.setItem('token', token);
+      localStorage.setItem('userRole', user.role);
       
-      console.log('AuthContext: Updating user state with:', user);
       setUser(user);
+      setIsAuthenticated(true);
       
-      // Log the stored values to verify they were saved correctly
-      console.log('AuthContext: Stored user in localStorage:', localStorage.getItem('user'));
-      console.log('AuthContext: Stored token in localStorage:', localStorage.getItem('token'));
-      
-      return { success: true, user, status: response.status };
+      return { success: true, user };
     } catch (error) {
       const errorDetails = {
         message: error.message,
@@ -186,6 +177,15 @@ export const AuthProvider = ({ children }) => {
       {children}
     </AuthContext.Provider>
   );
+};
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === null) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
 };
 
 export const useAuth = () => {
