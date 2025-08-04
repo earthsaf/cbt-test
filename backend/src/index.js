@@ -23,8 +23,7 @@ const allowedOrigins = [
   'http://localhost:4000',
   'https://cbt-test.onrender.com',
   'https://cbt-test-api.onrender.com',
-  'https://cbt-test-frontend.onrender.com',
-  'https://cbt-test-urrr.onrender.com'
+  'https://cbt-test-frontend.onrender.com'
 ];
 
 const corsOptions = {
@@ -32,37 +31,16 @@ const corsOptions = {
     // Allow requests with no origin (like mobile apps, curl, postman)
     if (!origin) return callback(null, true);
     
-    // Check if the origin is in the allowed origins
     if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
     }
-    
-    console.log('Blocked CORS request from origin:', origin);
-    return callback(new Error('CORS not allowed from this origin: ' + origin), false);
   },
-  credentials: true, // This is important for cookies, authorization headers with HTTPS
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: [
-    'Content-Type', 
-    'Authorization', 
-    'X-Requested-With', 
-    'X-CSRF-Token', 
-    'X-Forwarded-For', 
-    'X-Forwarded-Proto', 
-    'X-Forwarded-Port',
-    'Set-Cookie',
-    'Cookie'
-  ],
-  exposedHeaders: [
-    'Content-Length', 
-    'Content-Type', 
-    'Authorization', 
-    'X-CSRF-Token',
-    'Set-Cookie'
-  ],
-  maxAge: 86400, // 24 hours
-  preflightContinue: false,
-  optionsSuccessStatus: 204
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['set-cookie']
 };
 
 // Apply CORS with the above options
