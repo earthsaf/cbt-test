@@ -149,19 +149,15 @@ export const AuthProvider = ({ children }) => {
     try {
       localStorage.removeItem('user');
       localStorage.removeItem('token');
+      localStorage.removeItem('userRole');
       setUser(null);
+      setIsAuthenticated(false);
       return { success: true };
     } catch (error) {
       console.error('Logout error:', error);
       return { success: false, error: 'Failed to log out' };
     }
   }, []);
-
-  const updateUser = (updatedUser) => {
-    const newUser = { ...user, ...updatedUser };
-    localStorage.setItem('user', JSON.stringify(newUser));
-    setUser(newUser);
-  };
 
   const value = {
     user,
@@ -186,12 +182,4 @@ export const useAuth = () => {
   }
   return context;
 };
-};
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === null) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
+ 
