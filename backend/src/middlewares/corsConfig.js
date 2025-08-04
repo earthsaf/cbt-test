@@ -1,6 +1,6 @@
 const cors = require('cors');
 
-// Export the allowedOrigins array for use in other files
+// Allowed origins
 const allowedOrigins = [
   'https://cbt-test.onrender.com',
   'https://cbt-test-frontend.onrender.com',
@@ -10,13 +10,14 @@ const allowedOrigins = [
   'http://localhost:4000'
 ];
 
+// CORS configuration
 const corsOptions = {
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
     
-    // Check if the origin is in the allowed list
-    if (allowedOrigins.includes(origin)) {
+    // For development, allow all origins - in production, you should restrict this
+    if (process.env.NODE_ENV === 'development' || allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
     
@@ -46,11 +47,14 @@ const corsOptions = {
   maxAge: 86400 // 24 hours
 };
 
+// Create CORS middleware
+const corsMiddleware = cors(corsOptions);
+
 // Export both the CORS middleware and the allowedOrigins array
 module.exports = {
-  corsMiddleware: cors(corsOptions),
+  corsMiddleware,
   allowedOrigins
 };
 
 // Also export the CORS middleware as default for backward compatibility
-module.exports.default = cors(corsOptions);
+module.exports.default = corsMiddleware;

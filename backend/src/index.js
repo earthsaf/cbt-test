@@ -13,31 +13,14 @@ const { User } = require('./models');
 const path = require('path');
 const fs = require('fs');
 const securityHeaders = require('./middlewares/securityHeaders');
-const { corsMiddleware, allowedOrigins } = require('./middlewares/corsConfig');
+// Import the CORS middleware from the consolidated configuration
+const { corsMiddleware } = require('./middlewares/corsConfig');
 
 const app = express();
 const server = http.createServer(app);
 
-// Apply CORS configuration
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  
-  // Check if the origin is in the allowed list
-  if (origin && allowedOrigins.includes(origin)) {
-    res.header('Access-Control-Allow-Origin', origin);
-    res.header('Access-Control-Allow-Credentials', 'true');
-    
-    // Handle preflight requests
-    if (req.method === 'OPTIONS') {
-      res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-      res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, X-CSRF-Token, X-XSRF-TOKEN');
-      res.header('Access-Control-Max-Age', '86400'); // 24 hours
-      return res.status(204).end();
-    }
-  }
-  
-  next();
-});
+// Apply CORS middleware
+app.use(corsMiddleware);
 
 // Trust first proxy (important for secure cookies in production)
 app.set('trust proxy', 1);
