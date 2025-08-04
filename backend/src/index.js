@@ -13,8 +13,8 @@ const { User } = require('./models');
 const path = require('path');
 const fs = require('fs');
 const securityHeaders = require('./middlewares/securityHeaders');
-// Import the CORS middleware from the consolidated configuration
-const { corsMiddleware } = require('./middlewares/corsConfig');
+// Import the CORS middleware and allowedOrigins from the consolidated configuration
+const { corsMiddleware, allowedOrigins } = require('./middlewares/corsConfig');
 
 const app = express();
 const server = http.createServer(app);
