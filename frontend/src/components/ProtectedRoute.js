@@ -1,22 +1,38 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { Box, CircularProgress } from '@mui/material';
 
 export const ProtectedRoute = ({ children, requiredRole = null }) => {
-  const { user, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading, checkAuth } = useAuth();
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const location = useLocation();
 
-  if (isLoading) {
-    return <div>Loading...</div>; // Or a loading spinner
+  // Check authentication status when component mounts
+  useEffect(() => {
+    const verifyAuth = async () => {
+      await checkAuth();
+      setIsCheckingAuth(false);
+    };
+    
+    verifyAuth();
+  }, [checkAuth]);
+
+  if (isLoading || isCheckingAuth) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <CircularProgress />
+      </Box>
+    );
   }
 
-  // If no user is logged in, redirect to login
-  if (!user) {
+  // If not authenticated, redirect to login
+  if (!isAuthenticated) {
     return <Navigate to="/staff-login" state={{ from: location }} replace />;
   }
 
   // If a specific role is required and the user doesn't have it
-  if (requiredRole && user.role !== requiredRole) {
+  if (requiredRole && user?.role !== requiredRole) {
     return <Navigate to="/" replace />;
   }
 

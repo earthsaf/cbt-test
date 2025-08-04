@@ -1,6 +1,7 @@
 // Only accessible by admin. Management controls for users, exams, invigilator codes, analytics.
 import React, { useState, useEffect } from 'react';
-import { AppBar, Tabs, Tab, Box, Typography, Card, CardContent, Button, Grid, TextField, Select, MenuItem, Snackbar, Alert, Dialog, DialogTitle, DialogContent, DialogActions, Switch, FormControlLabel, DialogContentText } from '@mui/material';
+import { AppBar, Tabs, Tab, Box, Typography, Card, CardContent, Button, Grid, TextField, Select, MenuItem, Snackbar, Alert, Dialog, DialogTitle, DialogContent, DialogActions, Switch, FormControlLabel, DialogContentText, CircularProgress } from '@mui/material';
+import { userSelect, accessibleButton } from '../utils/styles';
 import api from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -386,27 +387,26 @@ function AdminPanel() {
     }
   };
 
-  return (
-    <div>
-      <Dialog open={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)}>
-        <DialogTitle>Confirm Delete</DialogTitle>
-        <DialogContent>
-          <Typography>Are you sure you want to delete user: <strong>{userToDelete?.username}</strong>?</Typography>
-          <Typography color="error" variant="body2" sx={{ mt: 1 }}>This action cannot be undone.</Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteConfirmOpen(false)}>Cancel</Button>
-          <Button onClick={() => handleDeleteUser(userToDelete?.id)} color="error" variant="contained">Delete</Button>
-        </DialogActions>
-      </Dialog>
+  if (isLoading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  };
 
+  return (
+    <Box sx={{ flexGrow: 1, ...userSelect }}>
       <AppBar position="static">
+        <Tabs
+          value={tab}
+          onChange={(e, v) => setTab(v)}
+          aria-label="admin navigation tabs"
+          role="navigation"
+        >
+          {tabs.map(t => <Tab label={t} key={t} />)}
+        </Tabs>
         <Grid container justifyContent="space-between" alignItems="center">
-          <Grid item>
-            <Tabs value={tab} onChange={(e, v) => setTab(v)} aria-label="admin tabs">
-              {tabs.map(t => <Tab label={t} key={t} />)}
-            </Tabs>
-          </Grid>
           <Grid item>
             <Button color="inherit" onClick={handleLogout} sx={{ mr: 2 }}>Logout</Button>
           </Grid>

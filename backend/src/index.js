@@ -12,6 +12,7 @@ const bcrypt = require('bcrypt');
 const { User } = require('./models');
 const path = require('path');
 const fs = require('fs');
+const securityHeaders = require('./middlewares/securityHeaders');
 
 const app = express();
 const server = http.createServer(app);
@@ -72,6 +73,9 @@ app.options('*', cors(corsOptions));
 
 // Trust first proxy (important for secure cookies in production)
 app.set('trust proxy', 1);
+
+// Security middleware
+app.use(securityHeaders);
 
 // Middleware
 app.use(express.json({ limit: '10mb' }));

@@ -6,13 +6,52 @@ const AuthContext = createContext(null);
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // Initialize user from localStorage on mount - but don't auto-login
-  useEffect(() => {
-    // We're not automatically logging in from localStorage anymore
-    // Users must explicitly log in through the login form
+  // Check authentication status
+  const checkAuth = useCallback(async () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setUser(null);
+      setIsAuthenticated(false);
+      setLoading(false);
+      return false;
+    }
+
+    try {
+      console.log('AuthContext: Checking authentication status...');
+      const response = await api.get('/auth/test', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        withCredentials: true
+      });
+
+      console.log('AuthContext: Auth check response:', response.data);
+      
+      if (response.data?.success) {
+        setUser(response.data.user);
+        setIsAuthenticated(true);
+        setLoading(false);
+        return true;
+      }
+    } catch (error) {
+      console.error('AuthContext: Error checking auth status:', error);
+      // Clear invalid token
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+    }
+
+    setUser(null);
+    setIsAuthenticated(false);
     setLoading(false);
+    return false;
   }, []);
+
+  // Check authentication status on mount
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
 
   const login = async (credentials) => {
     try {
@@ -138,7 +177,8 @@ export const AuthProvider = ({ children }) => {
     loading,
     login,
     logout,
-    updateUser
+    checkAuth,
+    isAuthenticated,
   };
 
   return (
