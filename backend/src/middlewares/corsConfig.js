@@ -1,5 +1,6 @@
 const cors = require('cors');
 
+// Export the allowedOrigins array for use in other files
 const allowedOrigins = [
   'https://cbt-test.onrender.com',
   'https://cbt-test-frontend.onrender.com',
@@ -33,4 +34,11 @@ const corsOptions = {
   optionsSuccessStatus: 204
 };
 
-module.exports = cors(corsOptions);
+// Export both the CORS middleware and the allowedOrigins array
+module.exports = {
+  corsMiddleware: cors(corsOptions),
+  allowedOrigins
+};
+
+// Also export the CORS middleware as default for backward compatibility
+module.exports.default = cors(corsOptions);

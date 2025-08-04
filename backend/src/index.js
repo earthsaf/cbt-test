@@ -13,16 +13,16 @@ const { User } = require('./models');
 const path = require('path');
 const fs = require('fs');
 const securityHeaders = require('./middlewares/securityHeaders');
-const corsConfig = require('./middlewares/corsConfig');
+const { corsMiddleware, allowedOrigins } = require('./middlewares/corsConfig');
 
 const app = express();
 const server = http.createServer(app);
 
 // Apply CORS configuration before other middleware
-app.use(corsConfig);
+app.use(corsMiddleware);
 
 // Handle preflight requests
-app.options('*', corsConfig);
+app.options('*', corsMiddleware);
 
 // Set security headers
 app.use((req, res, next) => {
