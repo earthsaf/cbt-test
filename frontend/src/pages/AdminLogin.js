@@ -31,7 +31,8 @@ function AdminLogin() {
 
       if (result.success && result.user.role === 'admin') {
         console.log('Admin login successful, navigating to /admin');
-        navigate('/admin');
+        // Force a full page reload to ensure all auth state is properly initialized
+        window.location.href = '/admin';
       } else {
         setError('Access denied. Admin privileges required.');
       }

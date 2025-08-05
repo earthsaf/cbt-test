@@ -32,10 +32,20 @@ exports.login = async (req, res) => {
       return res.status(200).end();
     }
     
+    // Clear any existing authentication
+    if (req.cookies && req.cookies.token) {
+      res.clearCookie('token', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+      });
+    }
+    
     console.log('Login attempt:', { 
-      ...req.body, 
-      password: req.body.password ? '[HIDDEN]' : 'undefined',
-      headers: req.headers
+      username: req.body.username,
+      role: req.body.role,
+      examId: req.body.examId ? 'provided' : 'not provided'
     });
     
     const { username, password, role, examId, invigilatorCode } = req.body;
@@ -131,16 +141,18 @@ exports.login = async (req, res) => {
       });
     }
     
+    // Create session token (5 hours for exam duration)
     const token = jwt.sign(
       { 
         id: user.id, 
         username: user.username,
         role: user.role,
-        name: user.name || user.username
+        name: user.name || user.username,
+        loginTime: Date.now()
       }, 
       process.env.JWT_SECRET, 
       { 
-        expiresIn: '8h' 
+        expiresIn: '5h' // 5-hour session to accommodate exam duration
       }
     );
     
@@ -148,20 +160,23 @@ exports.login = async (req, res) => {
     const isProduction = process.env.NODE_ENV === 'production';
     const cookieOptions = {
       httpOnly: true,
-      secure: isProduction, // Only secure in production
-      sameSite: isProduction ? 'none' : 'lax', // None for cross-site in production
-      maxAge: 8 * 60 * 60 * 1000, // 8 hours
+      secure: isProduction,
+      sameSite: 'lax',
+      maxAge: 5 * 60 * 60 * 1000, // 5 hours
       path: '/',
-      domain: isProduction ? 'cbt-test.onrender.com' : undefined // Use specific domain instead of wildcard
     };
     
-    console.log('Setting cookie with options:', cookieOptions);
+    // Don't set domain for local development
+    if (isProduction) {
+      cookieOptions.domain = 'cbt-test.onrender.com';
+    }
+    
+    console.log('Setting secure session cookie');
     res.cookie('token', token, cookieOptions);
     
     // Set CORS headers for the response
     setCorsHeaders(res, req);
     
-    console.log('Sending successful login response');
     res.json({ 
       success: true, 
       user: { 
@@ -170,7 +185,8 @@ exports.login = async (req, res) => {
         role: user.role,
         name: user.name || user.username
       },
-      token // Also send token in response for clients that need it
+      token, // For client-side storage if needed
+      sessionTimeout: 60 * 60 * 1000 // 1 hour in milliseconds
     });
     
   } catch (error) {
@@ -186,13 +202,24 @@ exports.logout = (req, res) => {
   const isProduction = process.env.NODE_ENV === 'production';
   
   // Clear the cookie with the same options it was set with
-  res.clearCookie('token', {
+  const cookieOptions = {
     httpOnly: true,
     secure: isProduction,
-    sameSite: isProduction ? 'none' : 'lax',
+    sameSite: 'lax',
     path: '/',
-    domain: isProduction ? 'cbt-test.onrender.com' : undefined
-  });
+  };
+  
+  if (isProduction) {
+    cookieOptions.domain = 'cbt-test.onrender.com';
+  }
+  
+  // Clear the token cookie
+  res.clearCookie('token', cookieOptions);
+  
+  // Add headers to prevent caching of the page with sensitive data
+  res.header('Cache-Control', 'private, no-cache, no-store, must-revalidate');
+  res.header('Pragma', 'no-cache');
+  res.header('Expires', '0');
   
   // Set CORS headers for the response
   setCorsHeaders(res, req);
