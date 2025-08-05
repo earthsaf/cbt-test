@@ -81,8 +81,10 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('token', token);
       localStorage.setItem('userRole', user.role);
       
+      console.log('AuthContext: Setting user and authentication state');
       setUser(user);
       setIsAuthenticated(true);
+      console.log('AuthContext: User and auth state set successfully');
       
       return { success: true, user };
     } catch (error) {

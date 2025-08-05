@@ -16,7 +16,7 @@ function StaffLogin() {
   const [role, setRole] = useState('teacher');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { user, login, logout } = useAuth();
+  const { user, login, logout, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   // Always show login form when this component mounts
   const [showLoginForm, setShowLoginForm] = useState(true);
@@ -37,6 +37,26 @@ function StaffLogin() {
       logout();
     }
   }, [user, logout]);
+
+  // Redirect effect - when user is authenticated, redirect to appropriate page
+  useEffect(() => {
+    if (user && isAuthenticated) {
+      console.log('User authenticated, redirecting to:', user.role);
+      switch (user.role) {
+        case 'admin':
+          navigate('/admin');
+          break;
+        case 'teacher':
+          navigate('/teacher');
+          break;
+        case 'invigilator':
+          navigate('/proctor');
+          break;
+        default:
+          navigate('/dashboard');
+      }
+    }
+  }, [user, isAuthenticated, navigate]);
 
   const handleRoleChange = (event, newRole) => {
     if (newRole !== null) {
@@ -86,9 +106,8 @@ function StaffLogin() {
         console.log('Setting error message:', errorMessage);
         setError(errorMessage);
       } else {
-        console.log('Login successful, setting showLoginForm to false');
-        // On success, hide the login form so the redirect effect runs
-        setShowLoginForm(false);
+        console.log('Login successful, user will be redirected automatically');
+        // The redirect effect will handle navigation
       }
     } catch (err) {
       console.error('Unexpected error during login:', err);
