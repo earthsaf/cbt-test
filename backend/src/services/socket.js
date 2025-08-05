@@ -6,9 +6,11 @@ module.exports = {
   init: (server) => {
     io = socket(server, {
       cors: {
-        origin: process.env.FRONTEND_URL || '*',
-        methods: ['GET', 'POST']
-      }
+        origin: true, // Allow all origins for Socket.IO
+        methods: ['GET', 'POST'],
+        credentials: true
+      },
+      allowEIO3: true
     });
     return io;
   },

@@ -64,14 +64,7 @@ if (fs.existsSync(frontendBuildPath)) {
 }
 
 // Initialize Socket.IO
-const io = socketService.init(server, {
-  cors: {
-    origin: allowedOrigins,
-    methods: ['GET', 'POST'],
-    credentials: true,
-  },
-  allowEIO3: true
-});
+const io = socketService.init(server);
 
 // Initialize socket connection handling
 setupBot(io);

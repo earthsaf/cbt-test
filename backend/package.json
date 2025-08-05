@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",
-    "test": "jest"
+    "test": "jest",
+    "debug": "node debug-deployment.js",
+    "test-cors": "node test-cors.js"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",
@@ -20,6 +22,7 @@
     "node-fetch": "^2.6.7",
     "node-telegram-bot-api": "^0.61.0",
     "nodemailer": "^6.9.8",
+    "axios": "^1.6.0",
     "pg": "^8.16.1",
     "pg-hstore": "^2.3.4",
     "sequelize": "^6.37.7",

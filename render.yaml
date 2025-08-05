@@ -10,20 +10,44 @@ services:
         value: production
       - key: PORT
         value: 10000
-      # Add other environment variables from your .env file here
-      - key: DATABASE_URL
+      # Database configuration
+      - key: DB_USER
         fromDatabase:
           name: cbt-db
-          property: connectionString
+          property: user
+      - key: DB_PASS
+        fromDatabase:
+          name: cbt-db
+          property: password
+      - key: DB_HOST
+        fromDatabase:
+          name: cbt-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: cbt-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: cbt-db
+          property: database
+      # JWT Secret for authentication
+      - key: JWT_SECRET
+        generateValue: true
+      # Frontend URL for CORS
+      - key: FRONTEND_URL
+        value: https://cbt-test.onrender.com
+      # Telegram Bot Token (optional - set this if you're using Telegram features)
+      - key: TELEGRAM_BOT_TOKEN
+        value: ""
     plan: free
     region: oregon
-    healthCheckPath: /api/health
+    healthCheckPath: /health
     autoDeploy: true
 
-# Uncomment and configure if you need a database
-# databases:
-#   - name: cbt-db
-#     databaseName: cbt
-#     user: cbt_user
-#     plan: free
-#     region: oregon
+databases:
+  - name: cbt-db
+    databaseName: cbt
+    user: cbt_user
+    plan: free
+    region: oregon

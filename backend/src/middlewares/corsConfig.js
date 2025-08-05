@@ -6,16 +6,20 @@ const allowedOrigins = [
   'https://cbt-test-frontend.onrender.com',
   'https://cbt-test-api.onrender.com',
   'https://cbt-test-urrr.onrender.com',
+  'https://cbt-system.onrender.com',
+  'https://cbt-system-frontend.onrender.com',
+  'https://cbt-system-api.onrender.com',
   'http://localhost:3000',
-  'http://localhost:4000'
+  'http://localhost:4000',
+  'http://localhost:5000'
 ];
 
 // CORS configuration
 const corsOptions = {
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps, curl requests, or server-side requests)
-    if (!origin && process.env.NODE_ENV === 'development') {
-      console.log('No origin - allowing in development');
+    if (!origin) {
+      console.log('No origin provided - allowing request');
       return callback(null, true);
     }
     
@@ -65,11 +69,21 @@ const corsOptions = {
 
 // Create CORS middleware with error handling
 const corsMiddleware = (req, res, next) => {
+  // Log request details for debugging
+  console.log('CORS Debug:', {
+    method: req.method,
+    url: req.url,
+    origin: req.headers.origin,
+    userAgent: req.headers['user-agent'],
+    referer: req.headers.referer
+  });
+
   // Handle preflight requests
   if (req.method === 'OPTIONS') {
     const origin = req.headers.origin;
-    if (allowedOrigins.includes(origin) || process.env.NODE_ENV === 'development') {
-      res.header('Access-Control-Allow-Origin', origin);
+    // Allow preflight requests from any origin or no origin
+    if (!origin || allowedOrigins.includes(origin) || process.env.NODE_ENV === 'development') {
+      res.header('Access-Control-Allow-Origin', origin || '*');
       res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
       res.header('Access-Control-Allow-Headers', corsOptions.allowedHeaders.join(','));
       res.header('Access-Control-Allow-Credentials', 'true');
