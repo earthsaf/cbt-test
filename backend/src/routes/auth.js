@@ -65,4 +65,13 @@ router.get('/test-admin', async (req, res) => {
   }
 });
 
+// Simple test endpoint
+router.get('/test', (req, res) => {
+  res.json({ 
+    message: 'Auth API is working',
+    timestamp: new Date().toISOString(),
+    env: process.env.NODE_ENV
+  });
+});
+
 module.exports = router;

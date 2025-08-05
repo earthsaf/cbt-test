@@ -152,7 +152,7 @@ exports.login = async (req, res) => {
       sameSite: isProduction ? 'none' : 'lax', // None for cross-site in production
       maxAge: 8 * 60 * 60 * 1000, // 8 hours
       path: '/',
-      domain: isProduction ? '.onrender.com' : undefined // Set domain in production
+      domain: isProduction ? 'cbt-test.onrender.com' : undefined // Use specific domain instead of wildcard
     };
     
     console.log('Setting cookie with options:', cookieOptions);
@@ -191,7 +191,7 @@ exports.logout = (req, res) => {
     secure: isProduction,
     sameSite: isProduction ? 'none' : 'lax',
     path: '/',
-    domain: isProduction ? '.onrender.com' : undefined
+    domain: isProduction ? 'cbt-test.onrender.com' : undefined
   });
   
   // Set CORS headers for the response

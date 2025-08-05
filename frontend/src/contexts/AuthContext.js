@@ -65,8 +65,10 @@ export const AuthProvider = ({ children }) => {
         throw new Error('Role must be specified for login');
       }
 
+      console.log('AuthContext: Making API request to /auth/login');
       const response = await api.post('/auth/login', credentials);
       
+      console.log('AuthContext: Received response:', response.data);
       const { user, token } = response.data;
       
       // Validate user role matches requested role

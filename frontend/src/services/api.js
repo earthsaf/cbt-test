@@ -29,6 +29,13 @@ const api = axios.create({
 // Request interceptor
 api.interceptors.request.use(
   config => {
+    console.log('API Request interceptor:', {
+      method: config.method,
+      url: config.url,
+      baseURL: config.baseURL,
+      fullURL: config.baseURL + config.url
+    });
+    
     // Add auth token if exists
     const token = localStorage.getItem('token');
     if (token) {
@@ -55,6 +62,11 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   response => {
     // Handle successful responses
+    console.log('API Response interceptor - Success:', {
+      status: response.status,
+      url: response.config?.url,
+      data: response.data
+    });
     return response;
   },
   error => {
