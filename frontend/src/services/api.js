@@ -65,7 +65,8 @@ api.interceptors.response.use(
     console.log('API Response interceptor - Success:', {
       status: response.status,
       url: response.config?.url,
-      data: response.data
+      data: response.data,
+      headers: response.headers
     });
     return response;
   },
@@ -78,7 +79,8 @@ api.interceptors.response.use(
       status: error.response?.status,
       url: originalRequest?.url,
       method: originalRequest?.method,
-      data: error.response?.data
+      data: error.response?.data,
+      headers: error.response?.headers
     });
     
     // Handle network errors

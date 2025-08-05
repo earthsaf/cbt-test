@@ -56,9 +56,18 @@ function AdminPanel() {
   // Load initial data
   useEffect(() => {
     const loadData = async () => {
+      console.log('AdminPanel: Starting to load data...');
       try {
-        // Check authentication
-        await api.get('/auth/test');
+        // Check authentication using the simpler endpoint
+        console.log('AdminPanel: Checking authentication...');
+        const authCheck = await api.get('/auth/check');
+        console.log('AdminPanel: Auth check response:', authCheck.data);
+        
+        if (!authCheck.data.success || !authCheck.data.authenticated) {
+          throw new Error('Authentication failed');
+        }
+        
+        console.log('AdminPanel: Authentication successful, loading data...');
         
         // Load users, classes, and exams in parallel
         const [usersRes, classesRes, examsRes] = await Promise.all([
@@ -67,13 +76,14 @@ function AdminPanel() {
           api.get('/admin/exams')
         ]);
         
+        console.log('AdminPanel: Data loaded successfully');
         setUsers(usersRes.data);
         setClasses(classesRes.data);
         setExams(examsRes.data);
         
         setIsLoading(false);
       } catch (error) {
-        console.error('Error loading admin data:', error);
+        console.error('AdminPanel: Error loading admin data:', error);
         setSnack({
           open: true,
           message: 'Failed to load admin data',

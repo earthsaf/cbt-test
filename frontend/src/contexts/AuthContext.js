@@ -82,6 +82,9 @@ export const AuthProvider = ({ children }) => {
       const response = await api.post('/auth/login', credentials);
       
       console.log('AuthContext: Received response:', response.data);
+      console.log('AuthContext: Response status:', response.status);
+      console.log('AuthContext: Response headers:', response.headers);
+      
       const { user, token } = response.data;
       
       // Validate user role matches requested role
@@ -103,6 +106,7 @@ export const AuthProvider = ({ children }) => {
       
       return { success: true, user };
     } catch (error) {
+      console.error('AuthContext: Login error:', error);
       const errorDetails = {
         message: error.message,
         name: error.name,

@@ -12,9 +12,15 @@ export const ProtectedRoute = ({ children, requiredRole = null }) => {
   useEffect(() => {
     const verifyAuth = async () => {
       console.log('ProtectedRoute: Checking authentication...');
+      console.log('ProtectedRoute: Current user:', user);
+      console.log('ProtectedRoute: Current isAuthenticated:', isAuthenticated);
+      
       // Only call checkAuth if we don't have a user already
       if (!user) {
+        console.log('ProtectedRoute: No user found, calling checkAuth...');
         await checkAuth();
+      } else {
+        console.log('ProtectedRoute: User found, skipping checkAuth');
       }
       setIsCheckingAuth(false);
     };

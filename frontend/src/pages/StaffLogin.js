@@ -41,21 +41,30 @@ function StaffLogin() {
   // Redirect effect - when user is authenticated, redirect to appropriate page
   useEffect(() => {
     console.log('Redirect effect triggered:', { user, isAuthenticated });
+    console.log('Redirect effect - user details:', user);
+    console.log('Redirect effect - isAuthenticated:', isAuthenticated);
+    
     if (user && isAuthenticated) {
       console.log('User authenticated, redirecting to:', user.role);
       switch (user.role) {
         case 'admin':
+          console.log('Redirecting to admin dashboard');
           navigate('/admin');
           break;
         case 'teacher':
+          console.log('Redirecting to teacher panel');
           navigate('/teacher');
           break;
         case 'invigilator':
+          console.log('Redirecting to proctor panel');
           navigate('/proctor');
           break;
         default:
+          console.log('Redirecting to dashboard');
           navigate('/dashboard');
       }
+    } else {
+      console.log('User not authenticated or no user, not redirecting');
     }
   }, [user, isAuthenticated, navigate]);
 
@@ -90,6 +99,9 @@ function StaffLogin() {
       console.log('Calling login function...');
       const result = await login({ username, password, role });
       console.log('Login result:', result);
+      console.log('Login result success:', result.success);
+      console.log('Login result user:', result.user);
+      console.log('Login result error:', result.error);
       
       if (!result.success) {
         console.error('Login failed:', result);
