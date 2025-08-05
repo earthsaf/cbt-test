@@ -1,6 +1,7 @@
 const express = require('express');
 const authController = require('../controllers/authController');
 const { requireAuth } = require('../middlewares/auth');
+const jwt = require('jsonwebtoken');
 const router = express.Router();
 const { User } = require('../models'); // Import User from models
 
@@ -72,6 +73,49 @@ router.get('/test', (req, res) => {
     timestamp: new Date().toISOString(),
     env: process.env.NODE_ENV
   });
+});
+
+// Simple auth check endpoint that doesn't require middleware
+router.get('/check', async (req, res) => {
+  try {
+    const token = req.cookies && req.cookies.token;
+    if (!token) {
+      return res.json({ 
+        success: false, 
+        authenticated: false,
+        message: 'No token found'
+      });
+    }
+
+    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findByPk(payload.id);
+    
+    if (!user) {
+      return res.json({ 
+        success: false, 
+        authenticated: false,
+        message: 'User not found'
+      });
+    }
+
+    res.json({ 
+      success: true, 
+      authenticated: true,
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+        name: user.name || user.username
+      }
+    });
+  } catch (error) {
+    console.error('Auth check error:', error);
+    res.json({ 
+      success: false, 
+      authenticated: false,
+      message: 'Invalid token'
+    });
+  }
 });
 
 module.exports = router;

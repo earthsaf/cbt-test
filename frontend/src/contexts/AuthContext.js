@@ -20,16 +20,13 @@ export const AuthProvider = ({ children }) => {
 
     try {
       console.log('AuthContext: Checking authentication status...');
-      const response = await api.get('/auth/test', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
+      const response = await api.get('/auth/check', {
         withCredentials: true
       });
 
       console.log('AuthContext: Auth check response:', response.data);
       
-      if (response.data?.success) {
+      if (response.data?.success && response.data?.authenticated) {
         setUser(response.data.user);
         setIsAuthenticated(true);
         setLoading(false);
@@ -82,6 +79,8 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('userRole', user.role);
       
       console.log('AuthContext: Setting user and authentication state');
+      console.log('AuthContext: Token saved:', token ? 'Yes' : 'No');
+      console.log('AuthContext: User data saved:', user);
       setUser(user);
       setIsAuthenticated(true);
       console.log('AuthContext: User and auth state set successfully');

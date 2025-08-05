@@ -40,6 +40,7 @@ function StaffLogin() {
 
   // Redirect effect - when user is authenticated, redirect to appropriate page
   useEffect(() => {
+    console.log('Redirect effect triggered:', { user, isAuthenticated });
     if (user && isAuthenticated) {
       console.log('User authenticated, redirecting to:', user.role);
       switch (user.role) {

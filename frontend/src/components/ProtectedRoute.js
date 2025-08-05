@@ -11,12 +11,15 @@ export const ProtectedRoute = ({ children, requiredRole = null }) => {
   // Check authentication status when component mounts
   useEffect(() => {
     const verifyAuth = async () => {
+      console.log('ProtectedRoute: Checking authentication...');
       await checkAuth();
       setIsCheckingAuth(false);
     };
     
     verifyAuth();
   }, [checkAuth]);
+
+  console.log('ProtectedRoute: Auth state:', { isAuthenticated, user, isLoading, isCheckingAuth });
 
   if (isLoading || isCheckingAuth) {
     return (
@@ -28,6 +31,7 @@ export const ProtectedRoute = ({ children, requiredRole = null }) => {
 
   // If not authenticated, redirect to login
   if (!isAuthenticated) {
+    console.log('ProtectedRoute: Not authenticated, redirecting to login');
     return <Navigate to="/staff-login" state={{ from: location }} replace />;
   }
 
