@@ -7,7 +7,8 @@
     "start": "node src/index.js",
     "test": "jest",
     "debug": "node debug-deployment.js",
-    "test-cors": "node test-cors.js"
+    "test-cors": "node test-cors.js",
+    "test-env": "node test-env.js"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",

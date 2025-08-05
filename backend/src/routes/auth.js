@@ -2,6 +2,7 @@ const express = require('express');
 const authController = require('../controllers/authController');
 const { requireAuth } = require('../middlewares/auth');
 const router = express.Router();
+const { User } = require('../models'); // Import User from models
 
 // Add middleware to parse JSON bodies
 router.use(express.json());
@@ -43,5 +44,25 @@ router.post('/login', (req, res, next) => {
 });
 
 router.get('/test', requireAuth, authController.testAuth);
+
+// Test endpoint to check admin user
+router.get('/test-admin', async (req, res) => {
+  try {
+    const admin = await User.findOne({ where: { role: 'admin', username: 'admin' } });
+    res.json({ 
+      adminExists: !!admin,
+      adminDetails: admin ? {
+        id: admin.id,
+        username: admin.username,
+        role: admin.role,
+        name: admin.name,
+        email: admin.email
+      } : null
+    });
+  } catch (error) {
+    console.error('Test admin error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 module.exports = router;

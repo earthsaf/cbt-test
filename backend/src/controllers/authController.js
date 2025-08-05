@@ -15,6 +15,15 @@ const setCorsHeaders = (res, req) => {
 
 exports.login = async (req, res) => {
   try {
+    // Check if JWT_SECRET is available
+    if (!process.env.JWT_SECRET) {
+      console.error('JWT_SECRET is not set');
+      return res.status(500).json({ 
+        success: false, 
+        error: 'Server configuration error' 
+      });
+    }
+    
     // Set CORS headers for all responses
     setCorsHeaders(res, req);
     
@@ -92,12 +101,15 @@ exports.login = async (req, res) => {
       });
     }
     
+    console.log('Looking for user with:', { username, role });
     const user = await User.findOne({ 
       where: { 
         username,
         role
       } 
     });
+    
+    console.log('User found:', user ? 'Yes' : 'No');
     
     if (!user) {
       console.log('User not found:', { username, role });
@@ -107,7 +119,10 @@ exports.login = async (req, res) => {
       });
     }
     
+    console.log('Comparing password for user:', username);
     const validPassword = await bcrypt.compare(password, user.password_hash);
+    console.log('Password valid:', validPassword);
+    
     if (!validPassword) {
       console.log('Invalid password for user:', username);
       return res.status(401).json({ 
@@ -146,6 +161,7 @@ exports.login = async (req, res) => {
     // Set CORS headers for the response
     setCorsHeaders(res, req);
     
+    console.log('Sending successful login response');
     res.json({ 
       success: true, 
       user: { 
