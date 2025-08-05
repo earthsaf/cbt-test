@@ -11,7 +11,10 @@ export const AuthProvider = ({ children }) => {
   // Check authentication status
   const checkAuth = useCallback(async () => {
     const token = localStorage.getItem('token');
+    console.log('AuthContext: checkAuth called, token exists:', !!token);
+    
     if (!token) {
+      console.log('AuthContext: No token found, setting unauthenticated');
       setUser(null);
       setIsAuthenticated(false);
       setLoading(false);
@@ -27,18 +30,27 @@ export const AuthProvider = ({ children }) => {
       console.log('AuthContext: Auth check response:', response.data);
       
       if (response.data?.success && response.data?.authenticated) {
+        console.log('AuthContext: Authentication successful, setting user');
         setUser(response.data.user);
         setIsAuthenticated(true);
         setLoading(false);
         return true;
+      } else {
+        console.log('AuthContext: Authentication failed:', response.data);
       }
     } catch (error) {
       console.error('AuthContext: Error checking auth status:', error);
+      console.error('AuthContext: Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
       // Clear invalid token
       localStorage.removeItem('token');
       localStorage.removeItem('user');
     }
 
+    console.log('AuthContext: Setting unauthenticated state');
     setUser(null);
     setIsAuthenticated(false);
     setLoading(false);
