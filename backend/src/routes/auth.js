@@ -77,9 +77,15 @@ router.get('/test', (req, res) => {
 
 // Simple auth check endpoint that doesn't require middleware
 router.get('/check', async (req, res) => {
+  console.log('Auth check endpoint called');
+  console.log('Cookies:', req.cookies);
+  
   try {
     const token = req.cookies && req.cookies.token;
+    console.log('Token found:', !!token);
+    
     if (!token) {
+      console.log('No token found in cookies');
       return res.json({ 
         success: false, 
         authenticated: false,
@@ -88,9 +94,13 @@ router.get('/check', async (req, res) => {
     }
 
     const payload = jwt.verify(token, process.env.JWT_SECRET);
+    console.log('Token verified, payload:', payload);
+    
     const user = await User.findByPk(payload.id);
+    console.log('User found:', !!user);
     
     if (!user) {
+      console.log('User not found in database');
       return res.json({ 
         success: false, 
         authenticated: false,
@@ -98,6 +108,7 @@ router.get('/check', async (req, res) => {
       });
     }
 
+    console.log('Authentication successful for user:', user.username);
     res.json({ 
       success: true, 
       authenticated: true,

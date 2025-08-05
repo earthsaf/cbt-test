@@ -37,6 +37,7 @@ export const ProtectedRoute = ({ children, requiredRole = null }) => {
 
   // If a specific role is required and the user doesn't have it
   if (requiredRole && user?.role !== requiredRole) {
+    console.log('ProtectedRoute: User role mismatch, redirecting to home');
     return <Navigate to="/" replace />;
   }
 

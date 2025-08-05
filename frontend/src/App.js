@@ -1,5 +1,5 @@
 import React from 'react';
-import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import ExamPage from './pages/ExamPage';
 import AdminPanel from './pages/AdminPanel';
@@ -18,6 +18,7 @@ function App() {
           <Route path="/" element={<Navigate to="/student-login" replace />} />
           <Route path="/student-login" element={<StudentLogin />} />
           <Route path="/staff-login" element={<StaffLogin />} />
+          <Route path="/test" element={<div>Test route working!</div>} />
           <Route 
             path="/dashboard" 
             element={
