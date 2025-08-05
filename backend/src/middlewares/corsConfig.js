@@ -11,7 +11,10 @@ const allowedOrigins = [
   'https://cbt-system-api.onrender.com',
   'http://localhost:3000',
   'http://localhost:4000',
-  'http://localhost:5000'
+  'http://localhost:5000',
+  // Add any additional domains that might be used
+  'https://cbt-test.onrender.com',
+  'https://cbt-test-api.onrender.com'
 ];
 
 // CORS configuration

@@ -11,7 +11,8 @@ const getBaseURL = () => {
   if (window.location.hostname === 'localhost') {
     return 'http://localhost:4000/api';
   }
-  return 'https://cbt-test-api.onrender.com/api';
+  // Use the same domain as the frontend
+  return `${window.location.origin}/api`;
 };
 
 const api = axios.create({

@@ -6,7 +6,7 @@ import { toast } from 'react-toastify';
 import io from 'socket.io-client';
 import api from '../services/api';
 
-const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || 'ws://localhost:4000';
+const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || (window.location.hostname === 'localhost' ? 'ws://localhost:4000' : window.location.origin.replace('https://', 'wss://').replace('http://', 'ws://'));
 
 function ProctoringPage() {
   const [socket, setSocket] = useState(null);

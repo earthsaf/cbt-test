@@ -122,7 +122,9 @@ function ExamPage() {
 
   // WebSocket for live question updates
   useEffect(() => {
-    const socket = io(process.env.REACT_APP_API_URL?.replace('/api', '') || '', { transports: ['websocket'] });
+    const socketUrl = process.env.REACT_APP_API_URL?.replace('/api', '') || 
+                     (window.location.hostname === 'localhost' ? 'http://localhost:4000' : window.location.origin);
+    const socket = io(socketUrl, { transports: ['websocket'] });
     socket.on(`question-update-exam-${examId}`, (data) => {
       setQuestions((prev) =>
         prev.map((q) =>
