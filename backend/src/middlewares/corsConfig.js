@@ -13,11 +13,15 @@ const allowedOrigins = [
 // CORS configuration
 const corsOptions = {
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
+    // Allow requests with no origin (like mobile apps, curl requests, or server-side requests)
+    if (!origin && process.env.NODE_ENV === 'development') {
+      console.log('No origin - allowing in development');
+      return callback(null, true);
+    }
     
-    // For development, allow all origins - in production, you should restrict this
-    if (process.env.NODE_ENV === 'development' || allowedOrigins.includes(origin)) {
+    // Check if the origin is in the allowed list
+    if (allowedOrigins.includes(origin) || process.env.NODE_ENV === 'development') {
+      console.log('Allowed origin:', origin);
       return callback(null, true);
     }
     
@@ -28,50 +32,58 @@ const corsOptions = {
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: [
-    'Origin',
+    'Content-Type', 
+    'Authorization', 
     'X-Requested-With',
-    'Content-Type',
-    'Accept',
-    'Authorization',
     'X-XSRF-TOKEN',
-    'X-CSRF-TOKEN',
-    'XMLHttpRequest'
+    'Accept',
+    'Origin',
+    'X-Access-Token',
+    'X-Refresh-Token',
+    'x-client-version',
+    'x-client-name',
+    'x-auth-token',
+    'x-xsrf-token',
+    'x-csrf-token',
+    'x-request-id',
+    'x-forwarded-for',
+    'x-forwarded-proto',
+    'x-forwarded-port'
   ],
   exposedHeaders: [
-    'set-cookie',
-    'xsrf-token',
-    'authorization',
-    'x-content-type-options',
-    'x-frame-options',
-    'x-xss-protection'
+    'Content-Length',
+    'Content-Type',
+    'x-auth-token',
+    'x-xsrf-token',
+    'x-csrf-token',
+    'x-request-id'
   ],
-  optionsSuccessStatus: 204, // Use 204 for preflight responses
+  optionsSuccessStatus: 200, // Some legacy browsers (IE11, various SmartTVs) choke on 204
   preflightContinue: false,
-  maxAge: 86400, // 24 hours
-  // Add support for legacy browsers
-  optionsPreflight: {
-    optionsSuccessStatus: 204
-  }
+  maxAge: 600 // 10 minutes
 };
 
 // Create CORS middleware with error handling
 const corsMiddleware = (req, res, next) => {
-  const corsHandler = cors(corsOptions);
-  
   // Handle preflight requests
   if (req.method === 'OPTIONS') {
-    return corsHandler(req, res, () => res.status(204).end());
+    const origin = req.headers.origin;
+    if (allowedOrigins.includes(origin) || process.env.NODE_ENV === 'development') {
+      res.header('Access-Control-Allow-Origin', origin);
+      res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+      res.header('Access-Control-Allow-Headers', corsOptions.allowedHeaders.join(','));
+      res.header('Access-Control-Allow-Credentials', 'true');
+      return res.status(200).json({});
+    }
   }
   
-  // Handle regular requests
-  return corsHandler(req, res, next);
+  // Apply CORS for actual requests
+  cors(corsOptions)(req, res, next);
 };
 
 // Export both the CORS middleware and the allowedOrigins array
 module.exports = {
   corsMiddleware,
-  allowedOrigins
+  allowedOrigins,
+  corsOptions
 };
-
-// Also export the CORS middleware as default for backward compatibility
-module.exports.default = corsMiddleware;
