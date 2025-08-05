@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Box, Paper, Typography, TextField, ToggleButton, ToggleButtonGroup, Alert, Button, Link as MuiLink } from '@mui/material';
+import { Box, Paper, Typography, TextField, ToggleButton, ToggleButtonGroup, Alert, Button } from '@mui/material';
 import { LoadingButton } from '@mui/lab';
 
 const roles = [
@@ -23,13 +23,9 @@ function StaffLogin() {
   useEffect(() => {
     localStorage.removeItem('user');
     localStorage.removeItem('token');
-    
-    // Clear form state
     setUsername('');
     setPassword('');
     setError('');
-    
-    // Force the user state to null in the auth context
     if (user) {
       logout();
     }
@@ -40,19 +36,19 @@ function StaffLogin() {
     if (user && user.role) {
       switch (user.role) {
         case 'admin':
-          navigate('/admin');
+          window.location.href = '/admin';
           break;
         case 'teacher':
-          navigate('/teacher');
+          window.location.href = '/teacher';
           break;
         case 'invigilator':
-          navigate('/proctor');
+          window.location.href = '/proctor';
           break;
         default:
-          navigate('/dashboard');
+          window.location.href = '/dashboard';
       }
     }
-  }, [user, navigate]);
+  }, [user]);
 
   const handleRoleChange = (event, newRole) => {
     if (newRole !== null) {
@@ -68,26 +64,20 @@ function StaffLogin() {
     e.preventDefault();
     setError('');
     setLoading(true);
-    
-    // Basic validation
     if (!username.trim() || !password) {
       setError('Please enter both username and password');
       setLoading(false);
       return;
     }
-    
     try {
       const result = await login({ username, password, role });
-      
       if (!result.success) {
         let errorMessage = result.error || 'Login failed';
-        
         if (result.status === 401) {
           errorMessage = 'Invalid username or password. Please try again.';
         } else if (result.status === 500) {
           errorMessage = 'Server error. Please try again later.';
         }
-        
         setError(errorMessage);
       }
     } catch (err) {
@@ -120,7 +110,6 @@ function StaffLogin() {
         <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold', mb: 1 }}>
           Staff Login
         </Typography>
-        
         {!user ? (
           <>
             <Typography variant="body1" sx={{ mb: 4, color: 'text.secondary' }}>
@@ -140,7 +129,6 @@ function StaffLogin() {
                   </ToggleButton>
                 ))}
               </ToggleButtonGroup>
-
               <TextField
                 fullWidth
                 label="Username"
@@ -149,7 +137,6 @@ function StaffLogin() {
                 sx={{ mb: 2 }}
                 disabled={loading}
               />
-
               <TextField
                 fullWidth
                 label="Password"
@@ -159,13 +146,11 @@ function StaffLogin() {
                 sx={{ mb: 3 }}
                 disabled={loading}
               />
-
               {error && (
                 <Alert severity="error" sx={{ mb: 2 }}>
                   {error}
                 </Alert>
               )}
-
               <LoadingButton
                 type="submit"
                 fullWidth
@@ -175,7 +160,6 @@ function StaffLogin() {
               >
                 Sign In
               </LoadingButton>
-
               <Button
                 fullWidth
                 variant="outlined"
@@ -189,7 +173,7 @@ function StaffLogin() {
         ) : (
           <Box>
             <Typography variant="body1" sx={{ mb: 2 }}>
-              Signed in as <strong>{user.name || user.username}</strong> ({user.role}).
+              Signed in as <strong>{user && user.name ? user.name : user && user.username}</strong> ({user && user.role}).
             </Typography>
             <Button variant="outlined" onClick={handleLogoutAndSwitch}>
               Logout & Sign In as Different User
