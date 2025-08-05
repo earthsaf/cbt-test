@@ -11,7 +11,11 @@ export const AuthProvider = ({ children }) => {
   // Check authentication status
   const checkAuth = useCallback(async () => {
     const token = localStorage.getItem('token');
+    const userData = localStorage.getItem('user');
     console.log('AuthContext: checkAuth called, token exists:', !!token);
+    console.log('AuthContext: User data exists:', !!userData);
+    console.log('AuthContext: Current user state:', user);
+    console.log('AuthContext: Current isAuthenticated state:', isAuthenticated);
     
     if (!token) {
       console.log('AuthContext: No token found, setting unauthenticated');

@@ -108,6 +108,10 @@ function StaffLogin() {
         setError(errorMessage);
       } else {
         console.log('Login successful, user will be redirected automatically');
+        // Add a small delay to ensure state is properly set
+        setTimeout(() => {
+          console.log('Delayed redirect - checking auth state:', { user, isAuthenticated });
+        }, 100);
         // The redirect effect will handle navigation
       }
     } catch (err) {
