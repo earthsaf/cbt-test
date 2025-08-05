@@ -16,13 +16,11 @@ function StaffLogin() {
   const [role, setRole] = useState('teacher');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { user, login, logout, isAuthenticated } = useAuth();
+  const { user, login, logout } = useAuth();
   const navigate = useNavigate();
-  // Always show login form when this component mounts
-  const [showLoginForm, setShowLoginForm] = useState(true);
 
+  // Clear any existing auth data to prevent auto-redirect
   useEffect(() => {
-    // Clear any existing auth data to prevent auto-redirect
     localStorage.removeItem('user');
     localStorage.removeItem('token');
     
@@ -33,40 +31,28 @@ function StaffLogin() {
     
     // Force the user state to null in the auth context
     if (user) {
-      // This will trigger a re-render with user=null
       logout();
     }
   }, [user, logout]);
 
   // Redirect effect - when user is authenticated, redirect to appropriate page
   useEffect(() => {
-    console.log('Redirect effect triggered:', { user, isAuthenticated });
-    console.log('Redirect effect - user details:', user);
-    console.log('Redirect effect - isAuthenticated:', isAuthenticated);
-    
-    if (user && isAuthenticated) {
-      console.log('User authenticated, redirecting to:', user.role);
+    if (user && user.role) {
       switch (user.role) {
         case 'admin':
-          console.log('Redirecting to admin dashboard');
           navigate('/admin');
           break;
         case 'teacher':
-          console.log('Redirecting to teacher panel');
           navigate('/teacher');
           break;
         case 'invigilator':
-          console.log('Redirecting to proctor panel');
           navigate('/proctor');
           break;
         default:
-          console.log('Redirecting to dashboard');
           navigate('/dashboard');
       }
-    } else {
-      console.log('User not authenticated or no user, not redirecting');
     }
-  }, [user, isAuthenticated, navigate]);
+  }, [user, navigate]);
 
   const handleRoleChange = (event, newRole) => {
     if (newRole !== null) {
@@ -76,7 +62,6 @@ function StaffLogin() {
 
   const handleLogoutAndSwitch = () => {
     logout();
-    // The useEffect hook will handle setting showLoginForm to true
   };
 
   const handleSubmit = async (e) => {
@@ -84,59 +69,30 @@ function StaffLogin() {
     setError('');
     setLoading(true);
     
-    console.log('Login attempt:', { username, role });
-    
     // Basic validation
     if (!username.trim() || !password) {
-      const errorMsg = 'Please enter both username and password';
-      console.log('Validation error:', errorMsg);
-      setError(errorMsg);
+      setError('Please enter both username and password');
       setLoading(false);
       return;
     }
     
     try {
-      console.log('Calling login function...');
       const result = await login({ username, password, role });
-      console.log('Login result:', result);
-      console.log('Login result success:', result.success);
-      console.log('Login result user:', result.user);
-      console.log('Login result error:', result.error);
       
       if (!result.success) {
-        console.error('Login failed:', result);
         let errorMessage = result.error || 'Login failed';
         
-        // Provide more specific error messages based on the status code
         if (result.status === 401) {
           errorMessage = 'Invalid username or password. Please try again.';
         } else if (result.status === 500) {
           errorMessage = 'Server error. Please try again later.';
-        } else if (result.data?.error) {
-          errorMessage = result.data.error;
         }
         
-        console.log('Setting error message:', errorMessage);
         setError(errorMessage);
-      } else {
-        console.log('Login successful, user will be redirected automatically');
-        // Add a small delay to ensure state is properly set
-        setTimeout(() => {
-          console.log('Delayed redirect - checking auth state:', { user, isAuthenticated });
-        }, 100);
-        // The redirect effect will handle navigation
       }
     } catch (err) {
-      console.error('Unexpected error during login:', err);
-      console.error('Error details:', {
-        message: err.message,
-        response: err.response?.data,
-        status: err.response?.status,
-        headers: err.response?.headers
-      });
       setError('An unexpected error occurred. Please try again.');
     } finally {
-      console.log('Login process completed, setting loading to false');
       setLoading(false);
     }
   };
@@ -165,16 +121,7 @@ function StaffLogin() {
           Staff Login
         </Typography>
         
-        {!showLoginForm && user ? (
-          <Box>
-            <Typography variant="body1" sx={{ mb: 2 }}>
-              Signed in as <strong>{user.name || user.username}</strong> ({user.role}).
-            </Typography>
-            <Button variant="outlined" onClick={handleLogoutAndSwitch}>
-              Logout & Sign In as Different User
-            </Button>
-          </Box>
-        ) : (
+        {!user ? (
           <>
             <Typography variant="body1" sx={{ mb: 4, color: 'text.secondary' }}>
               Select your role and sign in.
@@ -195,53 +142,60 @@ function StaffLogin() {
               </ToggleButtonGroup>
 
               <TextField
-                label={`${role.charAt(0).toUpperCase() + role.slice(1)} Username`}
-                variant="outlined"
                 fullWidth
-                required
+                label="Username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 sx={{ mb: 2 }}
-                autoComplete="username"
+                disabled={loading}
               />
 
               <TextField
+                fullWidth
                 label="Password"
                 type="password"
-                variant="outlined"
-                fullWidth
-                required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 sx={{ mb: 3 }}
-                autoComplete="current-password"
+                disabled={loading}
               />
 
               {error && (
-                <Alert severity="error" sx={{ mb: 2, textAlign: 'left' }}>
+                <Alert severity="error" sx={{ mb: 2 }}>
                   {error}
                 </Alert>
               )}
 
               <LoadingButton
                 type="submit"
-                variant="contained"
                 fullWidth
+                variant="contained"
                 loading={loading}
-                size="large"
-                sx={{ py: 1.5, fontWeight: 'bold' }}
+                sx={{ mb: 2 }}
               >
                 Sign In
               </LoadingButton>
+
+              <Button
+                fullWidth
+                variant="outlined"
+                onClick={() => navigate('/student-login')}
+                sx={{ mb: 1 }}
+              >
+                Student Login
+              </Button>
             </Box>
           </>
+        ) : (
+          <Box>
+            <Typography variant="body1" sx={{ mb: 2 }}>
+              Signed in as <strong>{user.name || user.username}</strong> ({user.role}).
+            </Typography>
+            <Button variant="outlined" onClick={handleLogoutAndSwitch}>
+              Logout & Sign In as Different User
+            </Button>
+          </Box>
         )}
-
-        <Box sx={{ mt: 3 }}>
-          <MuiLink component="button" variant="body2" onClick={() => navigate('/student-login')}>
-            Are you a student? Sign in here.
-          </MuiLink>
-        </Box>
       </Paper>
     </Box>
   );

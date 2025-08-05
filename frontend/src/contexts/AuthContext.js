@@ -8,83 +8,27 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // Check authentication status
-  const checkAuth = useCallback(async () => {
-    const token = localStorage.getItem('token');
-    const userData = localStorage.getItem('user');
-    console.log('AuthContext: checkAuth called, token exists:', !!token);
-    console.log('AuthContext: User data exists:', !!userData);
-    console.log('AuthContext: Current user state:', user);
-    console.log('AuthContext: Current isAuthenticated state:', isAuthenticated);
-    
-    if (!token) {
-      console.log('AuthContext: No token found, setting unauthenticated');
-      setUser(null);
-      setIsAuthenticated(false);
-      setLoading(false);
-      return false;
-    }
-
-    try {
-      console.log('AuthContext: Checking authentication status...');
-      const response = await api.get('/auth/check', {
-        withCredentials: true
-      });
-
-      console.log('AuthContext: Auth check response:', response.data);
-      
-      if (response.data?.success && response.data?.authenticated) {
-        console.log('AuthContext: Authentication successful, setting user');
-        setUser(response.data.user);
-        setIsAuthenticated(true);
-        setLoading(false);
-        return true;
-      } else {
-        console.log('AuthContext: Authentication failed:', response.data);
-      }
-    } catch (error) {
-      console.error('AuthContext: Error checking auth status:', error);
-      console.error('AuthContext: Error details:', {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status
-      });
-      // Clear invalid token
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-    }
-
-    console.log('AuthContext: Setting unauthenticated state');
-    setUser(null);
-    setIsAuthenticated(false);
-    setLoading(false);
-    return false;
-  }, []);
-
   // Check authentication status on mount
   useEffect(() => {
-    checkAuth();
-  }, [checkAuth]);
+    const token = localStorage.getItem('token');
+    const userData = localStorage.getItem('user');
+    
+    if (token && userData) {
+      try {
+        const user = JSON.parse(userData);
+        setUser(user);
+        setIsAuthenticated(true);
+      } catch (error) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+      }
+    }
+    setLoading(false);
+  }, []);
 
   const login = async (credentials) => {
     try {
-      console.log('AuthContext: Attempting login with credentials:', { 
-        ...credentials, 
-        password: credentials.password ? '[HIDDEN]' : 'undefined',
-        role: credentials.role 
-      });
-      
-      if (!credentials.role) {
-        throw new Error('Role must be specified for login');
-      }
-
-      console.log('AuthContext: Making API request to /auth/login');
       const response = await api.post('/auth/login', credentials);
-      
-      console.log('AuthContext: Received response:', response.data);
-      console.log('AuthContext: Response status:', response.status);
-      console.log('AuthContext: Response headers:', response.headers);
-      
       const { user, token } = response.data;
       
       // Validate user role matches requested role
@@ -97,64 +41,20 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('token', token);
       localStorage.setItem('userRole', user.role);
       
-      console.log('AuthContext: Setting user and authentication state');
-      console.log('AuthContext: Token saved:', token ? 'Yes' : 'No');
-      console.log('AuthContext: User data saved:', user);
       setUser(user);
       setIsAuthenticated(true);
-      console.log('AuthContext: User and auth state set successfully');
       
       return { success: true, user };
     } catch (error) {
-      console.error('AuthContext: Login error:', error);
-      const errorDetails = {
-        message: error.message,
-        name: error.name,
-        code: error.code,
-        response: error.response ? {
-          status: error.response.status,
-          statusText: error.response.statusText,
-          data: error.response.data,
-          headers: error.response.headers,
-        } : null,
-        request: error.request ? {
-          method: error.config?.method,
-          url: error.config?.url,
-          data: error.config?.data,
-          headers: error.config?.headers,
-        } : null,
-        config: error.config ? {
-          url: error.config.url,
-          method: error.config.method,
-          baseURL: error.config.baseURL,
-          headers: error.config.headers,
-          timeout: error.config.timeout,
-          withCredentials: error.config.withCredentials,
-          xsrfCookieName: error.config.xsrfCookieName,
-          xsrfHeaderName: error.config.xsrfHeaderName,
-        } : null
-      };
-      
-      console.error('Login error details:', JSON.stringify(errorDetails, null, 2));
-      
-      // Extract error message from response or use default
       let errorMessage = 'Login failed. Please check your credentials and try again.';
       
       if (error.response) {
-        // The request was made and the server responded with a status code
-        // that falls out of the range of 2xx
-        if (error.response.data) {
-          errorMessage = error.response.data.error || 
-                        error.response.data.message || 
-                        `Server responded with status ${error.response.status}`;
-        } else {
-          errorMessage = `Server responded with status ${error.response.status} and no data`;
-        }
+        errorMessage = error.response.data?.error || 
+                      error.response.data?.message || 
+                      `Server responded with status ${error.response.status}`;
       } else if (error.request) {
-        // The request was made but no response was received
         errorMessage = 'No response received from server. Please check your internet connection.';
       } else {
-        // Something happened in setting up the request that triggered an Error
         errorMessage = error.message || 'An error occurred during login';
       }
       
@@ -162,24 +62,18 @@ export const AuthProvider = ({ children }) => {
         success: false, 
         error: errorMessage,
         status: error.response?.status,
-        data: error.response?.data,
-        details: errorDetails
+        data: error.response?.data
       };
     }
   };
 
   const logout = useCallback(() => {
-    try {
-      localStorage.removeItem('user');
-      localStorage.removeItem('token');
-      localStorage.removeItem('userRole');
-      setUser(null);
-      setIsAuthenticated(false);
-      return { success: true };
-    } catch (error) {
-      console.error('Logout error:', error);
-      return { success: false, error: 'Failed to log out' };
-    }
+    localStorage.removeItem('user');
+    localStorage.removeItem('token');
+    localStorage.removeItem('userRole');
+    setUser(null);
+    setIsAuthenticated(false);
+    return { success: true };
   }, []);
 
   const value = {
@@ -187,7 +81,6 @@ export const AuthProvider = ({ children }) => {
     loading,
     login,
     logout,
-    checkAuth,
     isAuthenticated,
   };
 
