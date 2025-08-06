@@ -8,6 +8,12 @@ const allowedOrigins = [
 
 const corsMiddleware = cors({
   origin: function(origin, callback) {
+    // Allow all origins in development
+    if (process.env.NODE_ENV === 'development') {
+      return callback(null, true);
+    }
+    
+    // Production checks
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
@@ -15,10 +21,13 @@ const corsMiddleware = cors({
     }
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization',
+    'X-Requested-With'
+  ],
   credentials: true,
-  preflightContinue: false,
-  optionsSuccessStatus: 204
+  optionsSuccessStatus: 200
 });
 
 module.exports = corsMiddleware;
