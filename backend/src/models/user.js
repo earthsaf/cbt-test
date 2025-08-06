@@ -18,6 +18,18 @@ const User = {
     `;
     const { rows } = await db.query(query, [email, hashedPassword, role, name]);
     return rows[0];
+  },
+
+  async findOne({ where }) {
+    const query = 'SELECT * FROM users WHERE username = $1 AND role = $2';
+    const { rows } = await db.query(query, [where.username, where.role]);
+    return rows[0];
+  },
+
+  async findByPk(id) {
+    const query = 'SELECT * FROM users WHERE id = $1';
+    const { rows } = await db.query(query, [id]);
+    return rows[0];
   }
 };
 
