@@ -1,6 +1,5 @@
-const { User, Exam } = require('../models');
-const jwt = require('jsonwebtoken');
-const bcrypt = require('bcrypt');
+const User = require('../models/User');
+const bcrypt = require('bcryptjs');
 
 // Helper function to set CORS headers
 const setCorsHeaders = (res, req) => {
@@ -15,15 +14,6 @@ const setCorsHeaders = (res, req) => {
 
 exports.login = async (req, res) => {
   try {
-    // Check if JWT_SECRET is available
-    if (!process.env.JWT_SECRET) {
-      console.error('JWT_SECRET is not set');
-      return res.status(500).json({ 
-        success: false, 
-        error: 'Server configuration error' 
-      });
-    }
-    
     // Set CORS headers for all responses
     setCorsHeaders(res, req);
     
@@ -141,52 +131,19 @@ exports.login = async (req, res) => {
       });
     }
     
-    // Create session token (5 hours for exam duration)
-    const token = jwt.sign(
-      { 
-        id: user.id, 
-        username: user.username,
-        role: user.role,
-        name: user.name || user.username,
-        loginTime: Date.now()
-      }, 
-      process.env.JWT_SECRET, 
-      { 
-        expiresIn: '5h' // 5-hour session to accommodate exam duration
-      }
-    );
-    
-    // Set cookie with secure settings
-    const isProduction = process.env.NODE_ENV === 'production';
-    const cookieOptions = {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: 'lax',
-      maxAge: 5 * 60 * 60 * 1000, // 5 hours
-      path: '/',
+    // Set user info in session
+    req.session.user = {
+      id: user.id,
+      username: user.username,
+      role: user.role
     };
-    
-    // Don't set domain for local development
-    if (isProduction) {
-      cookieOptions.domain = 'cbt-test.onrender.com';
-    }
-    
-    console.log('Setting secure session cookie');
-    res.cookie('token', token, cookieOptions);
-    
-    // Set CORS headers for the response
-    setCorsHeaders(res, req);
-    
+
     res.json({ 
-      success: true, 
-      user: { 
-        id: user.id, 
-        username: user.username, 
-        role: user.role,
-        name: user.name || user.username
-      },
-      token, // For client-side storage if needed
-      sessionTimeout: 60 * 60 * 1000 // 1 hour in milliseconds
+      message: 'Logged in successfully',
+      user: {
+        username: user.username,
+        role: user.role
+      }
     });
     
   } catch (error) {
@@ -199,95 +156,19 @@ exports.login = async (req, res) => {
 };
 
 exports.logout = (req, res) => {
-  const isProduction = process.env.NODE_ENV === 'production';
-  
-  // Clear the cookie with the same options it was set with
-  const cookieOptions = {
-    httpOnly: true,
-    secure: isProduction,
-    sameSite: 'lax',
-    path: '/',
-  };
-  
-  if (isProduction) {
-    cookieOptions.domain = 'cbt-test.onrender.com';
-  }
-  
-  // Clear the token cookie
-  res.clearCookie('token', cookieOptions);
-  
-  // Add headers to prevent caching of the page with sensitive data
-  res.header('Cache-Control', 'private, no-cache, no-store, must-revalidate');
-  res.header('Pragma', 'no-cache');
-  res.header('Expires', '0');
-  
-  // Set CORS headers for the response
-  setCorsHeaders(res, req);
-  
-  res.json({ 
-    success: true,
-    message: 'Successfully logged out'
+  req.session.destroy((err) => {
+    if (err) {
+      return res.status(500).json({ message: 'Logout failed' });
+    }
+    res.clearCookie('connect.sid');
+    res.json({ message: 'Logged out successfully' });
   });
 };
 
-// Test authentication endpoint
-exports.testAuth = async (req, res) => {
-  try {
-    console.log('testAuth: Checking authentication for user:', req.user);
-    
-    if (!req.user || !req.user.id) {
-      console.error('testAuth: No user ID in request');
-      return res.status(401).json({ 
-        success: false,
-        error: 'Authentication required' 
-      });
-    }
-    
-    // Get fresh user data from the database
-    const user = await User.findByPk(req.user.id, {
-      attributes: ['id', 'username', 'role', 'name', 'email', 'classId']
-    });
-    
-    if (!user) {
-      console.error('testAuth: User not found in database');
-      return res.status(401).json({ 
-        success: false,
-        error: 'User not found' 
-      });
-    }
-
-    console.log('testAuth: User found:', {
-      id: user.id,
-      username: user.username,
-      role: user.role
-    });
-
-    // Check if user is admin
-    if (user.role !== 'admin') {
-      console.error('testAuth: User is not an admin');
-      return res.status(403).json({
-        success: false,
-        error: 'Admin access required'
-      });
-    }
-
-    res.json({
-      success: true,
-      user: {
-        id: user.id,
-        username: user.username,
-        role: user.role,
-        name: user.name,
-        email: user.email,
-        classId: user.classId || null
-      }
-    });
-  } catch (error) {
-    console.error('Error in testAuth:', error);
-    res.status(500).json({ 
-      success: false,
-      error: 'Internal server error',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
+exports.getSession = (req, res) => {
+  if (req.session.user) {
+    res.json({ user: req.session.user });
+  } else {
+    res.status(401).json({ message: 'No active session' });
   }
 };

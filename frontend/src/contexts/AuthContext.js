@@ -1,6 +1,5 @@
 import React, { createContext, useState, useContext, useEffect, useCallback, useRef } from 'react';
-import api from '../services/api';
-import { useNavigate, useLocation } from 'react-router-dom';
+import axios from 'axios';
 
 const AuthContext = createContext(null);
 
@@ -44,7 +43,7 @@ export const AuthProvider = ({ children }) => {
         }
 
         // Verify token with server
-        const response = await api.get('/auth/check');
+        const response = await axios.get('/api/auth/session', { withCredentials: true });
         
         if (response.data.authenticated && response.data.user) {
           const { user } = response.data;
@@ -97,7 +96,10 @@ export const AuthProvider = ({ children }) => {
       // Clear any existing session data first
       clearAuthData();
       
-      const response = await api.post('/auth/login', credentials);
+      const response = await axios.post('/api/auth/login', 
+        credentials,
+        { withCredentials: true }
+      );
       const { user, token, sessionTimeout } = response.data;
       
       // Validate user role matches requested role
@@ -165,7 +167,7 @@ export const AuthProvider = ({ children }) => {
   const logout = useCallback(async () => {
     try {
       // Call server-side logout to clear session
-      await api.post('/auth/logout');
+      await axios.post('/api/auth/logout', {}, { withCredentials: true });
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
@@ -211,4 +213,3 @@ export const useAuth = () => {
   }
   return context;
 };
- 

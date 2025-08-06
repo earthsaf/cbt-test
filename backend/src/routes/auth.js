@@ -44,6 +44,9 @@ router.post('/login', (req, res, next) => {
   authController.login(req, res, next);
 });
 
+router.post('/logout', authController.logout);
+router.get('/session', authController.getSession);
+
 router.get('/test', requireAuth, authController.testAuth);
 
 // Test endpoint to check admin user
