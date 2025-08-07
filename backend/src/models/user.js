@@ -160,10 +160,27 @@ class User extends Model {
   }
 }
 
-// Initialize the model
-const initUser = (sequelize) => {
+// Export the model initialization function
+const defineUser = (sequelize) => {
   User.initialize(sequelize);
+  
+  // Set up associations after all models are defined
+  User.associate = (models) => {
+    User.belongsTo(models.Class, { foreignKey: 'classId' });
+    User.hasMany(models.Exam, { as: 'createdExams', foreignKey: 'createdBy' });
+    User.hasMany(models.Answer, { foreignKey: 'userId' });
+    User.hasMany(models.Session, { foreignKey: 'userId' });
+    User.belongsToMany(models.Subject, { 
+      through: 'TeacherSubjects',
+      foreignKey: 'userId',
+      as: 'subjects'
+    });
+  };
+  
   return User;
 };
 
-module.exports = { User, initUser };
+// For backward compatibility
+const initUser = defineUser;
+
+module.exports = defineUser;
