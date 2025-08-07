@@ -133,15 +133,18 @@ const initDatabase = async () => {
   }
 };
 
-// Export the initialization function and sequelize instance
-module.exports = {
-  sequelize: null, // Will be set after init
-  initDatabase,
-  models: {}
-};
+// Create and configure Sequelize instance
+const sequelize = new Sequelize(dbConfig.database, dbConfig.username, dbConfig.password, {
+  host: dbConfig.host,
+  port: dbConfig.port,
+  dialect: 'postgres',
+  dialectOptions: dbConfig.dialectOptions,
+  logging: dbConfig.logging,
+  pool: dbConfig.pool
+});
 
-// Initialize the database when this module is imported
-initDatabase().then(({ sequelize: db, User }) => {
-  module.exports.sequelize = db;
-  module.exports.models.User = User;
-  console.log('✅ Database initialization complete');});
+// Export the sequelize instance and initialization function
+module.exports = {
+  sequelize,
+  initDatabase
+};

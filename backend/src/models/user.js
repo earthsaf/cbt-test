@@ -1,4 +1,4 @@
-const { DataTypes } = require('sequelize');
+const { Model, DataTypes } = require('sequelize');
 const bcrypt = require('bcrypt');
 const { v4: uuidv4 } = require('uuid');
 const { body } = require('express-validator');
@@ -7,14 +7,9 @@ const { body } = require('express-validator');
 const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
 
-/**
- * User model definition
- * @param {Sequelize} sequelize - Sequelize instance
- * @returns {Model} - Sequelize model
- */
-const User = (sequelize) => {
-  /** @type {import('sequelize').ModelStatic<Model>} */
-  const model = sequelize.define('User', {
+class User extends Model {
+  static init(sequelize) {
+    return super.init({
     id: {
       type: DataTypes.UUID,
       defaultValue: DataTypes.UUIDV4,

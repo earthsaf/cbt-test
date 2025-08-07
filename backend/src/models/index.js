@@ -1,92 +1,43 @@
-const { DataTypes } = require('sequelize');
-const sequelize = require('../config/database');
+const { Sequelize, DataTypes } = require('sequelize');
+const { sequelize } = require('../config/database');
 
 // Import models
-const User = require('./user');
-const Class = require('./class');
-const Exam = require('./exam');
-const Question = require('./question');
-const Answer = require('./answer');
-const Session = require('./session');
-const Log = require('./log');
-const ProctoringEvent = require('./proctoringEvent');
-const Subject = require('./subject');
-const TeacherClassSubject = require('./TeacherClassSubject');
-const Notification = require('./notification');
+const defineUser = require('./user');
+const defineClass = require('./class');
+const defineExam = require('./exam');
+const defineQuestion = require('./question');
+const defineAnswer = require('./answer');
+const defineSession = require('./session');
+const defineLog = require('./log');
+const defineProctoringEvent = require('./proctoringEvent');
+const defineSubject = require('./subject');
+const defineTeacherClassSubject = require('./TeacherClassSubject');
+const defineNotification = require('./notification');
 
-// Initialize models
-const UserModel = User(sequelize, DataTypes);
-const ClassModel = Class(sequelize, DataTypes);
-const ExamModel = Exam(sequelize, DataTypes);
-const QuestionModel = Question(sequelize, DataTypes);
-const AnswerModel = Answer(sequelize, DataTypes);
-const SessionModel = Session(sequelize, DataTypes);
-const LogModel = Log(sequelize, DataTypes);
-const ProctoringEventModel = ProctoringEvent(sequelize, DataTypes);
-const SubjectModel = Subject(sequelize, DataTypes);
-const TeacherClassSubjectModel = TeacherClassSubject(sequelize, DataTypes);
-const NotificationModel = Notification(sequelize, DataTypes);
+// Initialize models with Sequelize instance
+const db = {
+  User: defineUser(sequelize),
+  Class: defineClass(sequelize),
+  Exam: defineExam(sequelize),
+  Question: defineQuestion(sequelize),
+  Answer: defineAnswer(sequelize),
+  Session: defineSession(sequelize),
+  Log: defineLog(sequelize),
+  ProctoringEvent: defineProctoringEvent(sequelize),
+  Subject: defineSubject(sequelize),
+  TeacherClassSubject: defineTeacherClassSubject(sequelize),
+  Notification: defineNotification(sequelize)
+};
 
-// Associations
-UserModel.belongsTo(ClassModel);
-ClassModel.hasMany(UserModel);
-ExamModel.belongsTo(ClassModel);
-ClassModel.hasMany(ExamModel);
-ExamModel.belongsTo(UserModel, { as: 'creator', foreignKey: 'createdBy' });
-ExamModel.belongsTo(SubjectModel, { foreignKey: 'subjectId' });
-SubjectModel.hasMany(ExamModel, { foreignKey: 'subjectId' });
-QuestionModel.belongsTo(ExamModel);
-ExamModel.hasMany(QuestionModel);
-AnswerModel.belongsTo(UserModel);
-AnswerModel.belongsTo(ExamModel);
-AnswerModel.belongsTo(QuestionModel);
-SessionModel.belongsTo(UserModel);
-SessionModel.belongsTo(ExamModel);
-ProctoringEventModel.belongsTo(SessionModel);
-LogModel.belongsTo(UserModel);
-UserModel.belongsToMany(ClassModel, { through: TeacherClassSubjectModel, as: 'TeachingClasses', foreignKey: 'teacherId' });
-UserModel.belongsToMany(SubjectModel, { through: TeacherClassSubjectModel, as: 'TeachingSubjects', foreignKey: 'teacherId' });
-ClassModel.belongsToMany(SubjectModel, { through: TeacherClassSubjectModel, as: 'ClassSubjects', foreignKey: 'classId' });
-TeacherClassSubjectModel.belongsTo(UserModel, { as: 'teacher', foreignKey: 'teacherId' });
-TeacherClassSubjectModel.belongsTo(ClassModel, { foreignKey: 'classId' });
-TeacherClassSubjectModel.belongsTo(SubjectModel, { foreignKey: 'subjectId' });
-
-// Notification associations
-NotificationModel.belongsTo(UserModel, { as: 'recipient', foreignKey: 'recipient_id' });
-UserModel.hasMany(NotificationModel, { foreignKey: 'recipient_id' });
-
-// Call associations for each model
-[UserModel, ClassModel, ExamModel, QuestionModel, AnswerModel, SessionModel, 
- LogModel, ProctoringEventModel, SubjectModel, TeacherClassSubjectModel, NotificationModel].forEach(model => {
-  if (typeof model.associate === 'function') {
-    model.associate({
-      User: UserModel,
-      Class: ClassModel,
-      Exam: ExamModel,
-      Question: QuestionModel,
-      Answer: AnswerModel,
-      Session: SessionModel,
-      Log: LogModel,
-      ProctoringEvent: ProctoringEventModel,
-      Subject: SubjectModel,
-      TeacherClassSubject: TeacherClassSubjectModel,
-      Notification: NotificationModel
-    });
+// Set up associations
+Object.values(db).forEach(model => {
+  if (model.associate) {
+    model.associate(db);
   }
 });
 
-// Export models
-module.exports = {
-  sequelize,
-  User: UserModel,
-  Class: ClassModel,
-  Exam: ExamModel,
-  Question: QuestionModel,
-  Answer: AnswerModel,
-  Session: SessionModel,
-  Log: LogModel,
-  ProctoringEvent: ProctoringEventModel,
-  Subject: SubjectModel,
-  TeacherClassSubject: TeacherClassSubjectModel,
-  Notification: NotificationModel
-}; 
+// Add sequelize instance to db object
+db.sequelize = sequelize;
+db.Sequelize = Sequelize;
+
+module.exports = db; 
