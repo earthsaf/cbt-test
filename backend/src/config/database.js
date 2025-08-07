@@ -24,6 +24,7 @@ let dbConfig;
 try {
   const dbUrl = new URL(process.env.DATABASE_URL);
   
+  // For Render's PostgreSQL, we need to ensure SSL is properly configured
   dbConfig = {
     host: dbUrl.hostname,
     port: dbUrl.port || 5432,
@@ -31,18 +32,37 @@ try {
     username: dbUrl.username,
     password: dbUrl.password,
     dialect: 'postgres',
+    protocol: 'postgres',
     dialectOptions: {
-      ssl: process.env.NODE_ENV === 'production' ? {
+      ssl: {
         require: true,
-        rejectUnauthorized: false
-      } : false
+        rejectUnauthorized: false  // For self-signed certificates
+      },
+      // Additional options for better connection handling
+      keepAlive: true,
+      connectionTimeoutMillis: 10000,
+      idle_in_transaction_session_timeout: 10000
     },
     logging: process.env.NODE_ENV === 'development' ? console.log : false,
     pool: {
       max: 5,
       min: 0,
-      acquire: 30000,
+      acquire: 60000,  // Increased from 30000
       idle: 10000
+    },
+    // Add retry logic at the connection level
+    retry: {
+      max: 5,  // Maximum number of retries
+      timeout: 30000,  // Time to wait before retrying (ms)
+      match: [
+        // List of error codes to retry on
+        /SequelizeConnectionError/,
+        /SequelizeConnectionRefusedError/,
+        /SequelizeHostNotFoundError/,
+        /SequelizeHostNotReachableError/,
+        /SequelizeInvalidConnectionError/,
+        /SequelizeConnectionTimedOutError/
+      ]
     }
   };
   
@@ -124,20 +144,18 @@ const initDatabase = async () => {
       throw new Error(`Failed to connect to database after ${maxRetries} attempts: ${lastError.message}`);
     }
 
-    // Import and initialize models
+    // Import models - this will automatically initialize them
     const models = require('../models');
-    Object.values(models).forEach(model => {
-      if (model.init) {
-        model.init(sequelize);
-      }
-    });
-
+    
+    // The models are already initialized when required, but we need to ensure associations are set up
+    // The associations are already set up in models/index.js
+    
     // Sync all models
-    await sequelize.sync();
+    await sequelize.sync({ alter: process.env.NODE_ENV !== 'production' });
     console.log('✅ Database synchronized');
 
     // Create default admin if not exists
-    await createDefaultAdmin(User);
+    await createDefaultAdmin(models.User);
     
     return { sequelize, User };
 

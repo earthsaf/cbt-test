@@ -125,12 +125,14 @@ class User extends Model {
         defaultValue: true
       },
       classId: {
-        type: DataTypes.UUID,
+        type: DataTypes.INTEGER,
         references: {
           model: 'Classes',
           key: 'id'
         },
-        allowNull: true
+        allowNull: true,
+        onDelete: 'SET NULL',
+        onUpdate: 'CASCADE'
       }
     }, {
       sequelize,
