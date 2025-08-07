@@ -44,6 +44,11 @@ class User extends Model {
     return await this.findOne({ where: { email } });
   }
 
+  // Static method for validation rules (legacy support)
+  static validate(method) {
+    return this.getValidationRules(method);
+  }
+
   // Static method for validation rules
   static getValidationRules(method) {
     switch (method) {
