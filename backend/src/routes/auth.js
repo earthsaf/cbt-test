@@ -1,53 +1,129 @@
 const express = require('express');
-const authController = require('../controllers/authController');
-const { requireAuth } = require('../middlewares/auth');
-const jwt = require('jsonwebtoken');
 const router = express.Router();
-const { User } = require('../models'); // Import User from models
+const authController = require('../controllers/authController');
+const { body } = require('express-validator');
+const { handleValidationErrors } = require('../middlewares/validation');
 
-// Add middleware to parse JSON bodies
+// Parse JSON bodies
 router.use(express.json());
 router.use(express.urlencoded({ extended: true }));
 
-// Log all incoming requests for debugging
-router.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`, {
-    body: req.body,
-    query: req.query,
-    params: req.params,
-    headers: {
-      'content-type': req.headers['content-type'],
-      'authorization': req.headers['authorization'] ? '***REDACTED***' : undefined,
-      'cookie': req.headers['cookie'] ? '***REDACTED***' : undefined
+/**
+ * @route   POST /api/auth/register
+ * @desc    Register a new user
+ * @access  Public
+ */
+router.post(
+  '/register',
+  [
+    body('email').isEmail().normalizeEmail(),
+    body('password').isLength({ min: 8 }),
+    body('name').trim().notEmpty(),
+    body('role').isIn(['student', 'teacher', 'admin']),
+    handleValidationErrors
+  ],
+  async (req, res, next) => {
+    try {
+      const { email, password, name, role } = req.body;
+      
+      // Check if user already exists
+      const existingUser = await User.findByEmail(email);
+      if (existingUser) {
+        return res.status(400).json({
+          success: false,
+          error: 'User with this email already exists'
+        });
+      }
+      
+      // Create new user
+      const user = await User.create({ email, password, name, role });
+      
+      // Generate token
+      const token = jwt.sign(
+        { id: user.id, email: user.email, role: user.role },
+        process.env.JWT_SECRET,
+        { expiresIn: '8h' }
+      );
+      
+      // Set secure cookie
+      res.cookie('token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 8 * 60 * 60 * 1000 // 8 hours
+      });
+      
+      res.status(201).json({
+        success: true,
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role
+        }
+      });
+    } catch (error) {
+      next(error);
     }
-  });
-  next();
-});
+  }
+);
 
-router.post('/login', (req, res, next) => {
-  console.log('Login request body:', req.body);
-  console.log('Login request headers:', req.headers);
-  
-  // Ensure required fields are present
-  if (!req.body.username || !req.body.password) {
-    console.log('Missing required fields:', {
-      username: !!req.body.username,
-      password: !!req.body.password
-    });
-    return res.status(400).json({
-      success: false,
-      error: 'Username and password are required'
+/**
+ * @route   POST /api/auth/login
+ * @desc    Authenticate user & get token
+ * @access  Public
+ */
+router.post(
+  '/login',
+  authController.login
+);
+
+/**
+ * @route   POST /api/auth/logout
+ * @desc    Logout user / clear cookie
+ * @access  Private
+ */
+router.post('/logout', authController.logout);
+
+/**
+ * @route   GET /api/auth/me
+ * @desc    Get current user
+ * @access  Private
+ */
+router.get(
+  '/me',
+  authController.requireAuth(),
+  (req, res) => {
+    res.json({
+      success: true,
+      user: req.user
     });
   }
+);
+
+/**
+ * @route   GET /api/auth/password-requirements
+ * @desc    Get password requirements
+ * @access  Public
+ */
+router.get('/password-requirements', authController.getPasswordRequirements);
+
+// Error handling middleware
+router.use((err, req, res, next) => {
+  console.error('Auth route error:', err);
   
-  // Call the controller
-  authController.login(req, res, next);
+  // Default error response
+  const statusCode = err.statusCode || 500;
+  const message = statusCode === 500 ? 'Internal server error' : err.message;
+  
+  res.status(statusCode).json({
+    success: false,
+    error: message,
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+  });
 });
 
-router.post('/logout', authController.logout);
-router.get('/session', authController.getSession);
-
-router.get('/test', requireAuth, authController.testAuth);
+module.exports = router;
 
 // Test endpoint to check admin user
 router.get('/test-admin', async (req, res) => {

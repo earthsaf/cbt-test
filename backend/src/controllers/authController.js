@@ -1,174 +1,253 @@
 const User = require('../models/user');
-const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const { validationResult } = require('express-validator');
+const rateLimit = require('express-rate-limit');
+const { v4: uuidv4 } = require('uuid');
+const { body } = require('express-validator');
+const { sanitizeBody } = require('express-validator');
+
+// Rate limiting configuration
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // Limit each IP to 5 login attempts per windowMs
+  message: { 
+    success: false,
+    error: 'Too many login attempts. Please try again later.'
+  },
+  skipSuccessfulRequests: true
+});
 
 // Helper function to set CORS headers
 const setCorsHeaders = (res, req) => {
+  const allowedOrigins = process.env.ALLOWED_ORIGINS ? 
+    process.env.ALLOWED_ORIGINS.split(',') : [];
+  
   const origin = req.headers.origin;
-  if (origin) {
+  if (origin && (allowedOrigins.includes('*') || allowedOrigins.includes(origin))) {
     res.header('Access-Control-Allow-Origin', origin);
     res.header('Access-Control-Allow-Credentials', 'true');
-    res.header('Access-Control-Allow-Methods', 'GET, PUT, POST, DELETE, PATCH, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   }
 };
 
-exports.login = async (req, res) => {
+// Generate JWT token
+const generateToken = (user) => {
+  return jwt.sign(
+    {
+      id: user.id,
+      email: user.email,
+      role: user.role
+    },
+    process.env.JWT_SECRET || 'your-secret-key',
+    { expiresIn: '8h' }
+  );
+};
+
+// Login handler
+const login = async (req, res) => {
   try {
-    // Set CORS headers for all responses
+    // Set CORS headers
     setCorsHeaders(res, req);
     
-    // Handle preflight
+    // Handle preflight request
     if (req.method === 'OPTIONS') {
       return res.status(200).end();
     }
     
     // Clear any existing authentication
-    if (req.cookies && req.cookies.token) {
-      res.clearCookie('token', {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        path: '/',
-      });
-    }
+    res.clearCookie('token');
     
-    console.log('Login attempt:', { 
-      username: req.body.username,
-      role: req.body.role,
-      examId: req.body.examId ? 'provided' : 'not provided'
-    });
-    
-    const { username, password, role, examId, invigilatorCode } = req.body;
-    
-    // Validate required fields
-    if (!username || !password) {
-      console.log('Missing credentials');
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Username and password are required',
-        code: 'MISSING_CREDENTIALS'
-      });
-    }
-    
-    // Handle invigilator login
-    if (role === 'invigilator') {
-      if (!examId || !invigilatorCode) {
-        return res.status(400).json({ 
-          success: false,
-          error: 'Exam ID and invigilator code are required' 
-        });
-      }
-      
-      const exam = await Exam.findByPk(examId);
-      if (!exam) {
-        console.log('Exam not found:', examId);
-        return res.status(404).json({ 
-          success: false,
-          error: 'Exam not found' 
-        });
-      }
-      
-      if (exam.invigilatorCode !== invigilatorCode) {
-        console.log('Invalid invigilator code for exam:', examId);
-        return res.status(401).json({ 
-          success: false,
-          error: 'Invalid invigilator code' 
-        });
-      }
-      
-      const token = jwt.sign({ role: 'invigilator', examId }, process.env.JWT_SECRET, { 
-        expiresIn: '4h' 
-      });
-      
-      res.cookie('token', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 4 * 60 * 60 * 1000
-      });
-      
-      return res.json({ 
-        success: true,
-        user: { role: 'invigilator', examId }
-      });
-    }
-    
-    // Handle regular user login (admin/teacher/student)
-    if (!['admin', 'teacher', 'student'].includes(role)) {
-      return res.status(400).json({ 
+    // Validate input
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
         success: false,
-        error: 'Invalid role specified. Role must be admin, teacher, or student.' 
+        error: 'Validation failed',
+        details: errors.array()
       });
     }
     
-    console.log('Looking for user with:', { username, role });
-    const user = await User.findOne({ 
-      where: { 
-        username,
-        role
-      } 
-    });
+    const { email, password, role } = req.body;
     
-    console.log('User found:', user ? 'Yes' : 'No');
+    // Sanitize input
+    const sanitizedEmail = email.toLowerCase().trim();
+    
+    // Find user
+    const user = await User.findOne({ email: sanitizedEmail, role });
+    
+    // Generic error message to prevent user enumeration
+    const invalidCredentials = {
+      success: false,
+      error: 'Invalid email or password'
+    };
     
     if (!user) {
-      console.log('User not found:', { username, role });
-      return res.status(401).json({ 
-        success: false,
-        error: 'Invalid username or role' 
-      });
+      // Use setTimeout to mitigate timing attacks
+      await new Promise(resolve => setTimeout(resolve, 200));
+      return res.status(401).json(invalidCredentials);
     }
     
-    console.log('Comparing password for user:', username);
-    const validPassword = await bcrypt.compare(password, user.password_hash);
-    console.log('Password valid:', validPassword);
+    // Verify password
+    const isValidPassword = await User.verifyPassword(password, user.password_hash);
     
-    if (!validPassword) {
-      console.log('Invalid password for user:', username);
-      return res.status(401).json({ 
-        success: false,
-        error: 'Invalid password' 
-      });
+    if (!isValidPassword) {
+      return res.status(401).json(invalidCredentials);
     }
     
-    // Set user info in session
-    req.session.user = {
-      id: user.id,
-      username: user.username,
-      role: user.role
-    };
-
-    res.json({ 
-      message: 'Logged in successfully',
+    // Generate JWT token
+    const token = generateToken(user);
+    
+    // Set secure cookie with token
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 8 * 60 * 60 * 1000, // 8 hours
+      path: '/',
+      domain: process.env.COOKIE_DOMAIN || undefined
+    });
+    
+    // Return success response without sensitive data
+    res.json({
+      success: true,
       user: {
-        username: user.username,
-        role: user.role
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        name: user.name
       }
     });
     
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      error: 'An error occurred during login. Please try again.'
+      error: 'An unexpected error occurred. Please try again later.'
     });
   }
 };
 
-exports.logout = (req, res) => {
-  req.session.destroy((err) => {
-    if (err) {
-      return res.status(500).json({ message: 'Logout failed' });
-    }
-    res.clearCookie('connect.sid');
-    res.json({ message: 'Logged out successfully' });
-  });
+// Logout handler
+const logout = (req, res) => {
+  try {
+    // Clear the token cookie
+    res.clearCookie('token', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      path: '/',
+      domain: process.env.COOKIE_DOMAIN || undefined
+    });
+    
+    res.json({
+      success: true,
+      message: 'Successfully logged out'
+    });
+  } catch (error) {
+    console.error('Logout error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'An error occurred during logout'
+    });
+  }
 };
 
-exports.getSession = (req, res) => {
-  if (req.session.user) {
-    res.json({ user: req.session.user });
-  } else {
-    res.status(401).json({ message: 'No active session' });
+// Get current session handler
+const getSession = (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        error: 'Not authenticated'
+      });
+    }
+    
+    res.json({
+      success: true,
+      user: {
+        id: req.user.id,
+        email: req.user.email,
+        role: req.user.role,
+        name: req.user.name
+      }
+    });
+  } catch (error) {
+    console.error('Session error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get session'
+    });
   }
+};
+
+// Get password requirements
+const getPasswordRequirements = (req, res) => {
+  try {
+    res.json({
+      success: true,
+      requirements: User.getPasswordRequirements()
+    });
+  } catch (error) {
+    console.error('Error getting password requirements:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get password requirements'
+    });
+  }
+};
+
+// Middleware to check authentication
+const requireAuth = (roles = []) => {
+  return [
+    // JWT verification middleware
+    (req, res, next) => {
+      try {
+        const token = req.cookies.token || 
+                     req.headers.authorization?.split(' ')[1];
+        
+        if (!token) {
+          return res.status(401).json({
+            success: false,
+            error: 'Authentication required'
+          });
+        }
+        
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+        req.user = decoded;
+        
+        // Check role if required
+        if (roles.length && !roles.includes(decoded.role)) {
+          return res.status(403).json({
+            success: false,
+            error: 'Insufficient permissions'
+          });
+        }
+        
+        next();
+      } catch (error) {
+        if (error.name === 'TokenExpiredError') {
+          return res.status(401).json({
+            success: false,
+            error: 'Session expired. Please log in again.'
+          });
+        }
+        
+        return res.status(401).json({
+          success: false,
+          error: 'Invalid or expired token'
+        });
+      }
+    }
+  ];
+};
+
+// Export all the functions
+module.exports = {
+  login: [loginLimiter, ...User.validate('login'), login],
+  logout,
+  getSession,
+  getPasswordRequirements,
+  requireAuth,
+  validate: User.validate
 };
