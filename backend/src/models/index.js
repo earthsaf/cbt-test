@@ -2,7 +2,7 @@ const { Sequelize, DataTypes } = require('sequelize');
 const { sequelize } = require('../config/database');
 
 // Import models
-const defineUser = require('./user');
+const defineUser = require('./User');
 const defineClass = require('./class');
 const defineExam = require('./exam');
 const defineQuestion = require('./question');
@@ -14,19 +14,19 @@ const defineSubject = require('./subject');
 const defineTeacherClassSubject = require('./TeacherClassSubject');
 const defineNotification = require('./notification');
 
-// Initialize models with Sequelize instance
+// Initialize models with Sequelize instance and DataTypes
 const db = {
-  User: defineUser(sequelize),
-  Class: defineClass(sequelize),
-  Exam: defineExam(sequelize),
-  Question: defineQuestion(sequelize),
-  Answer: defineAnswer(sequelize),
-  Session: defineSession(sequelize),
-  Log: defineLog(sequelize),
-  ProctoringEvent: defineProctoringEvent(sequelize),
-  Subject: defineSubject(sequelize),
-  TeacherClassSubject: defineTeacherClassSubject(sequelize),
-  Notification: defineNotification(sequelize)
+  User: defineUser(sequelize, DataTypes),
+  Class: defineClass(sequelize, DataTypes),
+  Exam: defineExam(sequelize, DataTypes),
+  Question: defineQuestion(sequelize, DataTypes),
+  Answer: defineAnswer(sequelize, DataTypes),
+  Session: defineSession(sequelize, DataTypes),
+  Log: defineLog(sequelize, DataTypes),
+  ProctoringEvent: defineProctoringEvent(sequelize, DataTypes),
+  Subject: defineSubject(sequelize, DataTypes),
+  TeacherClassSubject: defineTeacherClassSubject(sequelize, DataTypes),
+  Notification: defineNotification(sequelize, DataTypes)
 };
 
 // Set up associations
