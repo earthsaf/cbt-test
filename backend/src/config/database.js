@@ -1,31 +1,89 @@
 const { Sequelize, DataTypes } = require('sequelize');
-require('dotenv').config();
+require('dotenv').config({ path: path.join(__dirname, '../../.env') });
+const path = require('path');
 
-if (!process.env.DATABASE_URL) {
-  throw new Error('DATABASE_URL environment variable is not set. Please configure your database connection.');
+// Validate required environment variables
+const requiredEnvVars = ['DATABASE_URL'];
+const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
+
+if (missingVars.length > 0) {
+  console.error('❌ Missing required environment variables:', missingVars.join(', '));
+  console.error('Please ensure these are set in your .env file or deployment environment');
+  process.exit(1);
 }
 
-const dbConfig = {
-  dialect: 'postgres',
-  dialectOptions: {
-    ssl: process.env.NODE_ENV === 'production' ? {
-      require: true,
-      rejectUnauthorized: false
-    } : false
-  },
-  logging: process.env.NODE_ENV === 'development' ? console.log : false
-};
+// Parse DATABASE_URL for better error messages
+let dbConfig;
+try {
+  const dbUrl = new URL(process.env.DATABASE_URL);
+  
+  dbConfig = {
+    host: dbUrl.hostname,
+    port: dbUrl.port || 5432,
+    database: dbUrl.pathname.replace(/^\//, ''),
+    username: dbUrl.username,
+    password: dbUrl.password,
+    dialect: 'postgres',
+    dialectOptions: {
+      ssl: process.env.NODE_ENV === 'production' ? {
+        require: true,
+        rejectUnauthorized: false
+      } : false
+    },
+    logging: process.env.NODE_ENV === 'development' ? console.log : false,
+    pool: {
+      max: 5,
+      min: 0,
+      acquire: 30000,
+      idle: 10000
+    }
+  };
+  
+  console.log(`🔌 Database connection configured for ${dbConfig.host}:${dbConfig.port}/${dbConfig.database}`);
+} catch (error) {
+  console.error('❌ Invalid DATABASE_URL format:', error.message);
+  console.error('Expected format: postgresql://username:password@host:port/database');
+  process.exit(1);
+}
 
 let sequelize;
 
 const initDatabase = async () => {
   try {
-    // Initialize Sequelize
-    sequelize = new Sequelize(process.env.DATABASE_URL, dbConfig);
+    // Initialize Sequelize with parsed connection details
+    sequelize = new Sequelize(dbConfig.database, dbConfig.username, dbConfig.password, {
+      host: dbConfig.host,
+      port: dbConfig.port,
+      dialect: 'postgres',
+      dialectOptions: dbConfig.dialectOptions,
+      logging: dbConfig.logging,
+      pool: dbConfig.pool
+    });
     
-    // Test the connection
-    await sequelize.authenticate();
-    console.log('✅ Database connection established successfully.');
+    // Test the connection with retry logic
+    const maxRetries = 5;
+    let retryCount = 0;
+    let lastError;
+    
+    while (retryCount < maxRetries) {
+      try {
+        await sequelize.authenticate();
+        console.log('✅ Database connection established successfully.');
+        lastError = null;
+        break;
+      } catch (error) {
+        lastError = error;
+        retryCount++;
+        if (retryCount < maxRetries) {
+          console.warn(`⚠️  Connection attempt ${retryCount} failed, retrying in 5 seconds...`);
+          await new Promise(resolve => setTimeout(resolve, 5000));
+        }
+      }
+    }
+    
+    if (lastError) {
+      throw new Error(`Failed to connect to database after ${maxRetries} attempts: ${lastError.message}`);
+    }
 
     // Import models
     const User = sequelize.define('User', {
