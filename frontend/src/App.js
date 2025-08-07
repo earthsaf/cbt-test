@@ -12,8 +12,8 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 
 function App() {
   return (
-    <AuthProvider>
-      <Router>
+    <Router>
+      <AuthProvider>
         <Routes>
           <Route path="/" element={<Navigate to="/student-login" replace />} />
           <Route path="/student-login" element={<StudentLogin />} />
@@ -61,8 +61,8 @@ function App() {
           />
           <Route path="*" element={<Navigate to="/student-login" replace />} />
         </Routes>
-      </Router>
-    </AuthProvider>
+      </AuthProvider>
+    </Router>
   );
 
 }
