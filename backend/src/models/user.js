@@ -1,7 +1,7 @@
 const db = require('../config/database');
 const bcrypt = require('bcrypt');
 const { v4: uuidv4 } = require('uuid');
-const { validationResult } = require('express-validator');
+const { validationResult, body } = require('express-validator');
 
 // Password validation rules
 const PASSWORD_MIN_LENGTH = 8;
