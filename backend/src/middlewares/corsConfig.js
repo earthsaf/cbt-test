@@ -2,6 +2,7 @@ const cors = require('cors');
 
 // Allowed origins
 const allowedOrigins = [
+  // Production URLs
   'https://cbt-test.onrender.com',
   'https://cbt-test-frontend.onrender.com',
   'https://cbt-test-api.onrender.com',
@@ -9,12 +10,10 @@ const allowedOrigins = [
   'https://cbt-system.onrender.com',
   'https://cbt-system-frontend.onrender.com',
   'https://cbt-system-api.onrender.com',
-  'http://localhost:3000',
-  'http://localhost:4000',
-  'http://localhost:5000',
-  // Add any additional domains that might be used
-  'https://cbt-test.onrender.com',
-  'https://cbt-test-api.onrender.com'
+  // Development URLs
+  'http://localhost:3000',  // Frontend dev server
+  'http://localhost:4000',  // Backend dev server
+  'http://localhost:5000'   // Alternative port
 ];
 
 // CORS configuration

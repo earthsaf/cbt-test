@@ -1,14 +1,18 @@
 const express = require('express');
 const router = express.Router();
 
-router.use('/auth', require('./auth'));
-router.use('/exams', require('./exams'));
-router.use('/admin', require('./admin'));
-router.use('/proctoring', require('./proctoring'));
-const studentRoutes = require('./student');
-const teacherRoutes = require('./teacher');
+// Health check route (no auth required)
+router.use('/health', require('./health'));
 
-router.use('/student', studentRoutes);
-router.use('/teacher', teacherRoutes);
+// Auth routes
+router.use('/auth', require('./auth'));
+
+// Protected routes
+const { requireAuth } = require('../middlewares/auth');
+router.use('/exams', requireAuth, require('./exams'));
+router.use('/admin', requireAuth, require('./admin'));
+router.use('/proctoring', requireAuth, require('./proctoring'));
+router.use('/student', requireAuth, require('./student'));
+router.use('/teacher', requireAuth, require('./teacher'));
 
 module.exports = router;
