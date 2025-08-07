@@ -101,30 +101,72 @@ exports.submitAnswers = async (req, res) => {
   const { answers } = req.body;
   const examId = req.params.id || req.body.examId;
   const userId = req.user.id;
+  
   if (!Array.isArray(answers) && typeof answers !== 'object') {
     return res.status(400).json({ error: 'Answers must be an array or object' });
   }
-  // Remove old answers for this user/exam
-  await Answer.destroy({ where: { UserId: userId, ExamId: examId } });
-  // Save new answers
-  let correct = 0;
-  let total = 0;
-  const questions = await Question.findAll({ where: { ExamId: examId } });
-  for (const q of questions) {
-    const ans = Array.isArray(answers) ? answers.find(a => a.questionId === q.id) : answers[q.id];
-    if (!ans) continue;
-    let userAnswer = Array.isArray(answers) ? ans.answer : ans;
-    // Ensure options array
-    const optsArray = Array.isArray(q.options) ? q.options : Object.values(q.options || {});
-    // If answers sent as numeric index, convert to option text
-    // The user's answer is text, but the correct answer from DB is an index.
-    // We must convert the correct answer's index to its text equivalent for comparison.
-    const correctText = optsArray[q.answer];
-    await Answer.create({ UserId: userId, ExamId: examId, QuestionId: q.id, answer: userAnswer });
-    total++;
-    if (userAnswer === correctText) correct++;
+
+  const transaction = await require('../models').sequelize.transaction();
+  
+  try {
+    // Remove old answers for this user/exam within transaction
+    await Answer.destroy({ 
+      where: { UserId: userId, ExamId: examId },
+      transaction
+    });
+
+    const questions = await Question.findAll({ 
+      where: { ExamId: examId },
+      transaction
+    });
+
+    let correct = 0;
+    let total = 0;
+
+    // Prepare all answers for bulk creation
+    const answersToCreate = [];
+    
+    for (const q of questions) {
+      const ans = Array.isArray(answers) ? answers.find(a => a.questionId === q.id) : answers[q.id];
+      if (!ans) continue;
+      
+      const userAnswer = Array.isArray(answers) ? ans.answer : ans;
+      const optsArray = Array.isArray(q.options) ? q.options : Object.values(q.options || {});
+      const correctText = optsArray[q.answer];
+
+      answersToCreate.push({ 
+        UserId: userId, 
+        ExamId: examId, 
+        QuestionId: q.id, 
+        answer: userAnswer,
+        isCorrect: userAnswer === correctText
+      });
+
+      total++;
+      if (userAnswer === correctText) correct++;
+    }
+
+    // Bulk create all answers in one query
+    if (answersToCreate.length > 0) {
+      await Answer.bulkCreate(answersToCreate, { transaction });
+    }
+
+    // Commit transaction
+    await transaction.commit();
+    
+    res.json({ 
+      ok: true, 
+      score: correct, 
+      total,
+      percentage: total > 0 ? ((correct / total) * 100).toFixed(2) : 0
+    });
+
+  } catch (error) {
+    // Rollback transaction on error
+    await transaction.rollback();
+    console.error('Error submitting answers:', error);
+    res.status(500).json({ error: 'Failed to submit answers' });
   }
-  res.json({ ok: true, score: correct, total });
 };
 
 // Exam history for a user

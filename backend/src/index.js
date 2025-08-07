@@ -51,19 +51,56 @@ app.use('/api', routes);
 // Serve frontend in production
 if (process.env.NODE_ENV === 'production') {
   const frontendBuildPath = path.join(__dirname, '../../frontend/build');
+  
+  // Check if frontend build exists
   if (fs.existsSync(frontendBuildPath)) {
-    app.use(express.static(frontendBuildPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(frontendBuildPath, 'index.html'));
+    // Serve static files with proper caching headers
+    app.use(express.static(frontendBuildPath, {
+      maxAge: '1d', // Cache static assets for 1 day
+      etag: true,
+      lastModified: true
+    }));
+
+    // Serve index.html for all routes (SPA support)
+    app.get('*', (req, res, next) => {
+      // Skip API routes
+      if (req.path.startsWith('/api/')) {
+        return next();
+      }
+
+      const indexPath = path.join(frontendBuildPath, 'index.html');
+      
+      // Check if index.html exists
+      if (fs.existsSync(indexPath)) {
+        res.sendFile(indexPath, {
+          maxAge: '0', // Don't cache index.html
+          etag: true,
+          lastModified: true
+        });
+      } else {
+        console.error('index.html not found in frontend build directory');
+        res.status(500).send('Server configuration error');
+      }
     });
-    console.log('Serving frontend from:', frontendBuildPath);
+    
+    console.log('✅ Serving frontend from:', frontendBuildPath);
   } else {
-    console.warn('Frontend build directory not found at:', frontendBuildPath);
+    console.warn('⚠️ Frontend build directory not found at:', frontendBuildPath);
   }
 }
 
-// Initialize Socket.IO
+// Initialize Socket.IO with error handling
 const io = socketService.init(server);
+io.on('error', (error) => {
+  console.error('Socket.IO error:', error);
+});
+
+io.on('connection', (socket) => {
+  socket.on('error', (error) => {
+    console.error('Socket connection error:', error);
+  });
+});
+
 setupBot(io);
 
 // Global error handling

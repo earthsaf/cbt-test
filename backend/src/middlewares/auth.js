@@ -20,11 +20,16 @@ async function requireAuth(req, res, next) {
   }
 }
 
-const authMiddleware = (req, res, next) => {
-  if (!req.session || !req.session.user) {
-    return res.status(401).json({ message: 'Unauthorized' });
-  }
-  next();
+const checkRole = (roles) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    if (!roles.includes(req.user.role)) {
+      return res.status(403).json({ error: 'Not authorized' });
+    }
+    next();
+  };
 };
 
-module.exports = { requireAuth, authMiddleware };
+module.exports = { requireAuth, checkRole };

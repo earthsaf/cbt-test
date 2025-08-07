@@ -87,45 +87,12 @@ const initDatabase = async () => {
       throw new Error(`Failed to connect to database after ${maxRetries} attempts: ${lastError.message}`);
     }
 
-    // Import models
-    const User = sequelize.define('User', {
-      id: {
-        type: DataTypes.UUID,
-        defaultValue: DataTypes.UUIDV4,
-        primaryKey: true
-      },
-      username: {
-        type: DataTypes.STRING,
-        allowNull: false,
-        unique: true
-      },
-      email: {
-        type: DataTypes.STRING,
-        allowNull: false,
-        unique: true,
-        validate: { isEmail: true }
-      },
-      password_hash: {
-        type: DataTypes.STRING,
-        allowNull: false
-      },
-      name: {
-        type: DataTypes.STRING,
-        allowNull: false
-      },
-      role: {
-        type: DataTypes.ENUM('admin', 'teacher', 'student'),
-        allowNull: false
-      },
-      active: {
-        type: DataTypes.BOOLEAN,
-        defaultValue: true
+    // Import and initialize models
+    const models = require('../models');
+    Object.values(models).forEach(model => {
+      if (model.init) {
+        model.init(sequelize);
       }
-    }, {
-      tableName: 'users',
-      timestamps: true,
-      createdAt: 'created_at',
-      updatedAt: 'updated_at'
     });
 
     // Sync all models
