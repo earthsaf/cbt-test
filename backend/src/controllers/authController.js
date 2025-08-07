@@ -68,13 +68,32 @@ const login = async (req, res) => {
       });
     }
     
-    const { email, password, role } = req.body;
+    const { email, username, password, role = 'admin' } = req.body;
     
     // Sanitize input
-    const sanitizedEmail = email.toLowerCase().trim();
+    const loginIdentifier = (email || username || '').toLowerCase().trim();
     
-    // Find user
-    const user = await User.findOne({ email: sanitizedEmail, role });
+    if (!loginIdentifier) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email or username is required'
+      });
+    }
+    
+    // Build the where clause for finding the user
+    const whereClause = { role };
+    
+    // Check if the input looks like an email
+    const isEmail = loginIdentifier.includes('@');
+    
+    if (isEmail) {
+      whereClause.email = loginIdentifier;
+    } else {
+      whereClause.username = loginIdentifier;
+    }
+    
+    // Find user by email or username
+    const user = await User.findOne({ where: whereClause });
     
     // Generic error message to prevent user enumeration
     const invalidCredentials = {
