@@ -1,5 +1,5 @@
 const db = require('../config/database');
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcrypt');
 const { v4: uuidv4 } = require('uuid');
 const { validationResult } = require('express-validator');
 
