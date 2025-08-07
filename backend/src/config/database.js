@@ -1,6 +1,8 @@
-const { Sequelize, DataTypes } = require('sequelize');
-require('dotenv').config({ path: path.join(__dirname, '../../.env') });
 const path = require('path');
+const { Sequelize, DataTypes } = require('sequelize');
+
+// Load environment variables
+require('dotenv').config({ path: path.join(__dirname, '../../.env') });
 
 // Validate required environment variables
 const requiredEnvVars = ['DATABASE_URL'];
