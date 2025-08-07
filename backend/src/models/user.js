@@ -185,7 +185,7 @@ const defineUser = (sequelize) => {
   return User;
 };
 
-// For backward compatibility
+// For backward Compatibility
 const initUser = defineUser;
 
 module.exports = defineUser;
