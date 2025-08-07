@@ -48,19 +48,18 @@ try {
   process.exit(1);
 }
 
-let sequelize;
+// Create and configure Sequelize instance
+const sequelize = new Sequelize(dbConfig.database, dbConfig.username, dbConfig.password, {
+  host: dbConfig.host,
+  port: dbConfig.port,
+  dialect: 'postgres',
+  dialectOptions: dbConfig.dialectOptions,
+  logging: dbConfig.logging,
+  pool: dbConfig.pool
+});
 
 const initDatabase = async () => {
   try {
-    // Initialize Sequelize with parsed connection details
-    sequelize = new Sequelize(dbConfig.database, dbConfig.username, dbConfig.password, {
-      host: dbConfig.host,
-      port: dbConfig.port,
-      dialect: 'postgres',
-      dialectOptions: dbConfig.dialectOptions,
-      logging: dbConfig.logging,
-      pool: dbConfig.pool
-    });
     
     // Test the connection with retry logic
     const maxRetries = 5;
@@ -132,16 +131,6 @@ const initDatabase = async () => {
     process.exit(1);
   }
 };
-
-// Create and configure Sequelize instance
-const sequelize = new Sequelize(dbConfig.database, dbConfig.username, dbConfig.password, {
-  host: dbConfig.host,
-  port: dbConfig.port,
-  dialect: 'postgres',
-  dialectOptions: dbConfig.dialectOptions,
-  logging: dbConfig.logging,
-  pool: dbConfig.pool
-});
 
 // Export the sequelize instance and initialization function
 module.exports = {
