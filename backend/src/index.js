@@ -36,6 +36,41 @@ if (process.env.NODE_ENV !== 'test') {
   });
 }
 
+// Debug endpoint to check directory structure
+app.get('/debug', (req, res) => {
+  const fs = require('fs');
+  const path = require('path');
+  
+  const projectRoot = path.join(__dirname, '../..');
+  const frontendPath = path.join(projectRoot, 'frontend');
+  const frontendBuildPath = path.join(frontendPath, 'build');
+  
+  try {
+    const dirs = {
+      projectRoot: {
+        exists: fs.existsSync(projectRoot),
+        files: fs.readdirSync(projectRoot)
+      },
+      frontendPath: {
+        exists: fs.existsSync(frontendPath),
+        files: fs.readdirSync(frontendPath)
+      },
+      frontendBuildPath: {
+        exists: fs.existsSync(frontendBuildPath),
+        files: fs.existsSync(frontendBuildPath) ? fs.readdirSync(frontendBuildPath) : []
+      }
+    };
+    
+    res.status(200).json(dirs);
+  } catch (error) {
+    res.status(500).json({ 
+      error: error.message,
+      cwd: process.cwd(),
+      __dirname: __dirname
+    });
+  }
+});
+
 // Health check endpoint (no auth required)
 app.get('/health', (req, res) => {
   res.status(200).json({ 
@@ -50,42 +85,92 @@ app.use('/api', routes);
 
 // Serve frontend in production
 if (process.env.NODE_ENV === 'production') {
-  const frontendBuildPath = path.join(__dirname, '../../frontend/build');
+  // Possible build locations to check
+  const possibleBuildPaths = [
+    // Render default location
+    path.join(__dirname, '../../frontend/build'),
+    // Alternative location if built in the same directory
+    path.join(__dirname, '../frontend/build'),
+    // Check in the current working directory
+    path.join(process.cwd(), 'frontend/build'),
+    // Check for direct build output
+    path.join(process.cwd(), 'build')
+  ];
+
+  let frontendServed = false;
   
-  // Check if frontend build exists
-  if (fs.existsSync(frontendBuildPath)) {
-    // Serve static files with proper caching headers
-    app.use(express.static(frontendBuildPath, {
-      maxAge: '1d', // Cache static assets for 1 day
-      etag: true,
-      lastModified: true
-    }));
+  // Try each possible build path
+  for (const buildPath of possibleBuildPaths) {
+    const indexPath = path.join(buildPath, 'index.html');
+    
+    if (fs.existsSync(buildPath) && fs.existsSync(indexPath)) {
+      // Serve static files with proper caching headers
+      app.use(express.static(buildPath, {
+        maxAge: '1d', // Cache static assets for 1 day
+        etag: true,
+        lastModified: true
+      }));
 
-    // Serve index.html for all routes (SPA support)
-    app.get('*', (req, res, next) => {
-      // Skip API routes
-      if (req.path.startsWith('/api/')) {
-        return next();
-      }
+      // Serve index.html for all routes (SPA support)
+      app.get('*', (req, res, next) => {
+        // Skip API routes
+        if (req.path.startsWith('/api/')) {
+          return next();
+        }
 
-      const indexPath = path.join(frontendBuildPath, 'index.html');
-      
-      // Check if index.html exists
-      if (fs.existsSync(indexPath)) {
         res.sendFile(indexPath, {
           maxAge: '0', // Don't cache index.html
           etag: true,
           lastModified: true
         });
-      } else {
-        console.error('index.html not found in frontend build directory');
-        res.status(500).send('Server configuration error');
-      }
-    });
+      });
+      
+      console.log('✅ Serving frontend from:', buildPath);
+      frontendServed = true;
+      break;
+    }
+  }
+  
+  if (!frontendServed) {
+    console.warn('⚠️ Frontend build directory not found in any of these locations:', possibleBuildPaths);
     
-    console.log('✅ Serving frontend from:', frontendBuildPath);
-  } else {
-    console.warn('⚠️ Frontend build directory not found at:', frontendBuildPath);
+    // Serve a simple maintenance page with instructions
+    app.get('*', (req, res, next) => {
+      if (req.path.startsWith('/api/')) return next();
+      
+      res.status(200).send(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>System Maintenance</title>
+            <style>
+              body { 
+                font-family: Arial, sans-serif; 
+                text-align: center; 
+                padding: 50px; 
+                line-height: 1.6;
+              }
+              h1 { color: #e74c3c; }
+              .container { max-width: 800px; margin: 0 auto; }
+              code { background: #f4f4f4; padding: 2px 5px; border-radius: 3px; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <h1>System Maintenance</h1>
+              <p>We're currently experiencing technical difficulties. Please try again later.</p>
+              <p>If you're the system administrator, please check the following:</p>
+              <ol style="text-align: left; max-width: 600px; margin: 20px auto;">
+                <li>Ensure the frontend was built successfully</li>
+                <li>Check the build output directory exists and contains <code>index.html</code></li>
+                <li>Verify the build directory is accessible to the server</li>
+              </ol>
+              <p>For more information, check the server logs or visit the <a href="/debug">debug page</a>.</p>
+            </div>
+          </body>
+        </html>
+      `);
+    });
   }
 }
 
