@@ -1,158 +1,156 @@
-const db = require('../config/database');
+const { DataTypes } = require('sequelize');
 const bcrypt = require('bcrypt');
 const { v4: uuidv4 } = require('uuid');
-const { validationResult, body } = require('express-validator');
+const { body } = require('express-validator');
 
 // Password validation rules
 const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
 
-const User = {
-  // Find user by email and role
-  async findOne({ email, role }) {
-    try {
-      const query = 'SELECT * FROM users WHERE email = $1 AND role = $2';
-      const { rows } = await db.query(query, [email, role]);
-      return rows[0] || null;
-    } catch (error) {
-      console.error('Error finding user:', error);
-      throw new Error('Error finding user');
-    }
-  },
-  
-  // Create new user with hashed password
-  async create(userData) {
-    try {
-      const { email, password, role, name } = userData;
-      
-      // Validate password strength
-      if (!this.isPasswordValid(password)) {
-        throw new Error('Password does not meet requirements');
+/**
+ * User model definition
+ * @param {Sequelize} sequelize - Sequelize instance
+ * @returns {Model} - Sequelize model
+ */
+const User = (sequelize) => {
+  /** @type {import('sequelize').ModelStatic<Model>} */
+  const model = sequelize.define('User', {
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true
+    },
+    email: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true,
+      validate: {
+        isEmail: true
       }
-      
-      const hashedPassword = await this.hashPassword(password);
-      const userId = uuidv4();
-      
-      const query = `
-        INSERT INTO users (id, email, password_hash, role, name)
-        VALUES ($1, $2, $3, $4, $5)
-        RETURNING id, email, role, name, created_at, updated_at
-      `;
-      
-      const { rows } = await db.query(query, [
-        userId,
-        email.toLowerCase().trim(),
-        hashedPassword,
-        role,
-        name.trim()
-      ]);
-      
-      return rows[0];
-    } catch (error) {
-      console.error('Error creating user:', error);
-      throw error;
+    },
+    password_hash: {
+      type: DataTypes.STRING,
+      allowNull: false
+    },
+    name: {
+      type: DataTypes.STRING,
+      allowNull: false
+    },
+    role: {
+      type: DataTypes.ENUM('admin', 'teacher', 'student'),
+      allowNull: false
+    },
+    active: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: true
+    },
+    classId: {
+      type: DataTypes.UUID,
+      references: {
+        model: 'Classes', // This should match the table name exactly as it appears in the database
+        key: 'id'
+      },
+      allowNull: true
+    },
+    createdAt: {
+      type: DataTypes.DATE,
+      defaultValue: DataTypes.NOW
+    },
+    updatedAt: {
+      type: DataTypes.DATE,
+      defaultValue: DataTypes.NOW
     }
-  },
+  }, {
+    tableName: 'users', // Explicitly set the table name
+    timestamps: true,
+    hooks: {
+      beforeCreate: async (user) => {
+        if (user.password) {
+          user.password_hash = await model.hashPassword(user.password);
+        }
+      },
+      beforeUpdate: async (user) => {
+        if (user.changed('password')) {
+          user.password_hash = await model.hashPassword(user.password);
+        }
+      }
+    },
+    instanceMethods: {
+      verifyPassword: async function(plainPassword) {
+        return await bcrypt.compare(plainPassword, this.password_hash);
+      },
+      isPasswordValid: function(password) {
+        if (typeof password !== 'string') return false;
+        if (password.length < PASSWORD_MIN_LENGTH) return false;
+        if (!PASSWORD_REGEX.test(password)) return false;
+        return true;
+      }
+    },
+    classMethods: {
+      hashPassword: async function(password) {
+        const salt = await bcrypt.genSalt(10);
+        return await bcrypt.hash(password, salt);
+      },
+      getPasswordRequirements: function() {
+        return {
+          minLength: PASSWORD_MIN_LENGTH,
+          requiresUppercase: true,
+          requiresLowercase: true,
+          requiresNumber: true,
+          requiresSpecialChar: true,
+          description: `Password must be at least ${PASSWORD_MIN_LENGTH} characters long and include uppercase, lowercase, number, and special character`
+        };
+      },
+      findByEmail: async function(email) {
+        return await this.findOne({ where: { email } });
+      }
+    }
+  });
 
-  // Find user by primary key (id)
-  async findByPk(id) {
-    try {
-      const query = 'SELECT id, email, role, name, created_at, updated_at FROM users WHERE id = $1';
-      const { rows } = await db.query(query, [id]);
-      return rows[0] || null;
-    } catch (error) {
-      console.error('Error finding user by id:', error);
-      throw new Error('Error finding user');
-    }
-  },
-  
-  // Find user by email only
-  async findByEmail(email) {
-    try {
-      const query = 'SELECT * FROM users WHERE email = $1';
-      const { rows } = await db.query(query, [email.toLowerCase().trim()]);
-      return rows[0] || null;
-    } catch (error) {
-      console.error('Error finding user by email:', error);
-      throw new Error('Error finding user');
-    }
-  },
-  
-  // Password hashing
-  async hashPassword(password) {
-    try {
-      const salt = await bcrypt.genSalt(10);
-      return await bcrypt.hash(password, salt);
-    } catch (error) {
-      console.error('Error hashing password:', error);
-      throw new Error('Error processing password');
-    }
-  },
-  
-  // Password verification
-  async verifyPassword(plainPassword, hashedPassword) {
-    try {
-      return await bcrypt.compare(plainPassword, hashedPassword);
-    } catch (error) {
-      console.error('Error verifying password:', error);
-      throw new Error('Error verifying credentials');
-    }
-  },
-  
-  // Password validation
-  isPasswordValid(password) {
-    if (typeof password !== 'string') return false;
-    if (password.length < PASSWORD_MIN_LENGTH) return false;
-    if (!PASSWORD_REGEX.test(password)) return false;
-    return true;
-  },
-  
-  // Get password requirements for client-side validation
-  getPasswordRequirements() {
-    return {
-      minLength: PASSWORD_MIN_LENGTH,
-      requiresUppercase: true,
-      requiresLowercase: true,
-      requiresNumber: true,
-      requiresSpecialChar: true,
-      description: `Password must be at least ${PASSWORD_MIN_LENGTH} characters long and include uppercase, lowercase, number, and special character`
-    };
-  }
-};
+  // Add associations
+  model.associate = (models) => {
+    model.belongsTo(models.Class);
+    model.hasMany(models.Exam, { as: 'createdExams', foreignKey: 'createdBy' });
+    model.hasMany(models.Answer);
+    model.hasMany(models.Session);
+    model.belongsToMany(models.Subject, { through: 'TeacherSubjects' });
+  };
 
-// Input validation middleware
-User.validate = (method) => {
-  switch (method) {
-    case 'login': {
-      return [
-        body('email')
-          .isEmail().withMessage('Please provide a valid email')
-          .normalizeEmail(),
-        body('password')
-          .isLength({ min: PASSWORD_MIN_LENGTH })
-          .withMessage(`Password must be at least ${PASSWORD_MIN_LENGTH} characters long`)
-      ];
+  // Add the validate method as a static method
+  model.validate = (method) => {
+    switch (method) {
+      case 'login': {
+        return [
+          body('email')
+            .isEmail().withMessage('Please provide a valid email')
+            .normalizeEmail(),
+          body('password')
+            .notEmpty().withMessage('Password is required')
+        ];
+      }
+      case 'register': {
+        return [
+          body('email')
+            .isEmail().withMessage('Please provide a valid email')
+            .normalizeEmail(),
+          body('password')
+            .isLength({ min: PASSWORD_MIN_LENGTH })
+            .withMessage(`Password must be at least ${PASSWORD_MIN_LENGTH} characters long`)
+            .matches(PASSWORD_REGEX)
+            .withMessage('Password must include uppercase, lowercase, number, and special character'),
+          body('name')
+            .trim()
+            .notEmpty().withMessage('Name is required')
+            .isLength({ max: 100 }).withMessage('Name must be less than 100 characters'),
+          body('role')
+            .isIn(['admin', 'teacher', 'student'])
+            .withMessage('Invalid role')
+        ];
+      }
     }
-    case 'register': {
-      return [
-        body('email')
-          .isEmail().withMessage('Please provide a valid email')
-          .normalizeEmail(),
-        body('password')
-          .isLength({ min: PASSWORD_MIN_LENGTH })
-          .withMessage(`Password must be at least ${PASSWORD_MIN_LENGTH} characters long`)
-          .matches(PASSWORD_REGEX)
-          .withMessage('Password must include uppercase, lowercase, number, and special character'),
-        body('name')
-          .trim()
-          .isLength({ min: 2 })
-          .withMessage('Name must be at least 2 characters long'),
-        body('role')
-          .isIn(['student', 'teacher', 'admin'])
-          .withMessage('Invalid role')
-      ];
-    }
-  }
+  };
+
+  return model;
 };
 
 module.exports = User;
