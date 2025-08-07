@@ -48,6 +48,12 @@ const generateToken = (user) => {
 // Login handler
 const login = async (req, res) => {
   try {
+    console.log('Login request received:', {
+      body: req.body,
+      headers: req.headers,
+      timestamp: new Date().toISOString()
+    });
+    
     // Set CORS headers
     setCorsHeaders(res, req);
     
@@ -60,8 +66,10 @@ const login = async (req, res) => {
     res.clearCookie('token');
     
     // Validate input
+    console.log('Validating input...');
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.log('Validation failed:', errors.array());
       return res.status(400).json({
         success: false,
         error: 'Validation failed',
@@ -83,25 +91,52 @@ const login = async (req, res) => {
     
     // Build the where clause for finding the user
     let user;
+    const userRole = role || 'admin'; // Default to admin role if not specified
+    
+    console.log('Looking up user with:', { loginIdentifier, role: userRole });
     
     // First try to find by email if it looks like an email
     if (loginIdentifier.includes('@')) {
+      console.log('Trying to find by email...');
       user = await User.findOne({ 
         where: { 
           email: loginIdentifier,
-          role: role || 'admin' // Default to admin role if not specified
+          role: userRole
         } 
       });
+      
+      if (user) {
+        console.log('User found by email:', { 
+          id: user.id, 
+          email: user.email, 
+          username: user.username,
+          role: user.role 
+        });
+      } else {
+        console.log('No user found with email:', loginIdentifier);
+      }
     } 
     
     // If not found by email or not an email, try by username
     if (!user) {
+      console.log('Trying to find by username...');
       user = await User.findOne({ 
         where: { 
           username: loginIdentifier,
-          role: role || 'admin' // Default to admin role if not specified
+          role: userRole
         } 
       });
+      
+      if (user) {
+        console.log('User found by username:', { 
+          id: user.id, 
+          email: user.email, 
+          username: user.username,
+          role: user.role 
+        });
+      } else {
+        console.log('No user found with username:', loginIdentifier);
+      }
     }
     
     // Generic error message to prevent user enumeration
