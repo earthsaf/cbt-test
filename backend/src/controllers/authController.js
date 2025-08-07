@@ -1,4 +1,5 @@
 const { User } = require('../models');
+const { Op } = require('sequelize');
 const jwt = require('jsonwebtoken');
 const { validationResult } = require('express-validator');
 const rateLimit = require('express-rate-limit');
@@ -81,19 +82,27 @@ const login = async (req, res) => {
     }
     
     // Build the where clause for finding the user
-    const whereClause = { role };
+    let user;
     
-    // Check if the input looks like an email
-    const isEmail = loginIdentifier.includes('@');
+    // First try to find by email if it looks like an email
+    if (loginIdentifier.includes('@')) {
+      user = await User.findOne({ 
+        where: { 
+          email: loginIdentifier,
+          role: role || 'admin' // Default to admin role if not specified
+        } 
+      });
+    } 
     
-    if (isEmail) {
-      whereClause.email = loginIdentifier;
-    } else {
-      whereClause.username = loginIdentifier;
+    // If not found by email or not an email, try by username
+    if (!user) {
+      user = await User.findOne({ 
+        where: { 
+          username: loginIdentifier,
+          role: role || 'admin' // Default to admin role if not specified
+        } 
+      });
     }
-    
-    // Find user by email or username
-    const user = await User.findOne({ where: whereClause });
     
     // Generic error message to prevent user enumeration
     const invalidCredentials = {
@@ -139,10 +148,20 @@ const login = async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Login error:', error);
+    console.error('Login error:', {
+      message: error.message,
+      stack: error.stack,
+      request: {
+        body: req.body,
+        headers: req.headers
+      }
+    });
+    
+    // More detailed error response for debugging
     res.status(500).json({
       success: false,
-      error: 'An unexpected error occurred. Please try again later.'
+      error: 'An unexpected error occurred. Please try again later.',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
