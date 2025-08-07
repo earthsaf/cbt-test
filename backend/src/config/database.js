@@ -1,11 +1,16 @@
 const path = require('path');
 const { Sequelize, DataTypes } = require('sequelize');
+const bcrypt = require('bcrypt');
 
 // Load environment variables
 require('dotenv').config({ path: path.join(__dirname, '../../.env') });
 
 // Validate required environment variables
-const requiredEnvVars = ['DATABASE_URL'];
+const requiredEnvVars = [
+  'DATABASE_URL',
+  'JWT_SECRET',
+  'NODE_ENV'
+];
 const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
 
 if (missingVars.length > 0) {
@@ -58,8 +63,41 @@ const sequelize = new Sequelize(dbConfig.database, dbConfig.username, dbConfig.p
   pool: dbConfig.pool
 });
 
+const createDefaultAdmin = async (User) => {
+  try {
+    const adminEmail = process.env.DEFAULT_ADMIN_EMAIL || 'admin@cbt-system.com';
+    const adminPassword = process.env.DEFAULT_ADMIN_PASSWORD || 'Admin@1234';
+    
+    const [admin] = await User.findOrCreate({
+      where: { email: adminEmail, role: 'admin' },
+      defaults: {
+        username: 'admin',
+        name: 'System Administrator',
+        password_hash: await bcrypt.hash(adminPassword, 10),
+        active: true
+      }
+    });
+
+    if (admin.wasCreated) {
+      console.log('✅ Default admin user created');
+      console.log('================================');
+      console.log(`Email: ${adminEmail}`);
+      console.log(`Password: ${adminPassword}`);
+      console.log('================================');
+      console.log('⚠️  IMPORTANT: Change this password immediately after first login!');
+    }
+
+    return admin;
+  } catch (error) {
+    console.error('❌ Error creating default admin:', error);
+    throw error;
+  }
+};
+
 const initDatabase = async () => {
   try {
+    // Import models after sequelize is initialized
+    const { User } = require('../models');
     
     // Test the connection with retry logic
     const maxRetries = 5;
@@ -99,28 +137,8 @@ const initDatabase = async () => {
     console.log('✅ Database synchronized');
 
     // Create default admin if not exists
-    const adminEmail = process.env.DEFAULT_ADMIN_EMAIL || 'admin@cbt-system.com';
-    const adminPassword = process.env.DEFAULT_ADMIN_PASSWORD || 'Admin@1234';
+    await createDefaultAdmin(User);
     
-    const [admin] = await User.findOrCreate({
-      where: { email: adminEmail, role: 'admin' },
-      defaults: {
-        username: 'admin',
-        name: 'System Administrator',
-        password_hash: await require('bcrypt').hash(adminPassword, 10),
-        active: true
-      }
-    });
-
-    if (admin.wasCreated) {
-      console.log('✅ Default admin user created');
-      console.log('================================');
-      console.log(`Email: ${adminEmail}`);
-      console.log(`Password: ${adminPassword}`);
-      console.log('================================');
-      console.log('⚠️  IMPORTANT: Change this password immediately after first login!');
-    }
-
     return { sequelize, User };
 
   } catch (error) {

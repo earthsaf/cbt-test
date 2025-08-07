@@ -130,15 +130,38 @@ app.use((req, res) => {
 });
 
 // Server startup
+const validatePort = (port) => {
+  const portNum = parseInt(port, 10);
+  if (isNaN(portNum)) {
+    throw new Error(`Invalid PORT value: ${port}. Must be a number.`);
+  }
+  if (portNum < 1 || portNum > 65535) {
+    throw new Error(`Invalid PORT value: ${port}. Must be between 1 and 65535.`);
+  }
+  return portNum;
+};
+
 const startServer = async () => {
   try {
     // Initialize database and create default admin if needed
     await initDatabase();
     
-    const PORT = process.env.PORT || 4000;
-    if (!PORT) {
-      throw new Error('PORT environment variable is not set');
-    }
+    const PORT = validatePort(process.env.PORT || '4000');
+    
+    // Verify server can bind to the port
+    await new Promise((resolve, reject) => {
+      const testServer = require('http').createServer();
+      testServer.on('error', (err) => {
+        if (err.code === 'EADDRINUSE') {
+          reject(new Error(`Port ${PORT} is already in use. Please free the port or specify a different one.`));
+        } else {
+          reject(new Error(`Failed to start server on port ${PORT}: ${err.message}`));
+        }
+      });
+      testServer.listen(PORT, () => {
+        testServer.close(resolve);
+      });
+    });
 
     server.listen(PORT, () => {
       console.log(`\n✅ Server is running in ${process.env.NODE_ENV || 'development'} mode`);
