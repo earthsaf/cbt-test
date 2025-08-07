@@ -55,6 +55,26 @@ TeacherClassSubjectModel.belongsTo(SubjectModel, { foreignKey: 'subjectId' });
 NotificationModel.belongsTo(UserModel, { as: 'recipient', foreignKey: 'recipient_id' });
 UserModel.hasMany(NotificationModel, { foreignKey: 'recipient_id' });
 
+// Call associations for each model
+[UserModel, ClassModel, ExamModel, QuestionModel, AnswerModel, SessionModel, 
+ LogModel, ProctoringEventModel, SubjectModel, TeacherClassSubjectModel, NotificationModel].forEach(model => {
+  if (typeof model.associate === 'function') {
+    model.associate({
+      User: UserModel,
+      Class: ClassModel,
+      Exam: ExamModel,
+      Question: QuestionModel,
+      Answer: AnswerModel,
+      Session: SessionModel,
+      Log: LogModel,
+      ProctoringEvent: ProctoringEventModel,
+      Subject: SubjectModel,
+      TeacherClassSubject: TeacherClassSubjectModel,
+      Notification: NotificationModel
+    });
+  }
+});
+
 // Export models
 module.exports = {
   sequelize,
@@ -68,5 +88,5 @@ module.exports = {
   ProctoringEvent: ProctoringEventModel,
   Subject: SubjectModel,
   TeacherClassSubject: TeacherClassSubjectModel,
-  Notification: NotificationModel,
+  Notification: NotificationModel
 }; 
