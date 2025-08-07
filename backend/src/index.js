@@ -87,15 +87,15 @@ app.use('/api', routes);
 if (process.env.NODE_ENV === 'production') {
   // Possible build locations to check
   const possibleBuildPaths = [
-    // Render default location
-    path.join(__dirname, '../../frontend/build'),
-    // Alternative location if built in the same directory
-    path.join(__dirname, '../frontend/build'),
-    // Check in the current working directory
+    // Current working directory structure (from debug output)
     path.join(process.cwd(), 'frontend/build'),
-    // Check for direct build output
+    // Alternative paths for different environments
+    path.join(__dirname, '../../frontend/build'),
+    path.join(__dirname, '../frontend/build'),
     path.join(process.cwd(), 'build')
   ];
+  
+  console.log('Checking for frontend build in:', possibleBuildPaths);
 
   let frontendServed = false;
   
@@ -103,7 +103,12 @@ if (process.env.NODE_ENV === 'production') {
   for (const buildPath of possibleBuildPaths) {
     const indexPath = path.join(buildPath, 'index.html');
     
+    console.log(`Checking path: ${buildPath}`);
+    console.log(`Index exists: ${fs.existsSync(indexPath)}, Build exists: ${fs.existsSync(buildPath)}`);
+    
     if (fs.existsSync(buildPath) && fs.existsSync(indexPath)) {
+      console.log(`✅ Found valid frontend build at: ${buildPath}`);
+      console.log(`📄 Index file: ${indexPath}`);
       // Serve static files with proper caching headers
       app.use(express.static(buildPath, {
         maxAge: '1d', // Cache static assets for 1 day
