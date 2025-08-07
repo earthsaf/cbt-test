@@ -163,11 +163,24 @@ const startServer = async () => {
       });
     });
 
-    server.listen(PORT, () => {
+    // Use '0.0.0.0' as host to work in Docker/containerized environments
+    const HOST = process.env.HOST || '0.0.0.0';
+    
+    server.listen(PORT, HOST, () => {
       console.log(`\n✅ Server is running in ${process.env.NODE_ENV || 'development'} mode`);
-      console.log(`🔗 http://localhost:${PORT}`);
-      console.log(`📡 API: http://localhost:${PORT}/api`);
+      console.log(`🔗 http://${HOST}:${PORT}`);
+      console.log(`📡 API: http://${HOST}:${PORT}/api`);
       console.log('🚀 Ready to handle requests!\n');
+    });
+    
+    // Handle server errors
+    server.on('error', (error) => {
+      if (error.code === 'EADDRINUSE') {
+        console.error(`❌ Port ${PORT} is already in use`);
+      } else {
+        console.error('❌ Server error:', error);
+      }
+      process.exit(1);
     });
 
     // Handle graceful shutdown
