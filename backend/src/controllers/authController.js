@@ -77,66 +77,50 @@ const login = async (req, res) => {
       });
     }
     
-    const { email, username, password, role = 'admin' } = req.body;
+    const { email, password, role = 'admin' } = req.body;
     
     // Sanitize input
-    const loginIdentifier = (email || username || '').toLowerCase().trim();
+    const loginEmail = (email || '').toLowerCase().trim();
     
-    if (!loginIdentifier) {
+    if (!loginEmail) {
       return res.status(400).json({
         success: false,
-        error: 'Email or username is required'
+        error: 'Email is required'
       });
     }
     
-    // Build the where clause for finding the user
-    let user;
-    const userRole = role || 'admin'; // Default to admin role if not specified
+    if (!loginEmail.includes('@')) {
+      return res.status(400).json({
+        success: false,
+        error: 'Please enter a valid email address'
+      });
+    }
     
-    console.log('Looking up user with:', { loginIdentifier, role: userRole });
+    // Find user by email
+    console.log('Looking up user with:', { email: loginEmail, role });
     
-    // First try to find by email if it looks like an email
-    if (loginIdentifier.includes('@')) {
-      console.log('Trying to find by email...');
-      user = await User.findOne({ 
+    try {
+      const user = await User.findOne({ 
         where: { 
-          email: loginIdentifier,
-          role: userRole
+          email: loginEmail,
+          role: role
         } 
       });
       
       if (user) {
-        console.log('User found by email:', { 
+        console.log('User found:', { 
           id: user.id, 
           email: user.email, 
-          username: user.username,
           role: user.role 
         });
+        return user;
       } else {
-        console.log('No user found with email:', loginIdentifier);
+        console.log('No user found with email:', loginEmail);
+        return null;
       }
-    } 
-    
-    // If not found by email or not an email, try by username
-    if (!user) {
-      console.log('Trying to find by username...');
-      user = await User.findOne({ 
-        where: { 
-          username: loginIdentifier,
-          role: userRole
-        } 
-      });
-      
-      if (user) {
-        console.log('User found by username:', { 
-          id: user.id, 
-          email: user.email, 
-          username: user.username,
-          role: user.role 
-        });
-      } else {
-        console.log('No user found with username:', loginIdentifier);
-      }
+    } catch (error) {
+      console.error('Error finding user:', error);
+      throw error;
     }
     
     // Generic error message to prevent user enumeration
