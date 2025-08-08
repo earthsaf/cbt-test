@@ -1,51 +1,61 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Box, CircularProgress, Typography, Button } from '@mui/material';
 import axios from 'axios';
 
 export const ProtectedRoute = ({ children, requiredRole = null }) => {
-  const { user, isAuthenticated, loading, sessionExpired, logout, login } = useAuth();
+  const { 
+    user, 
+    isAuthenticated, 
+    loading, 
+    sessionExpired, 
+    logout, 
+    silentLogin 
+  } = useAuth();
+  
   const location = useLocation();
   const navigate = useNavigate();
   const [verifyingSession, setVerifyingSession] = useState(true);
   const [verificationError, setVerificationError] = useState(null);
   const from = location.state?.from?.pathname || '/';
   
-  // Verify session on mount and when auth state changes
-  useEffect(() => {
-    const verifySession = async () => {
-      try {
-        setVerifyingSession(true);
-        const response = await axios.get('/api/auth/session', { 
-          withCredentials: true 
-        });
+  // Memoize the session verification function
+  const verifySession = useCallback(async () => {
+    try {
+      setVerifyingSession(true);
+      console.log('Verifying session...');
+      
+      const response = await axios.get('/api/auth/session', { 
+        withCredentials: true 
+      });
 
-        if (response.data.authenticated && response.data.user) {
-          // If we have a valid session but local state is not updated
-          if (!isAuthenticated || user?.id !== response.data.user.id) {
-            // Use silentLogin to update auth state without triggering redirects
-            await silentLogin(response.data.user);
-          }
-        } else if (isAuthenticated) {
-          // If we think we're authenticated but server says no
-          console.log('Session no longer valid, logging out');
-          logout();
+      console.log('Session verification response:', response.data);
+
+      if (response.data.authenticated && response.data.user) {
+        // If we have a valid session but local state is not updated
+        if (!isAuthenticated || user?.id !== response.data.user.id) {
+          console.log('Updating auth state with silent login');
+          await silentLogin(response.data.user);
         }
-      } catch (error) {
-        console.error('Session verification failed:', error);
-        setVerificationError('Failed to verify session. Please log in again.');
-        if (isAuthenticated) {
-          logout();
-        }
-      } finally {
-        setVerifyingSession(false);
+      } else if (isAuthenticated) {
+        // If we think we're authenticated but server says no
+        console.log('Session no longer valid, logging out');
+        logout();
       }
-    };
+    } catch (error) {
+      console.error('Session verification failed:', error);
+      setVerificationError('Failed to verify session. Please log in again.');
+      if (isAuthenticated) {
+        logout();
+      }
+    } finally {
+      setVerifyingSession(false);
+    }
+  }, [isAuthenticated, user, logout, silentLogin]);
 
-    verifySession();
-
-    // Handle session expiration
+  // Handle session expiration
+  useEffect(() => {
     if (sessionExpired) {
       const timer = setTimeout(() => {
         logout();
@@ -53,7 +63,12 @@ export const ProtectedRoute = ({ children, requiredRole = null }) => {
       
       return () => clearTimeout(timer);
     }
-  }, [isAuthenticated, user, sessionExpired, logout, login]);
+  }, [sessionExpired, logout]);
+
+  // Verify session on mount and when auth state changes
+  useEffect(() => {
+    verifySession();
+  }, [verifySession]);
 
   // Show loading state during initial auth check or session verification
   if (loading || verifyingSession) {

@@ -93,10 +93,15 @@ export const AuthProvider = ({ children }) => {
   }, [clearAuthData, location, navigate]);
 
   // Silent login used during session verification
-  const silentLogin = async (userData) => {
-    // Store minimal user data in localStorage
+  const silentLogin = useCallback(async (userData) => {
+    if (!userData) return;
+    
+    console.log('Performing silent login for user:', userData.email);
+    
+    // Store minimal user data in state
     const userInfo = {
       id: userData.id,
+      email: userData.email,
       username: userData.username || userData.email,
       role: userData.role,
       name: userData.name || userData.email.split('@')[0]
@@ -111,7 +116,7 @@ export const AuthProvider = ({ children }) => {
     setSessionExpired(false);
     
     return { success: true, user: userInfo };
-  };
+  }, [setUser, setIsAuthenticated, setSessionExpired]);
 
   const login = async (credentials, silent = false) => {
     try {
