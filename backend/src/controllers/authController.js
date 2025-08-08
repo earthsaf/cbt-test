@@ -53,11 +53,22 @@ const generateToken = (user) => {
 
 // Login handler
 const login = async (req, res) => {
+  const requestId = uuidv4();
+  const logContext = { requestId, timestamp: new Date().toISOString() };
+  
   try {
-    console.log('Login request received:', {
-      body: req.body,
-      headers: req.headers,
-      timestamp: new Date().toISOString()
+    console.log('=== LOGIN REQUEST STARTED ===', {
+      ...logContext,
+      method: req.method,
+      url: req.originalUrl,
+      ip: req.ip,
+      userAgent: req.headers['user-agent'],
+      body: { ...req.body, password: req.body.password ? '***' : undefined },
+      headers: {
+        ...req.headers,
+        authorization: req.headers.authorization ? '***' : undefined,
+        cookie: req.headers.cookie ? '***' : undefined
+      }
     });
     
     // Set CORS headers
@@ -151,13 +162,21 @@ const login = async (req, res) => {
           console.log('Setting response cookie...');
           const cookieStart = Date.now();
           
-          // Set secure cookie
-          res.cookie('token', token, {
+          // Set secure cookie with proper cross-origin settings
+          const isProduction = process.env.NODE_ENV === 'production';
+          const cookieOptions = {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
-            maxAge: 8 * 60 * 60 * 1000 // 8 hours
-          });
+            secure: isProduction,
+            sameSite: isProduction ? 'none' : 'lax', // Use 'none' in production for cross-site cookies
+            maxAge: 8 * 60 * 60 * 1000, // 8 hours
+            domain: isProduction ? '.cbt-test.onrender.com' : undefined,
+            path: '/',
+          };
+          
+          // Log cookie options for debugging
+          console.log('Setting cookie with options:', JSON.stringify(cookieOptions, null, 2));
+          
+          res.cookie('token', token, cookieOptions);
           
           console.log(`Cookie set in ${Date.now() - cookieStart}ms`);
           
@@ -230,16 +249,27 @@ const login = async (req, res) => {
     }
     
     // Generate JWT token
+    console.log('Generating JWT token...', { ...logContext, userId: user.id, role: user.role });
     const token = generateToken(user);
     
     // Set secure cookie with token
-    res.cookie('token', token, {
+    const cookieOptions = {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
       maxAge: 8 * 60 * 60 * 1000, // 8 hours
       path: '/',
-      domain: process.env.COOKIE_DOMAIN || undefined
+      domain: process.env.NODE_ENV === 'production' ? '.cbt-test.onrender.com' : undefined
+    };
+    
+    console.log('Setting auth cookie with options:', { ...logContext, cookieOptions });
+    res.cookie('token', token, cookieOptions);
+    
+    // Log response headers for debugging
+    console.log('Response headers set:', { 
+      ...logContext,
+      headers: Object.entries(res.getHeaders())
+        .filter(([key]) => key.toLowerCase() === 'set-cookie')
     });
     
     // Return success response without sensitive data
@@ -254,36 +284,84 @@ const login = async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Login error:', {
-      message: error.message,
-      stack: error.stack,
+    const errorContext = {
+      ...logContext,
+      error: {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+        code: error.code,
+        status: error.status,
+        response: error.response ? {
+          status: error.response.status,
+          data: error.response.data,
+          headers: error.response.headers
+        } : undefined
+      },
       request: {
-        body: req.body,
-        headers: req.headers
+        method: req.method,
+        url: req.originalUrl,
+        body: { ...req.body, password: req.body?.password ? '***' : undefined },
+        query: req.query,
+        params: req.params,
+        ip: req.ip,
+        userAgent: req.headers['user-agent'],
+        headers: {
+          ...req.headers,
+          authorization: req.headers.authorization ? '***' : undefined,
+          cookie: req.headers.cookie ? '***' : undefined
+        }
       }
-    });
+    };
+    
+    console.error('!!! AUTHENTICATION ERROR !!!', errorContext);
     
     // More detailed error response for debugging
-    res.status(500).json({
+    const errorResponse = {
       success: false,
       error: 'An unexpected error occurred. Please try again later.',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
+      requestId,
+      timestamp: logContext.timestamp,
+      details: process.env.NODE_ENV === 'development' ? {
+        message: error.message,
+        name: error.name,
+        ...(error.response?.data ? { response: error.response.data } : {})
+      } : undefined
+    };
+    
+    res.status(500).json(errorResponse);
   }
 };
 
 // Logout handler
 const logout = (req, res) => {
+  const requestId = uuidv4();
+  const logContext = { requestId, timestamp: new Date().toISOString() };
+  
+  console.log('=== LOGOUT REQUEST ===', {
+    ...logContext,
+    method: req.method,
+    url: req.originalUrl,
+    ip: req.ip,
+    userAgent: req.headers['user-agent'],
+    cookies: req.cookies || {},
+    headers: {
+      ...req.headers,
+      authorization: req.headers.authorization ? '***' : undefined,
+      cookie: req.headers.cookie ? '***' : undefined
+    }
+  });
   try {
-    // Clear the token cookie
+    // Clear the token cookie with matching options
+    const isProduction = process.env.NODE_ENV === 'production';
     res.clearCookie('token', {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
       path: '/',
-      domain: process.env.COOKIE_DOMAIN || undefined
+      domain: isProduction ? '.cbt-test.onrender.com' : undefined
     });
-    
+        
     res.json({
       success: true,
       message: 'Successfully logged out'
@@ -299,6 +377,23 @@ const logout = (req, res) => {
 
 // Get current session handler
 const getSession = async (req, res) => {
+  const requestId = uuidv4();
+  const logContext = { requestId, timestamp: new Date().toISOString() };
+  
+  console.log('=== SESSION VERIFICATION REQUEST ===', {
+    ...logContext,
+    method: req.method,
+    url: req.originalUrl,
+    ip: req.ip,
+    userAgent: req.headers['user-agent'],
+    cookies: req.cookies || {},
+    user: req.user || null,
+    headers: {
+      ...req.headers,
+      authorization: req.headers.authorization ? '***' : undefined,
+      cookie: req.headers.cookie ? '***' : undefined
+    }
+  });
   try {
     if (!req.user || !req.user.id) {
       return res.status(200).json({
