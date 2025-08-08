@@ -380,7 +380,8 @@ const getSession = async (req, res) => {
   const requestId = uuidv4();
   const logContext = { requestId, timestamp: new Date().toISOString() };
   
-  console.log('=== SESSION VERIFICATION REQUEST ===', {
+  // Log incoming request details
+  const sessionLog = {
     ...logContext,
     method: req.method,
     url: req.originalUrl,
@@ -392,14 +393,92 @@ const getSession = async (req, res) => {
       ...req.headers,
       authorization: req.headers.authorization ? '***' : undefined,
       cookie: req.headers.cookie ? '***' : undefined
+    },
+    env: {
+      NODE_ENV: process.env.NODE_ENV,
+      COOKIE_DOMAIN: process.env.COOKIE_DOMAIN
     }
-  });
+  };
+  
+  console.log('=== SESSION VERIFICATION REQUEST ===', sessionLog);
+  
   try {
+    // Check if user is authenticated via session
     if (!req.user || !req.user.id) {
+      console.log('No user in session - checking for token in cookies');
+      
+      // If no user in session but we have a token in cookies, try to authenticate
+      const token = req.cookies?.token;
+      if (token) {
+        console.log('Found token in cookies, attempting to authenticate...');
+        try {
+          const decoded = jwt.verify(token, process.env.JWT_SECRET);
+          console.log('Decoded token:', { userId: decoded.id, role: decoded.role });
+          
+          // Get fresh user data
+          const user = await User.findByPk(decoded.id, {
+            attributes: ['id', 'email', 'role', 'name']
+          });
+          
+          if (user) {
+            console.log('User found from token:', { userId: user.id, email: user.email });
+            
+            // Generate new token to refresh expiration
+            const newToken = generateToken(user);
+            const isProduction = process.env.NODE_ENV === 'production';
+            
+            // Set secure cookie with token
+            const cookieOptions = {
+              httpOnly: true,
+              secure: isProduction,
+              sameSite: isProduction ? 'none' : 'lax',
+              maxAge: 8 * 60 * 60 * 1000, // 8 hours
+              path: '/',
+              domain: isProduction ? '.cbt-test.onrender.com' : undefined
+            };
+            
+            console.log('Refreshing session cookie with options:', { ...logContext, cookieOptions });
+            res.cookie('token', newToken, cookieOptions);
+            
+            // Return user data
+            const userData = {
+              id: user.id,
+              email: user.email,
+              role: user.role,
+              name: user.name || user.email.split('@')[0],
+              username: user.email
+            };
+            
+            return res.json({
+              authenticated: true,
+              user: userData,
+              token: newToken,
+              expiresIn: 8 * 60 * 60 * 1000,
+              expiresAt: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString()
+            });
+          }
+        } catch (tokenError) {
+          console.error('Token verification failed:', {
+            ...logContext,
+            error: tokenError.message,
+            stack: tokenError.stack
+          });
+          // Clear invalid token
+          res.clearCookie('token', {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+            path: '/',
+            domain: process.env.NODE_ENV === 'production' ? '.cbt-test.onrender.com' : undefined
+          });
+        }
+      }
+      
       return res.status(200).json({
         authenticated: false,
         user: null,
-        message: 'No user in session'
+        message: 'No active session',
+        requestId
       });
     }
     
