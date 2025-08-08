@@ -98,6 +98,7 @@ const login = async (req, res) => {
     
     // Find user by email
     console.log('Looking up user with:', { email: loginEmail, role });
+    const startTime = Date.now();
     
     try {
       const user = await User.findOne({ 
@@ -107,12 +108,25 @@ const login = async (req, res) => {
         } 
       });
       
+      console.log(`User lookup took ${Date.now() - startTime}ms`);
+      
       if (user) {
         console.log('User found:', { 
           id: user.id, 
           email: user.email, 
           role: user.role 
         });
+        
+        // Check password verification performance
+        const pwdStart = Date.now();
+        const isMatch = await user.verifyPassword(password);
+        console.log(`Password verification took ${Date.now() - pwdStart}ms`);
+        
+        if (!isMatch) {
+          console.log('Invalid password for user:', loginEmail);
+          return null;
+        }
+        
         return user;
       } else {
         console.log('No user found with email:', loginEmail);
