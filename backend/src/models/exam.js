@@ -26,11 +26,38 @@ module.exports = (sequelize, DataTypes) => {
       defaultValue: false
     },
     subjectId: {
-      type: DataTypes.INTEGER
+      type: DataTypes.INTEGER,
+      references: {
+        model: 'Subjects',
+        key: 'id'
+      }
+    },
+    classId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: {
+        model: 'Classes',
+        key: 'id'
+      }
     }
   }, {
     tableName: 'Exams',
     timestamps: true
   });
+
+  Exam.associate = function(models) {
+    // An Exam belongs to a Class
+    Exam.belongsTo(models.Class, {
+      foreignKey: 'classId',
+      as: 'class'
+    });
+    
+    // An Exam belongs to a Subject
+    Exam.belongsTo(models.Subject, {
+      foreignKey: 'subjectId',
+      as: 'subject'
+    });
+  };
+
   return Exam;
 };

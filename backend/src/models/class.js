@@ -14,5 +14,23 @@ module.exports = (sequelize, DataTypes) => {
     tableName: 'Classes',
     timestamps: true
   });
+
+  Class.associate = function(models) {
+    // A Class can have many Exams
+    Class.hasMany(models.Exam, {
+      foreignKey: 'classId',
+      as: 'exams'
+    });
+    
+    // A Class can have many Students (Users with role 'student')
+    Class.hasMany(models.User, {
+      foreignKey: 'classId',
+      as: 'students',
+      scope: {
+        role: 'student'
+      }
+    });
+  };
+
   return Class;
 };
