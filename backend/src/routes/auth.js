@@ -102,6 +102,17 @@ router.get(
 );
 
 /**
+ * @route   GET /api/auth/session
+ * @desc    Get current session info
+ * @access  Private
+ */
+router.get(
+  '/session',
+  authController.requireAuth(),
+  authController.getSession
+);
+
+/**
  * @route   GET /api/auth/password-requirements
  * @desc    Get password requirements
  * @access  Public
