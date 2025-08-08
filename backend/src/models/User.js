@@ -54,22 +54,21 @@ class User extends Model {
     switch (method) {
       case 'login': {
         return [
-          // Either email or username must be provided
-          body('identifier')
-            .if((value, { req }) => !req.body.email && !req.body.username)
-            .notEmpty().withMessage('Email or username is required'),
-          // Email validation if provided
+          // Email is required for login
           body('email')
-            .if((value) => value)
+            .notEmpty().withMessage('Email is required')
             .isEmail().withMessage('Please provide a valid email')
             .normalizeEmail(),
-          // Username validation if provided
+          // Also accept username field for backward compatibility
           body('username')
-            .if((value) => value)
-            .trim()
-            .isLength({ min: 3 }).withMessage('Username must be at least 3 characters')
-            .isLength({ max: 30 }).withMessage('Username must be less than 30 characters')
-            .matches(/^[a-zA-Z0-9_]+$/).withMessage('Username can only contain letters, numbers, and underscores'),
+            .optional({ checkFalsy: true })
+            .custom((value, { req }) => {
+              // If email is not provided but username is, copy it to email field
+              if (!req.body.email && value) {
+                req.body.email = value;
+              }
+              return true;
+            }),
           // Password is always required
           body('password')
             .notEmpty().withMessage('Password is required')

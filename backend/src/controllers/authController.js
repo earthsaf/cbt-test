@@ -79,8 +79,8 @@ const login = async (req, res) => {
     
     const { email, password, role = 'admin' } = req.body;
     
-    // Sanitize input
-    const loginEmail = (email || '').toLowerCase().trim();
+    // Handle both email and username fields (frontend compatibility)
+    const loginEmail = ((email || req.body.username) || '').toLowerCase().trim();
     
     if (!loginEmail) {
       return res.status(400).json({
