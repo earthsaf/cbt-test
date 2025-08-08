@@ -13,7 +13,10 @@ const allowedOrigins = [
   // Development URLs
   'http://localhost:3000',  // Frontend dev server
   'http://localhost:4000',  // Backend dev server
-  'http://localhost:5000'   // Alternative port
+  'http://localhost:5000',   // Alternative port
+  // For testing
+  /^https?:\/\/localhost(:\d+)?$/,  // Any localhost with any port
+  /^https?:\/\/192\.168\.\d+\.\d+(:\d+)?$/  // Local network IPs
 ];
 
 // CORS configuration
@@ -25,8 +28,23 @@ const corsOptions = {
       return callback(null, true);
     }
     
-    // Check if the origin is in the allowed list
-    if (allowedOrigins.includes(origin) || process.env.NODE_ENV === 'development') {
+    // In development, allow all origins
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Development mode - allowing origin:', origin);
+      return callback(null, true);
+    }
+    
+    // Check if the origin matches any allowed pattern
+    const isAllowed = allowedOrigins.some(allowed => {
+      if (typeof allowed === 'string') {
+        return allowed === origin;
+      } else if (allowed instanceof RegExp) {
+        return allowed.test(origin);
+      }
+      return false;
+    });
+    
+    if (isAllowed) {
       console.log('Allowed origin:', origin);
       return callback(null, true);
     }
@@ -38,16 +56,13 @@ const corsOptions = {
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: [
-    'Content-Type', 
-    'Authorization', 
+    'Content-Type',
+    'Authorization',
     'X-Requested-With',
-    'X-XSRF-TOKEN',
     'Accept',
     'Origin',
     'X-Access-Token',
     'X-Refresh-Token',
-    'x-client-version',
-    'x-client-name',
     'x-auth-token',
     'x-xsrf-token',
     'x-csrf-token',

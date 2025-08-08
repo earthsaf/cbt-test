@@ -383,17 +383,32 @@ exports.createAssignmentQuestions = async (req, res) => {
 
 // List exams with search/filter
 exports.listExams = async (req, res) => {
-  const { search = '', classId, subjectId } = req.query;
-  const where = {};
-  if (search) where.title = { [Op.iLike]: `%${search}%` };
-  if (classId) where.ClassId = classId;
-  if (subjectId) where.subjectId = subjectId;
-  const exams = await Exam.findAll({
-    where,
-    include: [Class, Subject],
-    order: [['createdAt', 'DESC']],
-  });
-  res.json(exams);
+  try {
+    const { search = '', classId, subjectId } = req.query;
+    const where = {};
+    if (search) where.title = { [Op.iLike]: `%${search}%` };
+    if (classId) where.classId = classId; // Changed from ClassId to classId to match the model
+    if (subjectId) where.subjectId = subjectId;
+    
+    const exams = await Exam.findAll({
+      where,
+      include: [
+        {
+          model: Class,
+          as: 'class' // Using the alias we defined in the association
+        },
+        {
+          model: Subject,
+          as: 'subject' // Using the alias we defined in the association
+        }
+      ],
+      order: [['createdAt', 'DESC']],
+    });
+    res.json(exams);
+  } catch (error) {
+    console.error('Error in listExams:', error);
+    res.status(500).json({ error: 'Failed to fetch exams', details: error.message });
+  }
 };
 
 // Get all questions for an exam

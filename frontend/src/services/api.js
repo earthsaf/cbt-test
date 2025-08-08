@@ -1,18 +1,12 @@
 import axios from 'axios';
 
-// Helper function to get CSRF token from cookies
-const getCSRFToken = () => {
-  const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
-  return match ? decodeURIComponent(match[1]) : null;
-};
-
 // Create a function to determine the base URL
 const getBaseURL = () => {
-  if (window.location.hostname === 'localhost') {
-    return 'http://localhost:4000/api';
+  // In production, use relative URLs to avoid CORS issues
+  if (process.env.NODE_ENV === 'production') {
+    return '/api';  // Relative URL for same-origin requests
   }
-  // Use the same domain as the frontend
-  return `${window.location.origin}/api`;
+  return 'http://localhost:4000/api'; // Local development
 };
 
 const api = axios.create({
@@ -21,35 +15,18 @@ const api = axios.create({
   timeout: 30000, // 30 second timeout
   headers: {
     'Content-Type': 'application/json',
-    'Accept': 'application/json',
-    'X-Requested-With': 'XMLHttpRequest'
+    'Accept': 'application/json'
   }
 });
 
 // Request interceptor
 api.interceptors.request.use(
   config => {
-    console.log('API Request interceptor:', {
-      method: config.method,
-      url: config.url,
-      baseURL: config.baseURL,
-      fullURL: config.baseURL + config.url
-    });
-    
     // Add auth token if exists
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    
-    // Add CSRF token for non-GET requests
-    if (config.method !== 'get' && config.method !== 'GET') {
-      const csrfToken = getCSRFToken();
-      if (csrfToken) {
-        config.headers['X-XSRF-TOKEN'] = csrfToken;
-      }
-    }
-    
     return config;
   },
   error => {
@@ -60,28 +37,9 @@ api.interceptors.request.use(
 
 // Response interceptor
 api.interceptors.response.use(
-  response => {
-    // Handle successful responses
-    console.log('API Response interceptor - Success:', {
-      status: response.status,
-      url: response.config?.url,
-      data: response.data,
-      headers: response.headers
-    });
-    return response;
-  },
+  response => response,
   error => {
     const originalRequest = error.config;
-    
-    // Log the full error for debugging
-    console.error('API Error:', {
-      message: error.message,
-      status: error.response?.status,
-      url: originalRequest?.url,
-      method: originalRequest?.method,
-      data: error.response?.data,
-      headers: error.response?.headers
-    });
     
     // Handle network errors
     if (error.code === 'ERR_NETWORK') {
@@ -92,28 +50,22 @@ api.interceptors.response.use(
       });
     }
     
-    // Handle 401 Unauthorized
+    // Handle 401 Unauthorized - only redirect if not already on login page
     if (error.response?.status === 401) {
-      // Only redirect if not already on the login page
-      if (!window.location.pathname.includes('/staff-login')) {
+      const isLoginPage = window.location.pathname.includes('login');
+      if (!isLoginPage) {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         window.location.href = '/staff-login';
       }
-      return Promise.reject({
-        ...error,
-        message: 'Your session has expired. Please log in again.'
-      });
     }
     
-    // Handle other error statuses
-    const errorMessage = error.response?.data?.message || 
-                        error.message || 
-                        'An unexpected error occurred';
-    
+    // Return error to be handled by the calling component
     return Promise.reject({
       ...error,
-      message: errorMessage
+      message: error.response?.data?.message || 
+              error.message || 
+              'An unexpected error occurred'
     });
   }
 );
