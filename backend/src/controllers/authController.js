@@ -4,6 +4,12 @@ const jwt = require('jsonwebtoken');
 const { validationResult } = require('express-validator');
 const rateLimit = require('express-rate-limit');
 const { v4: uuidv4 } = require('uuid');
+
+// Ensure JWT_SECRET is set
+if (!process.env.JWT_SECRET) {
+  console.warn('WARNING: JWT_SECRET is not set in environment variables. Using default secret.');
+  process.env.JWT_SECRET = 'your_secure_jwt_secret_should_be_set_in_env';
+}
 const { body } = require('express-validator');
 const { sanitizeBody } = require('express-validator');
 
@@ -127,7 +133,60 @@ const login = async (req, res) => {
           return null;
         }
         
-        return user;
+        try {
+          // Log before JWT generation
+          console.log('Generating JWT token...');
+          const tokenStart = Date.now();
+          
+          // Generate JWT token
+          const token = jwt.sign(
+            { id: user.id, email: user.email, role: user.role },
+            process.env.JWT_SECRET || 'your_jwt_secret',
+            { expiresIn: '8h' }
+          );
+          
+          console.log(`JWT generation took ${Date.now() - tokenStart}ms`);
+          
+          // Log before setting cookie
+          console.log('Setting response cookie...');
+          const cookieStart = Date.now();
+          
+          // Set secure cookie
+          res.cookie('token', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            maxAge: 8 * 60 * 60 * 1000 // 8 hours
+          });
+          
+          console.log(`Cookie set in ${Date.now() - cookieStart}ms`);
+          
+          // Log before sending response
+          console.log('Sending successful login response');
+          
+          // Send response directly to ensure it's sent
+          res.status(200).json({
+            success: true,
+            user: {
+              id: user.id,
+              email: user.email,
+              role: user.role,
+              name: user.name
+            }
+          });
+          
+          return null; // Prevent further processing
+          
+        } catch (error) {
+          console.error('Error in login response handling:', error);
+          if (!res.headersSent) {
+            res.status(500).json({
+              success: false,
+              error: 'Internal server error during login processing'
+            });
+          }
+          return null;
+        }
       } else {
         console.log('No user found with email:', loginEmail);
         return null;
