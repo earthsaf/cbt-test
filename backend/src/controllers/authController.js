@@ -300,22 +300,25 @@ const logout = (req, res) => {
 // Get current session handler
 const getSession = async (req, res) => {
   try {
-    if (!req.user) {
+    if (!req.user || !req.user.id) {
       return res.status(200).json({
         authenticated: false,
-        user: null
+        user: null,
+        message: 'No user in session'
       });
     }
     
     // Get fresh user data from database
     const user = await User.findByPk(req.user.id, {
-      attributes: ['id', 'email', 'role', 'name', 'username']
+      attributes: ['id', 'email', 'role', 'name'] // Removed username as it doesn't exist
     });
     
     if (!user) {
+      console.log('User not found in database');
       return res.status(200).json({
         authenticated: false,
-        user: null
+        user: null,
+        message: 'User not found'
       });
     }
     
@@ -323,15 +326,20 @@ const getSession = async (req, res) => {
     const expiresIn = 8 * 60 * 60 * 1000; // 8 hours in milliseconds
     const expiresAt = new Date(Date.now() + expiresIn);
     
+    // Use email as username if username is not available
+    const userData = {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      name: user.name || user.email.split('@')[0],
+      username: user.email // Use email as username
+    };
+    
+    console.log('Session verified for user:', userData.email);
+    
     res.json({
       authenticated: true,
-      user: {
-        id: user.id,
-        email: user.email,
-        username: user.username || user.email,
-        role: user.role,
-        name: user.name || user.email.split('@')[0]
-      },
+      user: userData,
       expiresIn,
       expiresAt: expiresAt.toISOString()
     });
@@ -341,7 +349,8 @@ const getSession = async (req, res) => {
     res.status(200).json({
       authenticated: false,
       user: null,
-      error: 'Session check failed'
+      error: 'Session check failed',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
