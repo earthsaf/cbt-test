@@ -92,7 +92,28 @@ export const AuthProvider = ({ children }) => {
     };
   }, [clearAuthData, location, navigate]);
 
-  const login = async (credentials) => {
+  // Silent login used during session verification
+  const silentLogin = async (userData) => {
+    // Store minimal user data in localStorage
+    const userInfo = {
+      id: userData.id,
+      username: userData.username || userData.email,
+      role: userData.role,
+      name: userData.name || userData.email.split('@')[0]
+    };
+    
+    localStorage.setItem('user', JSON.stringify(userInfo));
+    localStorage.setItem('userRole', userData.role);
+    
+    // Update state
+    setUser(userInfo);
+    setIsAuthenticated(true);
+    setSessionExpired(false);
+    
+    return { success: true, user: userInfo };
+  };
+
+  const login = async (credentials, silent = false) => {
     try {
       // Clear any existing session data first
       clearAuthData();

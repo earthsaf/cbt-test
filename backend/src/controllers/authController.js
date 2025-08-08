@@ -164,15 +164,29 @@ const login = async (req, res) => {
           // Log before sending response
           console.log('Sending successful login response');
           
-          // Send response directly to ensure it's sent
+          // Prepare user data for response
+          const userData = {
+            id: user.id,
+            username: user.email, // Frontend expects username
+            email: user.email,
+            role: user.role,
+            name: user.name || user.email.split('@')[0] // Fallback to email prefix if name not set
+          };
+          
+          // Set token in cookie
+          res.cookie('token', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            maxAge: 8 * 60 * 60 * 1000 // 8 hours
+          });
+          
+          // Send response with user data and token
           res.status(200).json({
             success: true,
-            user: {
-              id: user.id,
-              email: user.email,
-              role: user.role,
-              name: user.name
-            }
+            user: userData,
+            token: token, // Include token in response for client-side use
+            sessionTimeout: 8 * 60 * 60 * 1000 // 8 hours in ms
           });
           
           return null; // Prevent further processing
@@ -284,29 +298,50 @@ const logout = (req, res) => {
 };
 
 // Get current session handler
-const getSession = (req, res) => {
+const getSession = async (req, res) => {
   try {
     if (!req.user) {
-      return res.status(401).json({
-        success: false,
-        error: 'Not authenticated'
+      return res.status(200).json({
+        authenticated: false,
+        user: null
       });
     }
     
-    res.json({
-      success: true,
-      user: {
-        id: req.user.id,
-        email: req.user.email,
-        role: req.user.role,
-        name: req.user.name
-      }
+    // Get fresh user data from database
+    const user = await User.findByPk(req.user.id, {
+      attributes: ['id', 'email', 'role', 'name', 'username']
     });
+    
+    if (!user) {
+      return res.status(200).json({
+        authenticated: false,
+        user: null
+      });
+    }
+    
+    // Calculate token expiration time (8 hours from now)
+    const expiresIn = 8 * 60 * 60 * 1000; // 8 hours in milliseconds
+    const expiresAt = new Date(Date.now() + expiresIn);
+    
+    res.json({
+      authenticated: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        username: user.username || user.email,
+        role: user.role,
+        name: user.name || user.email.split('@')[0]
+      },
+      expiresIn,
+      expiresAt: expiresAt.toISOString()
+    });
+    
   } catch (error) {
     console.error('Session error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to get session'
+    res.status(200).json({
+      authenticated: false,
+      user: null,
+      error: 'Session check failed'
     });
   }
 };

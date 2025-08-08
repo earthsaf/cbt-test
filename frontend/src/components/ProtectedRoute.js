@@ -1,28 +1,62 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Box, CircularProgress, Typography, Button } from '@mui/material';
+import axios from 'axios';
 
 export const ProtectedRoute = ({ children, requiredRole = null }) => {
-  const { user, isAuthenticated, loading, sessionExpired, logout } = useAuth();
+  const { user, isAuthenticated, loading, sessionExpired, logout, login } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const [verifyingSession, setVerifyingSession] = useState(true);
+  const [verificationError, setVerificationError] = useState(null);
   const from = location.state?.from?.pathname || '/';
   
-  // Handle session expiration
+  // Verify session on mount and when auth state changes
   useEffect(() => {
+    const verifySession = async () => {
+      try {
+        setVerifyingSession(true);
+        const response = await axios.get('/api/auth/session', { 
+          withCredentials: true 
+        });
+
+        if (response.data.authenticated && response.data.user) {
+          // If we have a valid session but local state is not updated
+          if (!isAuthenticated || user?.id !== response.data.user.id) {
+            // Use silentLogin to update auth state without triggering redirects
+            await silentLogin(response.data.user);
+          }
+        } else if (isAuthenticated) {
+          // If we think we're authenticated but server says no
+          console.log('Session no longer valid, logging out');
+          logout();
+        }
+      } catch (error) {
+        console.error('Session verification failed:', error);
+        setVerificationError('Failed to verify session. Please log in again.');
+        if (isAuthenticated) {
+          logout();
+        }
+      } finally {
+        setVerifyingSession(false);
+      }
+    };
+
+    verifySession();
+
+    // Handle session expiration
     if (sessionExpired) {
-      // Clear any existing timeouts to prevent multiple notifications
       const timer = setTimeout(() => {
         logout();
-      }, 5000); // Auto-logout after 5 seconds
+      }, 5000);
       
       return () => clearTimeout(timer);
     }
-  }, [sessionExpired, logout]);
+  }, [isAuthenticated, user, sessionExpired, logout, login]);
 
-  // Show loading state
-  if (loading) {
+  // Show loading state during initial auth check or session verification
+  if (loading || verifyingSession) {
     return (
       <Box sx={{ 
         display: 'flex', 
@@ -77,6 +111,37 @@ export const ProtectedRoute = ({ children, requiredRole = null }) => {
           sx={{ mt: 2 }}
         >
           Return to Login
+        </Button>
+      </Box>
+    );
+  }
+
+  // If verification failed with an error
+  if (verificationError) {
+    return (
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100vh',
+        flexDirection: 'column',
+        gap: 2,
+        p: 3,
+        textAlign: 'center'
+      }}>
+        <Typography variant="h6" color="error">
+          Session Verification Failed
+        </Typography>
+        <Typography variant="body1" color="textSecondary">
+          {verificationError}
+        </Typography>
+        <Button 
+          variant="contained" 
+          color="primary"
+          onClick={() => window.location.href = '/staff-login'}
+          sx={{ mt: 2 }}
+        >
+          Go to Login
         </Button>
       </Box>
     );
