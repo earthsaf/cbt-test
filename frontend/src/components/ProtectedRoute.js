@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Box, CircularProgress, Typography, Button } from '@mui/material';
@@ -16,18 +16,28 @@ export const ProtectedRoute = ({ children, requiredRole = null }) => {
   
   const location = useLocation();
   const navigate = useNavigate();
-  const [verifyingSession, setVerifyingSession] = useState(true);
+  const [verifyingSession, setVerifyingSession] = useState(false);
   const [verificationError, setVerificationError] = useState(null);
+  const initialCheck = useRef(true);
   const from = location.state?.from?.pathname || '/';
   
   // Memoize the session verification function
-  const verifySession = useCallback(async () => {
+  const verifySession = useCallback(async (forceCheck = false) => {
+    // Skip verification if we're already verifying or if this is the initial render
+    if ((verifyingSession && !forceCheck) || (initialCheck.current && !forceCheck)) {
+      return;
+    }
+    
     try {
       setVerifyingSession(true);
       console.log('Verifying session...');
       
       const response = await axios.get('/api/auth/session', { 
-        withCredentials: true 
+        withCredentials: true,
+        // Don't retry failed requests to prevent hanging
+        'axios-retry': {
+          retries: 0
+        }
       });
 
       console.log('Session verification response:', response.data);
@@ -39,20 +49,29 @@ export const ProtectedRoute = ({ children, requiredRole = null }) => {
           await silentLogin(response.data.user);
         }
       } else if (isAuthenticated) {
-        // If we think we're authenticated but server says no
+        // Only logout if we're sure the session is invalid
         console.log('Session no longer valid, logging out');
         logout();
       }
     } catch (error) {
       console.error('Session verification failed:', error);
-      setVerificationError('Failed to verify session. Please log in again.');
+      
+      // Only treat as error if we're actually authenticated
       if (isAuthenticated) {
-        logout();
+        // Don't show error for network issues during initial check
+        if (!initialCheck.current) {
+          setVerificationError('Failed to verify session. Please check your connection.');
+        }
+        // Only logout if we get a 401 or if this isn't the initial check
+        if (error.response?.status === 401 || !initialCheck.current) {
+          logout();
+        }
       }
     } finally {
       setVerifyingSession(false);
+      initialCheck.current = false;
     }
-  }, [isAuthenticated, user, logout, silentLogin]);
+  }, [isAuthenticated, user, logout, silentLogin, verifyingSession]);
 
   // Handle session expiration
   useEffect(() => {
@@ -65,13 +84,26 @@ export const ProtectedRoute = ({ children, requiredRole = null }) => {
     }
   }, [sessionExpired, logout]);
 
-  // Verify session on mount and when auth state changes
+  // Verify session on mount with a small delay to allow cookie to be set
   useEffect(() => {
-    verifySession();
-  }, [verifySession]);
+    const timer = setTimeout(() => {
+      verifySession(true);
+    }, 300); // Small delay to ensure cookie is set
+    
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  
+  // Only re-verify when auth state changes and we're not in the initial check
+  useEffect(() => {
+    if (!initialCheck.current) {
+      verifySession();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, user?.id]);
 
-  // Show loading state during initial auth check or session verification
-  if (loading || verifyingSession) {
+  // Show loading state only during initial auth check
+  if (loading) {
     return (
       <Box sx={{ 
         display: 'flex', 
