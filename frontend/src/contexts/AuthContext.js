@@ -210,23 +210,49 @@ export const AuthProvider = ({ children }) => {
       window.location.href = '/staff-login';
     }
   }, [clearAuthData]);
-
-  const value = {
-    user,
-    loading,
-    login,
-    logout,
-    isAuthenticated,
-    sessionExpired,
-    clearAuthData
-  };
-
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
 };
+
+const logout = useCallback(async () => {
+  try {
+    // Call server-side logout to clear session
+    await axios.post('/api/auth/logout', {}, { withCredentials: true });
+  } catch (error) {
+    console.error('Logout error:', error);
+  } finally {
+    // Clear client-side auth data
+    clearAuthData();
+    
+    // Clear any pending timeouts
+    if (sessionTimeoutRef.current) {
+      clearTimeout(sessionTimeoutRef.current);
+    }
+    
+    // Reset state
+    setUser(null);
+    setIsAuthenticated(false);
+    setSessionExpired(false);
+    
+    // Force a full page reload to clear any cached data
+    window.location.href = '/staff-login';
+  }
+}, [clearAuthData]);
+
+return (
+  <AuthContext.Provider
+    value={{
+      user,
+      isAuthenticated,
+      loading,
+      sessionExpired,
+      login,
+      logout,
+      silentLogin, 
+      clearAuthData, 
+    }}
+  >
+    {children}
+  </AuthContext.Provider>
+);
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
