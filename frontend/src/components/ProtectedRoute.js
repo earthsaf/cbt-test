@@ -91,16 +91,14 @@ export const ProtectedRoute = ({ children, requiredRole = null }) => {
     }, 300); // Small delay to ensure cookie is set
     
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [verifySession]);
   
   // Only re-verify when auth state changes and we're not in the initial check
   useEffect(() => {
     if (!initialCheck.current) {
       verifySession();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated, user?.id]);
+  }, [verifySession, initialCheck, isAuthenticated, user?.id]);
 
   // Show loading state only during initial auth check
   if (loading) {
