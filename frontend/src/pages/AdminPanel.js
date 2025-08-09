@@ -56,33 +56,122 @@ function AdminPanel() {
   // Load initial data
   useEffect(() => {
     const loadData = async () => {
+      setIsLoading(true);
+      const startTime = Date.now();
+      console.log('Starting to load admin data...');
+      
       try {
-        // Load users, classes, and exams in parallel
-        const [usersRes, classesRes, examsRes] = await Promise.all([
-          api.get('/admin/users'),
-          api.get('/admin/classes'),
-          api.get('/admin/exams')
+        // Log which endpoints we're trying to fetch
+        const endpoints = ['/admin/users', '/admin/classes', '/admin/exams'];
+        console.log('Fetching endpoints:', endpoints);
+        
+        // Load users, classes, and exams in parallel with individual error handling
+        const [usersRes, classesRes, examsRes] = await Promise.allSettled([
+          api.get(endpoints[0])
+            .then(res => {
+              console.log(`Successfully loaded ${endpoints[0]} in ${Date.now() - startTime}ms`);
+              return res;
+            })
+            .catch(err => { 
+              console.error(`Error in ${endpoints[0]}:`, err.response || err);
+              throw { type: 'users', error: err }; 
+            }),
+            
+          api.get(endpoints[1])
+            .then(res => {
+              console.log(`Successfully loaded ${endpoints[1]} in ${Date.now() - startTime}ms`);
+              return res;
+            })
+            .catch(err => { 
+              console.error(`Error in ${endpoints[1]}:`, err.response || err);
+              throw { type: 'classes', error: err }; 
+            }),
+            
+          api.get(endpoints[2])
+            .then(res => {
+              console.log(`Successfully loaded ${endpoints[2]} in ${Date.now() - startTime}ms`);
+              return res;
+            })
+            .catch(err => { 
+              console.error(`Error in ${endpoints[2]}:`, err.response || err);
+              // Add more detailed error info for debugging
+              if (err.response) {
+                console.error('Response data:', err.response.data);
+                console.error('Response status:', err.response.status);
+                console.error('Response headers:', err.response.headers);
+              } else if (err.request) {
+                console.error('No response received:', err.request);
+              } else {
+                console.error('Error message:', err.message);
+              }
+              throw { type: 'exams', error: err }; 
+            })
         ]);
+
+        // Process each response with more detailed error info
+        const processResponse = (response, type) => {
+          if (response.status === 'fulfilled') {
+            console.log(`Successfully processed ${type} data`);
+            return response.value.data;
+          } else {
+            const error = response.reason?.error || {};
+            const status = error.response?.status || 'No status';
+            const message = error.response?.data?.message || error.message || 'Unknown error';
+            
+            console.error(`Error loading ${type}:`, {
+              status,
+              message,
+              url: error.config?.url,
+              method: error.config?.method,
+              data: error.response?.data
+            });
+            
+            setSnack({
+              open: true,
+              message: `Failed to load ${type}: ${status} - ${message}`,
+              severity: 'error',
+              autoHideDuration: 10000
+            });
+            
+            return [];
+          }
+        };
+
+        const usersData = processResponse(usersRes, 'users');
+        const classesData = processResponse(classesRes, 'classes');
+        const examsData = processResponse(examsRes, 'exams');
         
-        setUsers(usersRes.data);
-        setClasses(classesRes.data);
-        setExams(examsRes.data);
+        setUsers(usersData);
+        setClasses(classesData);
+        setExams(examsData);
         
-        setIsLoading(false);
+        console.log(`Completed loading all data in ${Date.now() - startTime}ms`);
+        
       } catch (error) {
-        console.error('Error loading admin data:', error);
+        console.error('Unexpected error in loadData:', {
+          error,
+          stack: error.stack,
+          response: error.response?.data
+        });
+        
         setSnack({
           open: true,
-          message: 'Failed to load admin data',
-          severity: 'error'
+          message: 'Failed to load data. Please check console for details and try again.',
+          severity: 'error',
+          autoHideDuration: 10000
         });
-        logout();
-        navigate('/staff-login');
+      } finally {
+        setIsLoading(false);
       }
     };
     
     loadData();
-  }, [navigate, logout]);
+    
+    // Cleanup function
+    return () => {
+      console.log('Cleaning up AdminPanel data loading');
+    };
+  }, [navigate]);
 
   // Handle tab change
   const handleTabChange = (event, newValue) => {
@@ -211,6 +300,7 @@ function AdminPanel() {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
         <CircularProgress />
+        <Typography variant="body1" sx={{ ml: 2 }}>Loading admin data...</Typography>
       </Box>
     );
   }
