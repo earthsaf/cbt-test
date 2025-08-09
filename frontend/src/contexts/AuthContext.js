@@ -92,10 +92,10 @@ export const AuthProvider = ({ children }) => {
           setIsAuthenticated(true);
           setSessionExpired(false);
           
-          // Convert expiresIn to milliseconds if it's in seconds (common JWT format)
-          const sessionDuration = expiresIn 
-            ? expiresIn < 10000000000 ? expiresIn * 1000 : expiresIn // If less than 11 digits, assume it's in seconds
-            : 5 * 60 * 60 * 1000; // Default to 5 hours
+          // Set a fixed session duration of 8 hours (in milliseconds)
+          // This overrides any server-provided duration to prevent premature timeouts
+          const sessionDuration = 8 * 60 * 60 * 1000; // 8 hours in milliseconds
+          console.log('Using fixed session duration of 8 hours');
             
           console.log('Session duration set to:', sessionDuration, 'ms');
           
@@ -290,12 +290,10 @@ export const AuthProvider = ({ children }) => {
         sessionTimeoutRef.current = null;
       }
       
-      // Convert sessionTimeout to milliseconds if it's in seconds (common JWT format)
-      const timeout = sessionTimeout 
-        ? sessionTimeout < 10000000000 ? sessionTimeout * 1000 : sessionTimeout // If less than 11 digits, assume it's in seconds
-        : 5 * 60 * 60 * 1000; // Default to 5 hours
-        
-      console.log('Setting session timeout for', timeout, 'ms');
+      // Set a fixed session duration of 8 hours (in milliseconds)
+      // This overrides any server-provided duration to prevent premature timeouts
+      const timeout = 8 * 60 * 60 * 1000; // 8 hours in milliseconds
+      console.log('Setting session timeout for', timeout, 'ms (8 hours)');
       
       sessionTimeoutRef.current = setTimeout(() => {
         console.log('Session timeout reached, logging out');
