@@ -33,5 +33,30 @@ module.exports = (sequelize, DataTypes) => {
     tableName: 'TeacherClassSubjects',
     timestamps: true
   });
+
+  // Define associations
+  TeacherClassSubject.associate = function(models) {
+    // A TeacherClassSubject belongs to a User (teacher)
+    TeacherClassSubject.belongsTo(models.User, {
+      foreignKey: 'teacherId',
+      as: 'teacher',
+      onDelete: 'CASCADE'
+    });
+    
+    // A TeacherClassSubject belongs to a Class
+    TeacherClassSubject.belongsTo(models.Class, {
+      foreignKey: 'classId',
+      as: 'class',
+      onDelete: 'CASCADE'
+    });
+    
+    // A TeacherClassSubject belongs to a Subject
+    TeacherClassSubject.belongsTo(models.Subject, {
+      foreignKey: 'subjectId',
+      as: 'subject',
+      onDelete: 'CASCADE'
+    });
+  };
+  
   return TeacherClassSubject;
 };
