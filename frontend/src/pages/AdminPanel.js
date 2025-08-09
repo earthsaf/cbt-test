@@ -157,7 +157,8 @@ function AdminPanel() {
             
             console.error(`Error loading ${type}:`, {
               status,
-              message,
+              message
+            });
             return [];
           }
         };
