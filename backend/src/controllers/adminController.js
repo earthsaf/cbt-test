@@ -198,12 +198,56 @@ exports.listSubjects = async (req, res) => {
   res.json(subjects);
 };
 exports.addSubject = async (req, res) => {
-  const { name } = req.body;
-  if (!name) return res.status(400).json({ error: 'Name required' });
-  const exists = await Subject.findOne({ where: { name } });
-  if (exists) return res.status(400).json({ error: 'Subject already exists' });
-  const subject = await Subject.create({ name });
-  res.json({ ok: true, subject });
+  try {
+    console.log('Request body:', req.body);
+    const { name } = req.body;
+    
+    if (!name || typeof name !== 'string' || name.trim() === '') {
+      console.log('Invalid name:', name);
+      return res.status(400).json({ 
+        error: 'Name is required and must be a non-empty string',
+        received: name,
+        type: typeof name
+      });
+    }
+    
+    // Trim and normalize the name
+    const normalizedName = name.trim();
+    
+    // Check if subject with same name (case-insensitive)
+    const exists = await Subject.findOne({ 
+      where: sequelize.where(
+        sequelize.fn('LOWER', sequelize.col('name')), 
+        'LIKE', 
+        normalizedName.toLowerCase()
+      )
+    });
+    
+    if (exists) {
+      console.log('Subject already exists:', normalizedName);
+      return res.status(400).json({ 
+        error: 'A subject with this name already exists',
+        existingSubject: exists
+      });
+    }
+    
+    const subject = await Subject.create({ name: normalizedName });
+    console.log('Created subject:', subject.toJSON());
+    
+    return res.status(201).json({ 
+      ok: true, 
+      subject,
+      message: 'Subject created successfully'
+    });
+    
+  } catch (error) {
+    console.error('Error in addSubject:', error);
+    return res.status(500).json({ 
+      error: 'Internal server error',
+      details: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
 };
 exports.deleteSubject = async (req, res) => {
   const { id } = req.params;

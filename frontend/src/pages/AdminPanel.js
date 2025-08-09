@@ -3,11 +3,12 @@ import React, { useState, useEffect } from 'react';
 import { 
   AppBar, Tabs, Tab, Box, Typography, Button, TextField, Select, 
   MenuItem, Snackbar, Alert, Dialog, DialogTitle, DialogContent, 
-  DialogActions, CircularProgress, Table, TableBody, TableCell, 
-  TableContainer, TableHead, TableRow, Paper, IconButton, 
-  FormControl, FormControlLabel, FormGroup, InputLabel, Tooltip, 
-  Chip, Grid, Card, CardContent, CardHeader, Switch
+  DialogActions, Table, TableBody, TableCell, TableContainer, 
+  TableHead, TableRow, Paper, IconButton, FormControl, InputLabel, 
+  Grid, Card, CardContent, Tooltip, FormGroup, FormControlLabel, 
+  Switch, LinearProgress, CircularProgress
 } from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
 import { 
   Delete as DeleteIcon, 
   Edit as EditIcon, 
@@ -316,23 +317,89 @@ function AdminPanel() {
 
   // Subject management
   const handleAddSubject = async () => {
-    if (!newSubjectName.trim()) return;
+    const subjectName = newSubjectName.trim();
+    
+    // Client-side validation
+    if (!subjectName) {
+      setSnack({
+        open: true,
+        message: 'Subject name cannot be empty',
+        severity: 'error'
+      });
+      return;
+    }
+    
+    // Show loading state
+    setSnack({
+      open: true,
+      message: 'Adding subject...',
+      severity: 'info',
+      persist: true
+    });
     
     try {
-      const response = await api.post('/admin/subjects', { name: newSubjectName });
-      setSubjects([...subjects, response.data]);
-      setNewSubjectName('');
-      setSnack({ 
-        open: true, 
-        message: 'Subject added successfully', 
-        severity: 'success' 
+      console.log('Sending request to add subject:', { name: subjectName });
+      const response = await api.post('/admin/subjects', { 
+        name: subjectName 
+      }, {
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        validateStatus: (status) => status < 500 // Don't throw for 4xx errors
       });
+      
+      console.log('Subject creation response:', response);
+      
+      if (response.status === 201) {
+        // Success case
+        setSubjects(prev => [...prev, response.data.subject]);
+        setNewSubjectName('');
+        setSnack({ 
+          open: true, 
+          message: response.data.message || 'Subject added successfully',
+          severity: 'success',
+          autoHideDuration: 3000
+        });
+      } else if (response.status === 400) {
+        // Validation or business logic error
+        const errorMessage = response.data?.error || 
+                           response.data?.message || 
+                           'Failed to add subject. Please check the input and try again.';
+        
+        console.error('Validation error adding subject:', response.data);
+        setSnack({
+          open: true,
+          message: errorMessage,
+          severity: 'error',
+          autoHideDuration: 10000
+        });
+      } else {
+        // Other error cases
+        throw new Error(`Unexpected status code: ${response.status}`);
+      }
     } catch (error) {
-      console.error('Error adding subject:', error);
+      console.error('Error adding subject:', {
+        error,
+        response: error.response?.data,
+        status: error.response?.status,
+        headers: error.response?.headers
+      });
+      
+      let errorMessage = 'Failed to add subject. Please try again later.';
+      
+      if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      } else if (error.message.includes('Network Error')) {
+        errorMessage = 'Network error. Please check your connection and try again.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       setSnack({ 
         open: true, 
-        message: error.response?.data?.error || 'Failed to add subject', 
-        severity: 'error' 
+        message: errorMessage,
+        severity: 'error',
+        autoHideDuration: 10000
       });
     }
   };
@@ -1294,14 +1361,35 @@ function AdminPanel() {
       {/* Snackbar for notifications */}
       <Snackbar
         open={snack.open}
-        autoHideDuration={6000}
-        onClose={() => setSnack({...snack, open: false})}
+        autoHideDuration={snack.autoHideDuration || 6000}
+        onClose={() => !snack.persist && setSnack(prev => ({...prev, open: false}))}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        disableWindowBlurListener={snack.persist}
+        ClickAwayListenerProps={{ mouseEvent: false }}
       >
         <Alert 
-          onClose={() => setSnack({...snack, open: false})} 
+          onClose={() => setSnack(prev => ({...prev, open: false}))} 
           severity={snack.severity}
-          sx={{ width: '100%' }}
+          sx={{ 
+            width: '100%',
+            '& .MuiAlert-message': {
+              whiteSpace: 'pre-line',
+              maxWidth: '400px',
+              wordBreak: 'break-word'
+            }
+          }}
+          action={
+            snack.persist ? (
+              <IconButton
+                aria-label="close"
+                color="inherit"
+                size="small"
+                onClick={() => setSnack(prev => ({...prev, open: false}))}
+              >
+                <CloseIcon fontSize="inherit" />
+              </IconButton>
+            ) : null
+          }
         >
           {snack.message}
         </Alert>
