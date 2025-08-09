@@ -43,6 +43,7 @@ function AdminPanel() {
   const [editUser, setEditUser] = useState(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
+  const [deletingUser, setDeletingUser] = useState(false);
   const [newClassName, setNewClassName] = useState('');
   const [selectedExam, setSelectedExam] = useState(null);
   const [examQuestions, setExamQuestions] = useState([]);
