@@ -174,7 +174,7 @@ export const AuthProvider = ({ children }) => {
         setLoading(false);
       }
     };
-  }, [clearAuthData, location, navigate, loading, isAuthenticated]);
+  }, [clearAuthData, navigate]); // Removed loading and isAuthenticated from deps to prevent extra runs
 
   // Silent login used during session verification
   const silentLogin = useCallback(async (userData) => {
@@ -211,7 +211,7 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  const login = async (credentials) => {
+  const login = useCallback(async (credentials) => {
     // Prevent multiple concurrent login attempts
     if (loginInProgressRef.current) {
       console.log('Login already in progress');
@@ -379,7 +379,7 @@ export const AuthProvider = ({ children }) => {
       loginInProgressRef.current = false;
       setLoading(false);
     }
-  };
+  }, [clearAuthData, navigate]); // Added dependencies for useCallback
 
   const logout = useCallback(async (options = {}) => {
     const { silent = false, redirect = true } = options;
@@ -440,7 +440,7 @@ export const AuthProvider = ({ children }) => {
         navigate('/staff-login', { replace: true });
       }
     }
-  }, [clearAuthData]);
+  }, [clearAuthData, navigate]); // Dependencies for useCallback
 
   // Memoize the context value to prevent unnecessary re-renders
   const contextValue = React.useMemo(() => ({

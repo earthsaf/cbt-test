@@ -26,8 +26,8 @@ export const ProtectedRoute = ({ children, requiredRole = null }) => {
   
   // Verify session on mount and when auth state changes
   useEffect(() => {
-    // Skip if we've already attempted verification or if we're already authenticated
-    if (verificationAttempted.current || isAuthenticated) {
+    // Skip if we've already attempted verification
+    if (verificationAttempted.current) {
       return;
     }
 
@@ -36,14 +36,27 @@ export const ProtectedRoute = ({ children, requiredRole = null }) => {
     
     // If we're not authenticated, try silent login if we have a user in localStorage
     const storedUser = localStorage.getItem('user');
-    if (storedUser && !isAuthenticated) {
+    if (storedUser) {
       console.log('Attempting silent login from ProtectedRoute');
-      silentLogin(JSON.parse(storedUser)).then(result => {
-        if (!result.success) {
-          console.log('Silent login failed:', result.error);
-          setVerificationError('Session expired. Please log in again.');
-        }
-      });
+      silentLogin(JSON.parse(storedUser))
+        .then(result => {
+          if (!result.success) {
+            console.log('Silent login failed:', result.error);
+            // Only set error if we're still not authenticated
+            if (!isAuthenticated) {
+              setVerificationError('Session expired. Please log in again.');
+            }
+          }
+        })
+        .catch(error => {
+          console.error('Error during silent login:', error);
+          if (!isAuthenticated) {
+            setVerificationError('Failed to verify session. Please log in again.');
+          }
+        });
+    } else if (!isAuthenticated) {
+      // No stored user and not authenticated, set error to trigger redirect
+      setVerificationError('No active session found. Please log in.');
     }
   }, [isAuthenticated, silentLogin]);
 
@@ -122,6 +135,11 @@ export const ProtectedRoute = ({ children, requiredRole = null }) => {
 
   // If verification failed with an error
   if (verificationError) {
+    // If we're already on the login page, don't show the error to prevent loops
+    if (location.pathname === '/staff-login' || location.pathname === '/login') {
+      return null; // Let the login page handle the rendering
+    }
+    
     return (
       <Box sx={{ 
         display: 'flex', 
@@ -142,7 +160,17 @@ export const ProtectedRoute = ({ children, requiredRole = null }) => {
         <Button 
           variant="contained" 
           color="primary"
-          onClick={() => window.location.href = '/staff-login'}
+          onClick={() => {
+            // Clear any stale auth data
+            localStorage.removeItem('user');
+            localStorage.removeItem('token');
+            localStorage.removeItem('userRole');
+            // Navigate to login with replace to prevent going back
+            navigate('/staff-login', { 
+              state: { from: location },
+              replace: true 
+            });
+          }}
           sx={{ mt: 2 }}
         >
           Go to Login
