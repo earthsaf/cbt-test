@@ -119,6 +119,8 @@ function StudentLogin() {
           <button
             type="submit"
             disabled={isLoading}
+            aria-label={isLoading ? 'Signing in...' : 'Sign in to your student account'}
+            aria-busy={isLoading}
             style={{
               width: '100%',
               padding: '12px 0',
@@ -165,14 +167,17 @@ function StudentLogin() {
         </div>
         <div style={{ marginTop: 18, textAlign: 'center' }}>
           <button 
-            onClick={() => navigate('/staff-login')}
+            type="button" 
+            onClick={handleSwitchToStaff}
+            aria-label="Switch to staff login"
             style={{
               background: 'none',
               border: 'none',
               color: '#1976d2',
-              textDecoration: 'underline',
               cursor: 'pointer',
-              fontSize: '14px',
+              textDecoration: 'underline',
+              marginTop: '10px',
+              fontSize: '0.9rem',
               padding: '4px 8px',
               borderRadius: '4px',
               transition: 'all 0.2s',

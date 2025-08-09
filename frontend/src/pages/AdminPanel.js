@@ -248,6 +248,8 @@ function AdminPanel() {
               <Button 
                 variant="contained" 
                 startIcon={<AddIcon />}
+                aria-label="Add new user"
+                title="Add new user"
                 onClick={() => setEditUser({
                   id: '',
                   name: '',
@@ -720,10 +722,18 @@ function AdminPanel() {
                 />
                 
                 <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 3 }}>
-                  <Button variant="outlined">
+                  <Button 
+                    variant="outlined"
+                    aria-label="Reset settings to default values"
+                    title="Reset to Defaults"
+                  >
                     Reset to Defaults
                   </Button>
-                  <Button variant="contained">
+                  <Button 
+                    variant="contained"
+                    aria-label="Save current settings"
+                    title="Save Settings"
+                  >
                     Save Settings
                   </Button>
                 </Box>
