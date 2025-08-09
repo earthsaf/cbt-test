@@ -23,7 +23,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import dayjs from 'dayjs';
 
 // Tab labels
-const tabs = ['Users', 'Classes', 'Exams', 'Analytics', 'Settings'];
+const tabs = ['Users', 'Classes', 'Subjects', 'Exams', 'Analytics', 'Settings'];
 
 function AdminPanel() {
   // Router and auth
@@ -37,7 +37,22 @@ function AdminPanel() {
   const [isLoading, setIsLoading] = useState(true);
   const [users, setUsers] = useState([]);
   const [classes, setClasses] = useState([]);
+  const [subjects, setSubjects] = useState([]);
+  const [teacherAssignments, setTeacherAssignments] = useState([]);
   const [exams, setExams] = useState([]);
+  
+  // Subject form states
+  const [newSubjectName, setNewSubjectName] = useState('');
+  const [subjectToDelete, setSubjectToDelete] = useState(null);
+  const [showDeleteSubjectConfirm, setShowDeleteSubjectConfirm] = useState(false);
+  
+  // Teacher assignment form states
+  const [showAssignTeacher, setShowAssignTeacher] = useState(false);
+  const [assignmentForm, setAssignmentForm] = useState({
+    teacherId: '',
+    classId: '',
+    subjectId: ''
+  });
   
   // UI states
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
@@ -64,11 +79,11 @@ function AdminPanel() {
       
       try {
         // Log which endpoints we're trying to fetch
-        const endpoints = ['/admin/users', '/admin/classes', '/admin/exams'];
+        const endpoints = ['/admin/users', '/admin/classes', '/admin/subjects', '/admin/teacher-assignments', '/admin/exams'];
         console.log('Fetching endpoints:', endpoints);
         
-        // Load users, classes, and exams in parallel with individual error handling
-        const [usersRes, classesRes, examsRes] = await Promise.allSettled([
+        // Load all data in parallel with individual error handling
+        const [usersRes, classesRes, subjectsRes, assignmentsRes, examsRes] = await Promise.allSettled([
           api.get(endpoints[0])
             .then(res => {
               console.log(`Successfully loaded ${endpoints[0]} in ${Date.now() - startTime}ms`);
@@ -96,6 +111,26 @@ function AdminPanel() {
             })
             .catch(err => { 
               console.error(`Error in ${endpoints[2]}:`, err.response || err);
+              throw { type: 'subjects', error: err };
+            }),
+            
+          api.get(endpoints[3])
+            .then(res => {
+              console.log(`Successfully loaded ${endpoints[3]} in ${Date.now() - startTime}ms`);
+              return res;
+            })
+            .catch(err => { 
+              console.error(`Error in ${endpoints[3]}:`, err.response || err);
+              throw { type: 'assignments', error: err };
+            }),
+            
+          api.get(endpoints[4])
+            .then(res => {
+              console.log(`Successfully loaded ${endpoints[4]} in ${Date.now() - startTime}ms`);
+              return res;
+            })
+            .catch(err => { 
+              console.error(`Error in ${endpoints[4]}:`, err.response || err);
               // Add more detailed error info for debugging
               if (err.response) {
                 console.error('Response data:', err.response.data);
@@ -123,31 +158,28 @@ function AdminPanel() {
             console.error(`Error loading ${type}:`, {
               status,
               message,
-              url: error.config?.url,
-              method: error.config?.method,
-              data: error.response?.data
-            });
-            
-            setSnack({
-              open: true,
-              message: `Failed to load ${type}: ${status} - ${message}`,
-              severity: 'error',
-              autoHideDuration: 10000
-            });
-            
             return [];
           }
         };
-
+        
         const usersData = processResponse(usersRes, 'users');
         const classesData = processResponse(classesRes, 'classes');
+        const subjectsData = processResponse(subjectsRes, 'subjects');
+        const assignmentsData = processResponse(assignmentsRes, 'assignments');
         const examsData = processResponse(examsRes, 'exams');
         
+        // Update state with the fetched data
         setUsers(usersData);
         setClasses(classesData);
+        setSubjects(subjectsData);
+        setTeacherAssignments(assignmentsData);
         setExams(examsData);
         
-        console.log(`Completed loading all data in ${Date.now() - startTime}ms`);
+        console.log('Successfully processed users data');
+        console.log('Successfully processed classes data');
+        console.log('Successfully processed subjects data');
+        console.log('Successfully processed teacher assignments data');
+        console.log('Successfully processed exams data');
         
       } catch (error) {
         console.error('Unexpected error in loadData:', {
@@ -277,6 +309,103 @@ function AdminPanel() {
         open: true,
         message: 'Failed to load exam questions',
         severity: 'error'
+      });
+    }
+  };
+
+  // Subject management
+  const handleAddSubject = async () => {
+    if (!newSubjectName.trim()) return;
+    
+    try {
+      const response = await api.post('/admin/subjects', { name: newSubjectName });
+      setSubjects([...subjects, response.data]);
+      setNewSubjectName('');
+      setSnack({ 
+        open: true, 
+        message: 'Subject added successfully', 
+        severity: 'success' 
+      });
+    } catch (error) {
+      console.error('Error adding subject:', error);
+      setSnack({ 
+        open: true, 
+        message: error.response?.data?.error || 'Failed to add subject', 
+        severity: 'error' 
+      });
+    }
+  };
+
+  const handleDeleteSubject = async () => {
+    if (!subjectToDelete) return;
+    
+    try {
+      await api.delete(`/admin/subjects/${subjectToDelete.id}`);
+      setSubjects(subjects.filter(s => s.id !== subjectToDelete.id));
+      setShowDeleteSubjectConfirm(false);
+      setSubjectToDelete(null);
+      setSnack({ 
+        open: true, 
+        message: 'Subject deleted successfully', 
+        severity: 'success' 
+      });
+    } catch (error) {
+      console.error('Error deleting subject:', error);
+      setSnack({ 
+        open: true, 
+        message: error.response?.data?.error || 'Failed to delete subject', 
+        severity: 'error' 
+      });
+    }
+  };
+
+  // Teacher assignment management
+  const handleAssignTeacher = async () => {
+    const { teacherId, classId, subjectId } = assignmentForm;
+    if (!teacherId || !classId || !subjectId) return;
+    
+    try {
+      const response = await api.post('/admin/teacher-assignments', {
+        teacherId,
+        classId,
+        subjectId
+      });
+      
+      setTeacherAssignments([...teacherAssignments, response.data]);
+      setShowAssignTeacher(false);
+      setAssignmentForm({ teacherId: '', classId: '', subjectId: '' });
+      
+      setSnack({ 
+        open: true, 
+        message: 'Teacher assigned successfully', 
+        severity: 'success' 
+      });
+    } catch (error) {
+      console.error('Error assigning teacher:', error);
+      setSnack({ 
+        open: true, 
+        message: error.response?.data?.error || 'Failed to assign teacher', 
+        severity: 'error' 
+      });
+    }
+  };
+
+  const handleRemoveAssignment = async (assignmentId) => {
+    try {
+      await api.delete(`/admin/teacher-assignments/${assignmentId}`);
+      setTeacherAssignments(teacherAssignments.filter(a => a.id !== assignmentId));
+      
+      setSnack({ 
+        open: true, 
+        message: 'Assignment removed successfully', 
+        severity: 'success' 
+      });
+    } catch (error) {
+      console.error('Error removing assignment:', error);
+      setSnack({ 
+        open: true, 
+        message: error.response?.data?.error || 'Failed to remove assignment', 
+        severity: 'error' 
       });
     }
   };
@@ -519,8 +648,227 @@ function AdminPanel() {
           </Box>
         )}
 
-        {/* Exams Tab */}
+        {/* Subjects Tab */}
         {tab === 2 && (
+          <Box p={3}>
+            <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+              <div>
+                <Typography variant="h5" gutterBottom>Subjects Management</Typography>
+                <Typography color="textSecondary">Manage subjects and teacher assignments</Typography>
+              </div>
+              <Button 
+                variant="contained" 
+                color="primary" 
+                startIcon={<AddIcon />}
+                onClick={() => setShowAssignTeacher(true)}
+              >
+                Assign Teacher
+              </Button>
+            </Box>
+            
+            {/* Add Subject Form */}
+            <Box mb={4}>
+              <Typography variant="h6" gutterBottom>Add New Subject</Typography>
+              <Box display="flex" alignItems="center" gap={2}>
+                <TextField
+                  label="Subject Name"
+                  value={newSubjectName}
+                  onChange={(e) => setNewSubjectName(e.target.value)}
+                  variant="outlined"
+                  size="small"
+                  fullWidth
+                />
+                <Button 
+                  variant="contained" 
+                  color="primary"
+                  onClick={handleAddSubject}
+                  disabled={!newSubjectName.trim()}
+                >
+                  Add Subject
+                </Button>
+              </Box>
+            </Box>
+            
+            {/* Subjects List */}
+            <Box mb={4}>
+              <Typography variant="h6" gutterBottom>All Subjects</Typography>
+              <TableContainer component={Paper}>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>ID</TableCell>
+                      <TableCell>Name</TableCell>
+                      <TableCell>Created At</TableCell>
+                      <TableCell>Actions</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {subjects.map((subject) => (
+                      <TableRow key={subject.id}>
+                        <TableCell>{subject.id}</TableCell>
+                        <TableCell>{subject.name}</TableCell>
+                        <TableCell>{new Date(subject.createdAt).toLocaleString()}</TableCell>
+                        <TableCell>
+                          <IconButton 
+                            color="error" 
+                            onClick={() => {
+                              setSubjectToDelete(subject);
+                              setShowDeleteSubjectConfirm(true);
+                            }}
+                            size="small"
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Box>
+            
+            {/* Teacher Assignments */}
+            <Box>
+              <Typography variant="h6" gutterBottom>Teacher Assignments</Typography>
+              <TableContainer component={Paper}>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Teacher</TableCell>
+                      <TableCell>Class</TableCell>
+                      <TableCell>Subject</TableCell>
+                      <TableCell>Assigned On</TableCell>
+                      <TableCell>Actions</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {teacherAssignments.map((assignment) => {
+                      const teacher = users.find(u => u.id === assignment.teacherId);
+                      const classItem = classes.find(c => c.id === assignment.classId);
+                      const subject = subjects.find(s => s.id === assignment.subjectId);
+                      
+                      return (
+                        <TableRow key={`${assignment.teacherId}-${assignment.classId}-${assignment.subjectId}`}>
+                          <TableCell>{teacher ? `${teacher.name} (${teacher.email})` : 'Unknown'}</TableCell>
+                          <TableCell>{classItem ? classItem.name : 'Unknown'}</TableCell>
+                          <TableCell>{subject ? subject.name : 'Unknown'}</TableCell>
+                          <TableCell>{new Date(assignment.createdAt).toLocaleString()}</TableCell>
+                          <TableCell>
+                            <IconButton 
+                              color="error" 
+                              size="small"
+                              onClick={() => handleRemoveAssignment(assignment.id)}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Box>
+            
+            {/* Assign Teacher Dialog */}
+            <Dialog 
+              open={showAssignTeacher} 
+              onClose={() => setShowAssignTeacher(false)}
+              maxWidth="sm"
+              fullWidth
+            >
+              <DialogTitle>Assign Teacher to Subject</DialogTitle>
+              <DialogContent>
+                <Box mt={2} mb={2}>
+                  <FormControl fullWidth variant="outlined" size="small" margin="normal">
+                    <InputLabel>Teacher</InputLabel>
+                    <Select
+                      value={assignmentForm.teacherId}
+                      onChange={(e) => setAssignmentForm({...assignmentForm, teacherId: e.target.value})}
+                      label="Teacher"
+                    >
+                      {users
+                        .filter(user => user.role === 'teacher')
+                        .map(teacher => (
+                          <MenuItem key={teacher.id} value={teacher.id}>
+                            {teacher.name} ({teacher.email})
+                          </MenuItem>
+                        ))
+                      }
+                    </Select>
+                  </FormControl>
+                  
+                  <FormControl fullWidth variant="outlined" size="small" margin="normal">
+                    <InputLabel>Class</InputLabel>
+                    <Select
+                      value={assignmentForm.classId}
+                      onChange={(e) => setAssignmentForm({...assignmentForm, classId: e.target.value})}
+                      label="Class"
+                    >
+                      {classes.map(classItem => (
+                        <MenuItem key={classItem.id} value={classItem.id}>
+                          {classItem.name}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  
+                  <FormControl fullWidth variant="outlined" size="small" margin="normal">
+                    <InputLabel>Subject</InputLabel>
+                    <Select
+                      value={assignmentForm.subjectId}
+                      onChange={(e) => setAssignmentForm({...assignmentForm, subjectId: e.target.value})}
+                      label="Subject"
+                    >
+                      {subjects.map(subject => (
+                        <MenuItem key={subject.id} value={subject.id}>
+                          {subject.name}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Box>
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={() => setShowAssignTeacher(false)}>Cancel</Button>
+                <Button 
+                  onClick={handleAssignTeacher} 
+                  variant="contained" 
+                  color="primary"
+                  disabled={!assignmentForm.teacherId || !assignmentForm.classId || !assignmentForm.subjectId}
+                >
+                  Assign
+                </Button>
+              </DialogActions>
+            </Dialog>
+            
+            {/* Delete Confirmation Dialog */}
+            <Dialog
+              open={showDeleteSubjectConfirm}
+              onClose={() => setShowDeleteSubjectConfirm(false)}
+            >
+              <DialogTitle>Confirm Delete</DialogTitle>
+              <DialogContent>
+                <Typography>
+                  Are you sure you want to delete the subject "{subjectToDelete?.name}"? This action cannot be undone.
+                </Typography>
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={() => setShowDeleteSubjectConfirm(false)}>Cancel</Button>
+                <Button 
+                  onClick={handleDeleteSubject} 
+                  color="error" 
+                  variant="contained"
+                >
+                  Delete
+                </Button>
+              </DialogActions>
+            </Dialog>
+          </Box>
+        )}
+
+        {/* Exams Tab */}
+        {tab === 3 && (
           <Grid container spacing={3}>
             {/* Exams List */}
             <Grid item xs={12} md={6}>
@@ -694,7 +1042,7 @@ function AdminPanel() {
         )}
 
         {/* Analytics Tab */}
-        {tab === 3 && (
+        {tab === 4 && (
           <Box>
             <Typography variant="h5" component="h2" gutterBottom>
               Exam Analytics
@@ -775,7 +1123,7 @@ function AdminPanel() {
         )}
 
         {/* Settings Tab */}
-        {tab === 4 && (
+        {tab === 5 && (
           <Box>
             <Typography variant="h5" component="h2" gutterBottom>
               System Settings
