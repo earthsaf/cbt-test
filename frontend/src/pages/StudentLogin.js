@@ -42,6 +42,10 @@ function StudentLogin() {
     }
   };
 
+  const handleSwitchToStaff = () => {
+    navigate('/staff-login');
+  };
+
   return (
     <div style={{
       minHeight: '100vh',
