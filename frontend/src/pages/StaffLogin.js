@@ -19,59 +19,15 @@ function StaffLogin() {
   const { user, login, logout } = useAuth();
   const navigate = useNavigate();
 
-  // Clear any existing auth data to prevent auto-redirect
+  // Only run once on mount: clear localStorage ONLY if explicitly requested
   useEffect(() => {
-    // Only clear auth data if we're not in the middle of a login attempt
-    if (!loading) {
-      localStorage.removeItem('user');
-      localStorage.removeItem('token');
-      localStorage.removeItem('userRole');
-      setUsername('');
-      setPassword('');
-      setError('');
-      
-      // Only logout if we have a user but the role doesn't match the current path
-      if (user) {
-        const currentPath = window.location.pathname;
-        const shouldLogout = 
-          (user.role === 'admin' && !currentPath.startsWith('/admin')) ||
-          (user.role === 'teacher' && !currentPath.startsWith('/teacher')) ||
-          (user.role === 'invigilator' && !currentPath.startsWith('/proctor'));
-        
-        if (shouldLogout) {
-          logout();
-        }
-      }
-    }
-  }, [user, logout, loading]);
-
-  // Redirect effect - when user is authenticated, redirect to appropriate page
-  useEffect(() => {
-    if (user && user.role) {
-      // Don't redirect if we're already on the correct page
-      const currentPath = window.location.pathname;
-      let targetPath = '/';
-      
-      switch (user.role) {
-        case 'admin':
-          targetPath = '/admin';
-          break;
-        case 'teacher':
-          targetPath = '/teacher';
-          break;
-        case 'invigilator':
-          targetPath = '/proctor';
-          break;
-        default:
-          targetPath = '/dashboard';
-      }
-      
-      // Only navigate if we're not already on the target path
-      if (currentPath !== targetPath && !currentPath.startsWith(targetPath)) {
-        navigate(targetPath, { replace: true });
-      }
-    }
-  }, [user, navigate]);
+    // Do not clear localStorage on mount. Instead, if you want to force a fresh session,
+    // call logout() explicitly (e.g., a "Clear session" button).
+    // This prevents auto-clearing while the AuthProvider is still verifying an HttpOnly cookie.
+    setUsername('');
+    setPassword('');
+    setError('');
+  }, []);
 
   const handleRoleChange = (event, newRole) => {
     if (newRole !== null) {
@@ -96,13 +52,22 @@ function StaffLogin() {
       const result = await login({ username, password, role });
       if (!result.success) {
         let errorMessage = result.error || 'Login failed';
-        if (result.status === 401) {
-          errorMessage = 'Invalid username or password. Please try again.';
-        } else if (result.status === 500) {
-          errorMessage = 'Server error. Please try again later.';
-        }
+        if (result.status === 401) errorMessage = 'Invalid username or password. Please try again.';
+        if (result.status >= 500) errorMessage = 'Server error. Please try again later.';
         setError(errorMessage);
+        return;
       }
+
+      // Successful login — navigate to role-specific page immediately
+      const currentRole = result.user?.role || role;
+      let targetPath = '/';
+      switch (currentRole) {
+        case 'admin': targetPath = '/admin'; break;
+        case 'teacher': targetPath = '/teacher'; break;
+        case 'invigilator': targetPath = '/proctor'; break;
+        default: targetPath = '/dashboard';
+      }
+      navigate(targetPath, { replace: true });
     } catch (err) {
       setError('An unexpected error occurred. Please try again.');
     } finally {

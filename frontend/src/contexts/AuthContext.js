@@ -14,6 +14,7 @@ export const AuthProvider = ({ children }) => {
   const sessionTimeoutRef = useRef(null);
   const authCheckInProgressRef = useRef(false);
   const loginInProgressRef = useRef(false);
+  const loginControllerRef = useRef(null);
   
   const navigate = useNavigate();
   const location = useLocation();
@@ -377,9 +378,17 @@ export const AuthProvider = ({ children }) => {
       };
     } finally {
       loginInProgressRef.current = false;
+      loginControllerRef.current = null;
       setLoading(false);
     }
-  }, [clearAuthData, navigate]); // Added dependencies for useCallback
+  }, [clearAuthData, navigate]);
+
+  // Cleanup login controller on unmount
+  useEffect(() => {
+    return () => {
+      loginControllerRef.current?.abort?.();
+    };
+  }, []); // Added dependencies for useCallback
 
   const logout = useCallback(async (options = {}) => {
     const { silent = false, redirect = true } = options;

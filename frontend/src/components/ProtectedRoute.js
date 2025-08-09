@@ -26,37 +26,25 @@ export const ProtectedRoute = ({ children, requiredRole = null }) => {
   
   // Verify session on mount and when auth state changes
   useEffect(() => {
-    // Skip if we've already attempted verification
-    if (verificationAttempted.current) {
-      return;
-    }
+    if (verificationAttempted.current) return;
+    // only attempt silent login after global auth check finished
+    if (loading) return;
 
-    // Mark that we've attempted verification
     verificationAttempted.current = true;
-    
-    // If we're not authenticated, try silent login if we have a user in localStorage
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      console.log('Attempting silent login from ProtectedRoute');
-      silentLogin(JSON.parse(storedUser))
-        .then(result => {
-          if (!result.success) {
-            console.log('Silent login failed:', result.error);
-            // Only set error if we're still not authenticated
-            if (!isAuthenticated) {
-              setVerificationError('Session expired. Please log in again.');
-            }
+
+    if (!isAuthenticated) {
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        silentLogin(JSON.parse(storedUser)).then(result => {
+          if (!result.success && !isAuthenticated) {
+            setVerificationError('Session expired. Please log in again.');
           }
-        })
-        .catch(error => {
-          console.error('Error during silent login:', error);
-          if (!isAuthenticated) {
-            setVerificationError('Failed to verify session. Please log in again.');
-          }
+        }).catch(() => {
+          if (!isAuthenticated) setVerificationError('Failed to verify session. Please log in again.');
         });
-    } else if (!isAuthenticated) {
-      // No stored user and not authenticated, set error to trigger redirect
-      setVerificationError('No active session found. Please log in.');
+      } else {
+        setVerificationError('No active session found. Please log in.');
+      }
     }
   }, [isAuthenticated, silentLogin]);
 
