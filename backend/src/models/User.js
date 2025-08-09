@@ -49,6 +49,21 @@ class User extends Model {
     return this.getValidationRules(method);
   }
 
+  // Define model associations
+  static associate(models) {
+    // A User (teacher) can have many TeacherClassSubject assignments
+    User.hasMany(models.TeacherClassSubject, {
+      foreignKey: 'teacherId',
+      as: 'teacherAssignments'
+    });
+    
+    // A User can belong to a Class (for students)
+    User.belongsTo(models.Class, {
+      foreignKey: 'classId',
+      as: 'class'
+    });
+  }
+
   // Static method for validation rules
   static getValidationRules(method) {
     switch (method) {

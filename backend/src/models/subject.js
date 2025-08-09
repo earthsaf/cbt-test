@@ -15,5 +15,14 @@ module.exports = (sequelize, DataTypes) => {
     tableName: 'Subjects',
     timestamps: true
   });
+
+  Subject.associate = function(models) {
+    // A Subject can have many TeacherClassSubject assignments
+    Subject.hasMany(models.TeacherClassSubject, {
+      foreignKey: 'subjectId',
+      as: 'teacherAssignments'
+    });
+  };
+  
   return Subject;
 };

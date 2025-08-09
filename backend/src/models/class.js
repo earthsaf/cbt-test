@@ -30,6 +30,12 @@ module.exports = (sequelize, DataTypes) => {
         role: 'student'
       }
     });
+    
+    // A Class can have many TeacherClassSubject assignments
+    Class.hasMany(models.TeacherClassSubject, {
+      foreignKey: 'classId',
+      as: 'teacherAssignments'
+    });
   };
 
   return Class;
