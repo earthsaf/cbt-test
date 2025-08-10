@@ -17,19 +17,32 @@ import {
   Visibility as VisibilityIcon
 } from '@mui/icons-material';
 import { Bar } from 'react-chartjs-2';
+import { chartOptions } from '../utils/chartConfig';
 import { userSelect } from '../utils/styles';
 import api from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import dayjs from 'dayjs';
 
-// Tab labels
-const tabs = ['Users', 'Classes', 'Subjects', 'Exams', 'Analytics', 'Settings'];
+// Tab configuration with IDs and labels
+const tabConfig = [
+  { id: 'users', label: 'Users' },
+  { id: 'classes', label: 'Classes' },
+  { id: 'subjects', label: 'Subjects' },
+  { id: 'exams', label: 'Exams' },
+  { id: 'analytics', label: 'Analytics' },
+  { id: 'settings', label: 'Settings' }
+];
 
 function AdminPanel() {
   // Router and auth
   const [searchParams, setSearchParams] = useSearchParams();
-  const initialTab = parseInt(searchParams.get('tab')) || parseInt(localStorage.getItem('adminActiveTab')) || 0;
+  const initialTab = Math.min(
+    parseInt(searchParams.get('tab'), 10) || 
+    parseInt(localStorage.getItem('adminActiveTab'), 10) || 
+    0, 
+    tabConfig.length - 1
+  );
   const [tab, setTab] = useState(initialTab);
   const navigate = useNavigate();
   const { logout } = useAuth();
@@ -71,20 +84,26 @@ function AdminPanel() {
   const [userRoleFilter, setUserRoleFilter] = useState('all');
   const [examSearch, setExamSearch] = useState('');
 
-  // Track if component is mounted to prevent state updates after unmount
+  // Track if component is mounted and manage request cancellation
   const isMounted = React.useRef(true);
+  const abortControllerRef = React.useRef(new AbortController());
 
-  // Load initial data
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
-      // Cleanup function to set isMounted to false when component unmounts
       isMounted.current = false;
+      // Cancel any pending requests on unmount
+      abortControllerRef.current.abort();
     };
   }, []);
 
-  // Function to load all data
+  // Function to load all data with proper request cancellation
   const loadAllData = React.useCallback(async () => {
     if (!isMounted.current) return;
+    
+    // Cancel any existing requests
+    abortControllerRef.current.abort();
+    abortControllerRef.current = new AbortController();
     
     setIsLoading(true);
     const startTime = Date.now();
@@ -102,8 +121,9 @@ function AdminPanel() {
       
       console.log('[AdminPanel] Fetching endpoints:', endpoints);
       
-      // Add timestamp to prevent caching
+      // Add timestamp to prevent caching and signal for cancellation
       const timestamp = new Date().getTime();
+      const signal = abortControllerRef.current.signal;
       
       // Process each response with more detailed error info
       const processResponse = (response, type) => {
@@ -123,13 +143,19 @@ function AdminPanel() {
         }
       };
       
-      // Load all data in parallel with individual error handling
+      // Load all data in parallel with individual error handling and cancellation support
       const [usersRes, classesRes, subjectsRes, assignmentsRes, examsRes] = await Promise.allSettled([
-        api.get(endpoints[0], { params: { _t: timestamp } })
-          .catch(err => { 
-            console.error(`[AdminPanel] Error in ${endpoints[0]}:`, err.response || err);
-            throw { type: 'users', error: err }; 
-          }),
+        api.get(endpoints[0], { 
+          params: { _t: timestamp },
+          signal
+        }).catch(err => { 
+          if (err.name === 'CanceledError') {
+            console.log('[AdminPanel] Users request was cancelled');
+            return null;
+          }
+          console.error(`[AdminPanel] Error in ${endpoints[0]}:`, err.response || err);
+          throw { type: 'users', error: err }; 
+        }),
           
         api.get(endpoints[1], { params: { _t: timestamp } })
           .catch(err => { 
@@ -208,11 +234,11 @@ function AdminPanel() {
     loadAllData();
   };
 
-  // Handle tab change
+  // Handle tab change with proper string conversion
   const handleTabChange = (event, newValue) => {
     setTab(newValue);
-    localStorage.setItem('adminActiveTab', newValue);
-    setSearchParams({ tab: newValue });
+    localStorage.setItem('adminActiveTab', newValue.toString());
+    setSearchParams({ tab: newValue.toString() });
   };
 
   // User management
@@ -251,10 +277,10 @@ function AdminPanel() {
   const handleDeleteUser = async () => {
     if (!userToDelete) return;
     
+    setDeletingUser(true);
     try {
       await api.delete(`/admin/users/${userToDelete}`);
       setUsers(users.filter(user => user.id !== userToDelete));
-      
       setSnack({
         open: true,
         message: 'User deleted successfully',
@@ -494,40 +520,30 @@ function AdminPanel() {
     exam.description?.toLowerCase().includes(examSearch.toLowerCase())
   );
 
-  if (isLoading) {
+  // Render tab panel with proper ARIA attributes
+  const TabPanel = ({ children, value, index, ...other }) => {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
-        <CircularProgress />
-        <Typography variant="body1" sx={{ ml: 2 }}>Loading admin data...</Typography>
-      </Box>
+      <div
+        role="tabpanel"
+        hidden={value !== index}
+        id={`admin-tabpanel-${index}`}
+        aria-labelledby={`admin-tab-${index}`}
+        {...other}
+      >
+        {value === index && (
+          <Box sx={{ p: 3 }}>
+            {children}
+          </Box>
+        )}
+      </div>
     );
-  }
+  };
 
-  return (
-    <Box sx={{ flexGrow: 1, ...userSelect, p: 3 }}>
-      {/* App Bar with Tabs */}
-      <AppBar position="static" color="default" sx={{ mb: 3, borderRadius: 1 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Tabs 
-            value={tab} 
-            onChange={handleTabChange}
-            aria-label="admin navigation tabs"
-            sx={{ flexGrow: 1 }}
-          >
-            {tabs.map((tab, index) => (
-              <Tab key={index} label={tab} id={`admin-tab-${index}`} />
-            ))}
-          </Tabs>
-          <Button color="inherit" onClick={logout} sx={{ mr: 2 }}>
-            Logout
-          </Button>
-        </Box>
-      </AppBar>
-
-      {/* Tab Panels */}
-      <Box sx={{ mt: 2 }}>
-        {/* Users Tab */}
-        {tab === 0 && (
+  // Render tab content based on selected tab
+  const renderTabContent = () => {
+    switch (tab) {
+      case 0:
+        return (
           <Box>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
               <Typography variant="h5" component="h2" gutterBottom>
@@ -640,10 +656,9 @@ function AdminPanel() {
               </Table>
             </TableContainer>
           </Box>
-        )}
-
-        {/* Classes Tab */}
-        {tab === 1 && (
+        );
+      case 1:
+        return (
           <Box>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
               <Typography variant="h5" component="h2" gutterBottom>
@@ -713,10 +728,9 @@ function AdminPanel() {
               </Table>
             </TableContainer>
           </Box>
-        )}
-
-        {/* Subjects Tab */}
-        {tab === 2 && (
+        );
+      case 2:
+        return (
           <Box p={3}>
             <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
               <div>
@@ -932,10 +946,9 @@ function AdminPanel() {
               </DialogActions>
             </Dialog>
           </Box>
-        )}
-
-        {/* Exams Tab */}
-        {tab === 3 && (
+        );
+      case 3:
+        return (
           <Grid container spacing={3}>
             {/* Exams List */}
             <Grid item xs={12} md={6}>
@@ -1106,10 +1119,9 @@ function AdminPanel() {
               )}
             </Grid>
           </Grid>
-        )}
-
-        {/* Analytics Tab */}
-        {tab === 4 && (
+        );
+      case 4:
+        return (
           <Box>
             <Typography variant="h5" component="h2" gutterBottom>
               Exam Analytics
@@ -1187,10 +1199,9 @@ function AdminPanel() {
               </Grid>
             </Box>
           </Box>
-        )}
-
-        {/* Settings Tab */}
-        {tab === 5 && (
+        );
+      case 5:
+        return (
           <Box>
             <Typography variant="h5" component="h2" gutterBottom>
               System Settings
@@ -1247,7 +1258,59 @@ function AdminPanel() {
               </Box>
             </Card>
           </Box>
-        )}
+        );
+      default:
+        return <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+          <Typography variant="h5" component="h2" gutterBottom>
+            Invalid tab selected
+          </Typography>
+        </Box>;
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
+        <CircularProgress />
+        <Typography variant="body1" sx={{ ml: 2 }}>Loading admin data...</Typography>
+      </Box>
+    );
+  }
+
+  return (
+    <Box sx={{ flexGrow: 1, ...userSelect, p: 3 }}>
+      {/* App Bar with Tabs */}
+      <AppBar position="static" color="default" sx={{ mb: 3, borderRadius: 1 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Tabs 
+            value={tab} 
+            onChange={handleTabChange}
+            aria-label="admin navigation tabs"
+            sx={{ flexGrow: 1 }}
+          >
+            {tabConfig.map((tab, index) => (
+              <Tab key={index} label={tab.label} id={`admin-tab-${index}`} />
+            ))}
+          </Tabs>
+          <Button color="inherit" onClick={logout} sx={{ mr: 2 }}>
+            Logout
+          </Button>
+        </Box>
+      </AppBar>
+
+      {/* Tab Panels */}
+      <Box sx={{ mt: 2 }}>
+        {tabConfig.map((tabItem, index) => (
+          <TabPanel key={tabItem.id} value={tab} index={index}>
+            {isLoading ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+                <CircularProgress aria-label="Loading data" />
+              </Box>
+            ) : (
+              renderTabContent()
+            )}
+          </TabPanel>
+        ))}
       </Box>
 
       {/* Edit User Dialog */}
@@ -1268,6 +1331,7 @@ function AdminPanel() {
               onChange={(e) => setEditUser({...editUser, name: e.target.value})}
               fullWidth
               size="small"
+              required
             />
             <TextField
               label="Email"
@@ -1322,6 +1386,19 @@ function AdminPanel() {
                 ))}
               </Select>
             </FormControl>
+            
+            {/* Telegram ID Field - Only shown for teachers */}
+            {editUser?.role === 'teacher' && (
+              <TextField
+                label="Telegram ID"
+                value={editUser?.telegramId || ''}
+                onChange={(e) => setEditUser({...editUser, telegramId: e.target.value})}
+                fullWidth
+                size="small"
+                required={editUser?.role === 'teacher'}
+                helperText={editUser?.role === 'teacher' ? "Required for teacher notifications" : ""}
+              />
+            )}
           </Box>
         </DialogContent>
         <DialogActions>
@@ -1335,22 +1412,29 @@ function AdminPanel() {
       {/* Delete Confirmation Dialog */}
       <Dialog
         open={deleteConfirmOpen}
-        onClose={() => setDeleteConfirmOpen(false)}
+        onClose={() => !deletingUser && setDeleteConfirmOpen(false)}
+        aria-labelledby="delete-dialog-title"
+        aria-describedby="delete-dialog-description"
       >
-        <DialogTitle>Confirm Delete</DialogTitle>
+        <DialogTitle id="delete-dialog-title">Confirm Delete</DialogTitle>
         <DialogContent>
-          <Typography>Are you sure you want to delete this user?</Typography>
-          <Typography color="error" variant="body2" sx={{ mt: 1 }}>
-            This action cannot be undone and will permanently delete the user account.
+          <Typography id="delete-dialog-description">
+            Are you sure you want to delete this user? This action cannot be undone.
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteConfirmOpen(false)}>Cancel</Button>
+          <Button 
+            onClick={() => setDeleteConfirmOpen(false)} 
+            disabled={deletingUser}
+          >
+            Cancel
+          </Button>
           <Button 
             onClick={handleDeleteUser} 
-            color="error" 
+            color="error"
             variant="contained"
             disabled={deletingUser}
+            startIcon={deletingUser ? <CircularProgress size={20} /> : null}
           >
             {deletingUser ? 'Deleting...' : 'Delete'}
           </Button>

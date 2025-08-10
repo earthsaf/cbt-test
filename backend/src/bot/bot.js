@@ -1,5 +1,6 @@
 const TelegramBot = require('node-telegram-bot-api');
 const { User, TeacherClassSubject, Class, Subject, Exam, Question, Session } = require('../models');
+const notificationService = require('../services/notificationService');
 const mammoth = require('mammoth');
 const fs = require('fs');
 const path = require('path');
@@ -53,9 +54,12 @@ function parseAnswers(text) {
   return answers;
 }
 
-function setupBot() {
+function setupBot(io) {
   if (bot) return;
   bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
+  
+  // Set up the bot instance in the notification service
+  notificationService.setBotInstance(bot);
 
   bot.onText(/\/start/, (msg) => {
     const welcomeMessage = `🎉 Welcome to the CBT System Bot!
@@ -240,34 +244,26 @@ Need help? Contact your system administrator.`;
         return;
       }
       
-      // Check if exam has been started
+      // Prevent deletion of started exams
       if (selectedExam.startTime) {
-        bot.sendMessage(msg.chat.id, `⚠️ Warning: This exam has already been started. Deleting it will remove all student progress and results. Are you sure you want to delete "${selectedExam.title}"?`, {
-          reply_markup: {
-            keyboard: [['Yes, delete it'], ['No, cancel']],
-            one_time_keyboard: true,
-            resize_keyboard: true
-          }
-        });
-        userStates[msg.from.id] = { 
-          step: 'awaiting_delete_confirmation', 
-          selectedExam,
-          teacherId: state.teacherId 
-        };
-      } else {
-        bot.sendMessage(msg.chat.id, `Are you sure you want to delete "${selectedExam.title}"?`, {
-          reply_markup: {
-            keyboard: [['Yes, delete it'], ['No, cancel']],
-            one_time_keyboard: true,
-            resize_keyboard: true
-          }
-        });
-        userStates[msg.from.id] = { 
-          step: 'awaiting_delete_confirmation', 
-          selectedExam,
-          teacherId: state.teacherId 
-        };
+        bot.sendMessage(msg.chat.id, `❌ Cannot delete "${selectedExam.title}" because it has already been started.\n\nStarted exams cannot be deleted to maintain exam integrity.\n\nUse /list to view other exams you can manage.`);
+        delete userStates[msg.from.id];
+        return;
       }
+      
+      // For exams that haven't started, ask for confirmation
+      bot.sendMessage(msg.chat.id, `Are you sure you want to delete "${selectedExam.title}"?`, {
+        reply_markup: {
+          keyboard: [['Yes, delete it'], ['No, cancel']],
+          one_time_keyboard: true,
+          resize_keyboard: true
+        }
+      });
+      userStates[msg.from.id] = { 
+        step: 'awaiting_delete_confirmation', 
+        selectedExam,
+        teacherId: state.teacherId 
+      };
       return;
     }
     
@@ -276,22 +272,19 @@ Need help? Contact your system administrator.`;
         try {
           const { selectedExam } = state;
           
-          // Check if there are any active sessions for this exam
-          const activeSessions = await Session.count({ where: { ExamId: selectedExam.id } });
+          // Final check to ensure exam hasn't been started since selection
+          const currentExamState = await Exam.findByPk(selectedExam.id);
+          if (currentExamState.startTime) {
+            bot.sendMessage(msg.chat.id, `❌ Cannot delete "${selectedExam.title}" because it has been started by another user.`);
+            delete userStates[msg.from.id];
+            return;
+          }
           
+          // Check if there are any active sessions (shouldn't happen for unstarted exams, but just in case)
+          const activeSessions = await Session.count({ where: { ExamId: selectedExam.id } });
           if (activeSessions > 0) {
-            bot.sendMessage(msg.chat.id, `⚠️ Warning: This exam has ${activeSessions} active student session(s). Deleting it will immediately terminate these sessions and lose all progress. Are you absolutely sure?`, {
-              reply_markup: {
-                keyboard: [['Yes, delete anyway'], ['No, cancel']],
-                one_time_keyboard: true,
-                resize_keyboard: true
-              }
-            });
-            userStates[msg.from.id] = { 
-              step: 'awaiting_final_delete_confirmation', 
-              selectedExam,
-              teacherId: state.teacherId 
-            };
+            bot.sendMessage(msg.chat.id, `❌ Cannot delete "${selectedExam.title}" because it has active student sessions.`);
+            delete userStates[msg.from.id];
             return;
           }
           
@@ -321,6 +314,8 @@ Need help? Contact your system administrator.`;
     }
     
     if (state.step === 'awaiting_final_delete_confirmation') {
+      bot.sendMessage(msg.chat.id, 'Invalid operation. Please try again.');
+      delete userStates[msg.from.id];
       if (msg.text === 'Yes, delete anyway') {
         try {
           const { selectedExam } = state;
@@ -404,72 +399,158 @@ Need help? Contact your system administrator.`;
       return;
     }
     if (state.step === 'awaiting_question_text') {
-      userStates[msg.from.id].currentText = msg.text;
+      const questionText = msg.text.trim();
+      if (!questionText) {
+        bot.sendMessage(msg.chat.id, 'Question text cannot be empty. Please enter the question:');
+        return;
+      }
+      userStates[msg.from.id].currentText = questionText;
       userStates[msg.from.id].step = 'awaiting_options';
-      bot.sendMessage(msg.chat.id, 'What are the options? (e.g. a.1 b.2 c.3 d.4)');
+      bot.sendMessage(msg.chat.id, 
+        'Enter the options in this format (each option on a new line):\n' +
+        'a. First option\n' +
+        'b. Second option\n' +
+        'c. Third option\n' +
+        'd. Fourth option'
+      );
       return;
     }
     if (state.step === 'awaiting_options') {
-      userStates[msg.from.id].currentOptions = msg.text;
+      const optionsText = msg.text.trim();
+      const options = {};
+      const optionLines = optionsText.split('\n').map(line => line.trim()).filter(Boolean);
+      
+      // Parse options from the message
+      optionLines.forEach(line => {
+        const match = line.match(/^([a-d])\.?\s*(.+)$/i);
+        if (match) {
+          const key = match[1].toLowerCase();
+          options[key] = match[2].trim();
+        }
+      });
+      
+      // Validate we have exactly 4 options (a, b, c, d)
+      const validOptions = ['a', 'b', 'c', 'd'];
+      const missingOptions = validOptions.filter(opt => !options[opt]);
+      
+      if (missingOptions.length > 0) {
+        bot.sendMessage(msg.chat.id, 
+          `Please provide all 4 options (a, b, c, d). Missing: ${missingOptions.join(', ')}\n` +
+          'Example format:\n' +
+          'a. First option\n' +
+          'b. Second option\n' +
+          'c. Third option\n' +
+          'd. Fourth option'
+        );
+        return;
+      }
+      
+      userStates[msg.from.id].currentOptions = options;
       userStates[msg.from.id].step = 'awaiting_answer';
-      bot.sendMessage(msg.chat.id, 'What is the correct answer? (a/b/c/d)');
+      
+      // Show the question and options for confirmation
+      const questionPreview = `*Question ${userStates[msg.from.id].current}:* ${userStates[msg.from.id].currentText}\n\n` +
+        'Options:\n' +
+        Object.entries(options)
+          .map(([key, value]) => `${key.toUpperCase()}. ${value}`)
+          .join('\n') +
+        '\n\nPlease enter the correct answer (a, b, c, or d):';
+      
+      bot.sendMessage(msg.chat.id, questionPreview, { parse_mode: 'Markdown' });
       return;
     }
     if (state.step === 'awaiting_answer') {
       const answer = msg.text.trim().toLowerCase();
       if (!['a', 'b', 'c', 'd'].includes(answer)) {
-        bot.sendMessage(msg.chat.id, 'Please enter a valid answer (a, b, c, or d).');
+        bot.sendMessage(msg.chat.id, '❌ Invalid answer. Please enter a, b, c, or d.');
         return;
       }
-      // Parse options
-      const opts = {};
-      const optMatch = userStates[msg.from.id].currentOptions.match(/a\.?\s*([^bcd]*)b\.?\s*([^cd]*)c\.?\s*([^d]*)d\.?\s*(.*)/i);
-      if (optMatch) {
-        opts.a = optMatch[1].trim();
-        opts.b = optMatch[2].trim();
-        opts.c = optMatch[3].trim();
-        opts.d = optMatch[4].trim();
-      } else {
-        bot.sendMessage(msg.chat.id, 'Could not parse options. Please use the format: a.1 b.2 c.3 d.4');
-        userStates[msg.from.id].step = 'awaiting_options';
-        return;
-      }
+      
+      // Add the question to our list
       userStates[msg.from.id].questions.push({
         number: userStates[msg.from.id].current,
         text: userStates[msg.from.id].currentText,
-        options: opts,
+        options: userStates[msg.from.id].currentOptions,
         answer,
       });
+      
+      // Show confirmation of the added question
+      const currentQuestion = userStates[msg.from.id].current;
+      const totalQuestions = userStates[msg.from.id].questionCount;
+      
+      if (currentQuestion < totalQuestions) {
+        bot.sendMessage(msg.chat.id, `✅ Question ${currentQuestion} saved!`);
+      }
       const next = userStates[msg.from.id].current + 1;
       if (next > userStates[msg.from.id].questionCount) {
         // Save to DB for selected assignment
         const { selected, questions } = userStates[msg.from.id];
-        // Find or create the exam for this class/subject/teacher
-        let exam = await Exam.findOne({
-          where: {
-            ClassId: selected.classId,
-            subjectId: selected.subjectId,
-            createdBy: selected.teacherId
+        
+        try {
+          // Start a transaction to ensure all or nothing is saved
+          const transaction = await db.sequelize.transaction();
+          
+          try {
+            // Find or create the exam for this class/subject/teacher
+            const [exam, created] = await Exam.findOrCreate({
+              where: {
+                ClassId: selected.classId,
+                subjectId: selected.subjectId,
+                createdBy: selected.teacherId,
+                status: 'draft' // Only find draft exams
+              },
+              defaults: {
+                title: `Exam for ${selected.Class.name} - ${selected.Subject.name}`,
+                status: 'draft',
+                startTime: null,
+                endTime: null
+              },
+              transaction
+            });
+            
+            // If we found an existing exam, clear its questions first
+            if (!created) {
+              await Question.destroy({
+                where: { ExamId: exam.id },
+                transaction
+              });
+            }
+            
+            // Save each question
+            for (const q of questions) {
+              await Question.create({
+                ExamId: exam.id,
+                text: q.text,
+                options: q.options,
+                answer: q.answer,
+                type: 'mcq',
+                marks: 1 // Default to 1 mark per question
+              }, { transaction });
+            }
+            
+            // Commit the transaction
+            await transaction.commit();
+            
+            // Send success message with exam details
+            const examDetails = `*Exam Details*\n` +
+              `*Class:* ${selected.Class.name}\n` +
+              `*Subject:* ${selected.Subject.name}\n` +
+              `*Questions:* ${questions.length}\n` +
+              `*Status:* Draft\n\n` +
+              `You can now start this exam from the admin panel.`;
+              
+            bot.sendMessage(msg.chat.id, `✅ *Upload Successful!*\n\n${examDetails}`, { parse_mode: 'Markdown' });
+            
+          } catch (error) {
+            // If anything fails, rollback the transaction
+            await transaction.rollback();
+            throw error; // Re-throw to be caught by the outer try-catch
           }
-        });
-        if (!exam) {
-          exam = await Exam.create({
-            ClassId: selected.classId,
-            subjectId: selected.subjectId,
-            createdBy: selected.teacherId,
-            title: `Exam for ${selected.Class.name} - ${selected.Subject.name}`,
-            status: 'draft'
-          });
-        }
-        // Save each question
-        for (const q of questions) {
-          await Question.create({
-            ExamId: exam.id,
-            text: q.text,
-            options: q.options,
-            answer: q.answer,
-            type: 'mcq'
-          });
+          
+        } catch (error) {
+          console.error('Error saving exam:', error);
+          bot.sendMessage(msg.chat.id, '❌ An error occurred while saving the exam. Please try again.');
+          return;
         }
         bot.sendMessage(msg.chat.id, `Upload successful! ${questions.length} questions saved for ${selected.Class.name} - ${selected.Subject.name}.`);
         delete userStates[msg.from.id];

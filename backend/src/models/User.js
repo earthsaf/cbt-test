@@ -120,6 +120,7 @@ class User extends Model {
   // Initialize the model
   static initialize(sequelize) {
     return this.init({
+      // Basic info
       id: {
         type: DataTypes.UUID,
         defaultValue: DataTypes.UUIDV4,
@@ -131,6 +132,15 @@ class User extends Model {
         unique: true,
         validate: {
           isEmail: true
+        }
+      },
+      telegramId: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        unique: true,
+        field: 'telegram_id',
+        validate: {
+          isNumeric: true
         }
       },
       password: {
