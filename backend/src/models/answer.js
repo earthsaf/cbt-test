@@ -25,23 +25,31 @@ module.exports = (sequelize, DataTypes) => {
       references: {
         model: 'Exams',
         key: 'id'
-      }
+      },
+      onDelete: 'CASCADE',
+      onUpdate: 'CASCADE'
     },
-    QuestionId: {
+    questionId: {
       type: DataTypes.INTEGER,
       allowNull: false,
+      field: 'questionId',
       references: {
         model: 'Questions',
         key: 'id'
-      }
+      },
+      onDelete: 'CASCADE',
+      onUpdate: 'CASCADE'
     },
-    UserId: {
+    userId: {
       type: DataTypes.UUID,
       allowNull: false,
+      field: 'userId',
       references: {
         model: 'Users',
         key: 'id'
-      }
+      },
+      onDelete: 'CASCADE',
+      onUpdate: 'CASCADE'
     }
   }, {
     tableName: 'Answers',
@@ -59,14 +67,16 @@ module.exports = (sequelize, DataTypes) => {
     
     // An Answer belongs to a Question
     Answer.belongsTo(models.Question, {
-      foreignKey: 'QuestionId',
-      as: 'Question'
+      foreignKey: 'questionId',
+      as: 'question',
+      targetKey: 'id'
     });
     
     // An Answer belongs to a User
     Answer.belongsTo(models.User, {
-      foreignKey: 'UserId',
-      as: 'User'
+      foreignKey: 'userId',
+      as: 'user',
+      targetKey: 'id'
     });
   };
 
