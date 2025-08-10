@@ -173,16 +173,16 @@ exports.submitAnswers = async (req, res) => {
 exports.examHistory = async (req, res) => {
   try {
     const answers = await Answer.findAll({
-      where: { UserId: req.user.id },
+      where: { userId: req.user.id },
       include: [
         {
           model: Exam,
-          as: 'Exam',
+          as: 'exam',
           attributes: ['id', 'title', 'startTime', 'durationMinutes']
         },
         {
           model: Question,
-          as: 'Question',
+          as: 'question',
           attributes: ['id', 'text', 'options', 'answer']
         }
       ],
@@ -194,36 +194,36 @@ exports.examHistory = async (req, res) => {
     // Group by exam
     const history = {};
     answers.forEach(a => {
-      if (!a.Question) return; // Skip if Question is missing
+      if (!a.question) return; // Skip if Question is missing
       
-      if (!history[a.ExamId]) {
-        history[a.ExamId] = { 
-          exam: a.Exam, 
+      if (!history[a.examId]) {
+        history[a.examId] = { 
+          exam: a.exam, 
           answers: [], 
           score: 0, 
           total: 0 
         };
       }
       
-      const correctAnswer = Array.isArray(a.Question.options) 
-        ? a.Question.options[a.Question.answer] 
-        : (a.Question.options && typeof a.Question.answer !== 'undefined') 
-          ? Object.values(a.Question.options)[a.Question.answer]
+      const correctAnswer = Array.isArray(a.question.options) 
+        ? a.question.options[a.question.answer] 
+        : (a.question.options && typeof a.question.answer !== 'undefined') 
+          ? Object.values(a.question.options)[a.question.answer]
           : '';
           
       const isCorrect = a.answer === correctAnswer;
       
-      history[a.ExamId].answers.push({
-        questionId: a.Question.id,
-        question: a.Question.text,
+      history[a.examId].answers.push({
+        questionId: a.question.id,
+        question: a.question.text,
         yourAnswer: a.answer || 'Not answered',
         correct: isCorrect,
         correctAnswer: correctAnswer || 'No correct answer specified'
       });
       
-      history[a.ExamId].total += 1;
+      history[a.examId].total += 1;
       if (isCorrect) {
-        history[a.ExamId].score += 1;
+        history[a.examId].score += 1;
       }
     });
     

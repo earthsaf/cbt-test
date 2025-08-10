@@ -18,9 +18,10 @@ module.exports = (sequelize, DataTypes) => {
       defaultValue: false
     },
     // Foreign keys
-    ExamId: {
+    examId: {
       type: DataTypes.INTEGER,
       allowNull: false,
+      field: 'examId',
       references: {
         model: 'Exams',
         key: 'id'
@@ -51,8 +52,9 @@ module.exports = (sequelize, DataTypes) => {
   Answer.associate = function(models) {
     // An Answer belongs to an Exam
     Answer.belongsTo(models.Exam, {
-      foreignKey: 'ExamId',
-      as: 'Exam'
+      foreignKey: 'examId',
+      as: 'exam',
+      targetKey: 'id'
     });
     
     // An Answer belongs to a Question

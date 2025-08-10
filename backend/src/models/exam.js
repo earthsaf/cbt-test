@@ -66,7 +66,7 @@ module.exports = (sequelize, DataTypes) => {
     
     // An Exam has many Answers
     Exam.hasMany(models.Answer, {
-      foreignKey: 'ExamId',
+      foreignKey: 'examId',
       as: 'answers'
     });
   };
