@@ -171,26 +171,79 @@ exports.submitAnswers = async (req, res) => {
 
 // Exam history for a user
 exports.examHistory = async (req, res) => {
-  const answers = await Answer.findAll({
-    where: { UserId: req.user.id },
-    include: [Exam, Question],
-  });
-  // Group by exam
-  const history = {};
-  answers.forEach(a => {
-    if (!a.Question) return; // Skip if Question is missing
-    if (!history[a.ExamId]) history[a.ExamId] = { exam: a.Exam, answers: [], score: 0, total: 0 };
-    history[a.ExamId].answers.push({
-      question: a.Question.text,
-      yourAnswer: a.answer,
-      correct: a.answer === (Array.isArray(a.Question.options) ? a.Question.options[a.Question.answer] : Object.values(a.Question.options || {})[a.Question.answer]),
-      correctAnswer: (Array.isArray(a.Question.options) ? a.Question.options[a.Question.answer] : Object.values(a.Question.options || {})[a.Question.answer]),
+  try {
+    const answers = await Answer.findAll({
+      where: { UserId: req.user.id },
+      include: [
+        {
+          model: Exam,
+          as: 'Exam',
+          attributes: ['id', 'title', 'startTime', 'durationMinutes']
+        },
+        {
+          model: Question,
+          as: 'Question',
+          attributes: ['id', 'text', 'options', 'answer']
+        }
+      ],
+      order: [
+        ['createdAt', 'DESC']
+      ]
     });
-    history[a.ExamId].total += 1;
-    const correctAnswerText = Array.isArray(a.Question.options) ? a.Question.options[a.Question.answer] : Object.values(a.Question.options || {})[a.Question.answer];
-    if (a.answer === correctAnswerText) history[a.ExamId].score += 1;
-  });
-  res.json(Object.values(history));
+    
+    // Group by exam
+    const history = {};
+    answers.forEach(a => {
+      if (!a.Question) return; // Skip if Question is missing
+      
+      if (!history[a.ExamId]) {
+        history[a.ExamId] = { 
+          exam: a.Exam, 
+          answers: [], 
+          score: 0, 
+          total: 0 
+        };
+      }
+      
+      const correctAnswer = Array.isArray(a.Question.options) 
+        ? a.Question.options[a.Question.answer] 
+        : (a.Question.options && typeof a.Question.answer !== 'undefined') 
+          ? Object.values(a.Question.options)[a.Question.answer]
+          : '';
+          
+      const isCorrect = a.answer === correctAnswer;
+      
+      history[a.ExamId].answers.push({
+        questionId: a.Question.id,
+        question: a.Question.text,
+        yourAnswer: a.answer || 'Not answered',
+        correct: isCorrect,
+        correctAnswer: correctAnswer || 'No correct answer specified'
+      });
+      
+      history[a.ExamId].total += 1;
+      if (isCorrect) {
+        history[a.ExamId].score += 1;
+      }
+    });
+    
+    // Calculate percentages and format response
+    const result = Object.values(history).map(examData => ({
+      ...examData,
+      percentage: examData.total > 0 
+        ? Math.round((examData.score / examData.total) * 100) 
+        : 0
+    }));
+    
+    res.json(result);
+    
+  } catch (error) {
+    console.error('Error fetching exam history:', error);
+    res.status(500).json({ 
+      error: 'Failed to load exam history',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
 };
 
 // Analytics for students and teachers
