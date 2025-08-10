@@ -71,143 +71,142 @@ function AdminPanel() {
   const [userRoleFilter, setUserRoleFilter] = useState('all');
   const [examSearch, setExamSearch] = useState('');
 
+  // Track if component is mounted to prevent state updates after unmount
+  const isMounted = React.useRef(true);
+
   // Load initial data
   useEffect(() => {
-    const loadData = async () => {
-      setIsLoading(true);
-      const startTime = Date.now();
-      console.log('Starting to load admin data...');
-      
-      try {
-        // Log which endpoints we're trying to fetch
-        const endpoints = ['/admin/users', '/admin/classes', '/admin/subjects', '/admin/teacher-assignments', '/admin/exams'];
-        console.log('Fetching endpoints:', endpoints);
-        
-        // Load all data in parallel with individual error handling
-        const [usersRes, classesRes, subjectsRes, assignmentsRes, examsRes] = await Promise.allSettled([
-          api.get(endpoints[0])
-            .then(res => {
-              console.log(`Successfully loaded ${endpoints[0]} in ${Date.now() - startTime}ms`);
-              return res;
-            })
-            .catch(err => { 
-              console.error(`Error in ${endpoints[0]}:`, err.response || err);
-              throw { type: 'users', error: err }; 
-            }),
-            
-          api.get(endpoints[1])
-            .then(res => {
-              console.log(`Successfully loaded ${endpoints[1]} in ${Date.now() - startTime}ms`);
-              return res;
-            })
-            .catch(err => { 
-              console.error(`Error in ${endpoints[1]}:`, err.response || err);
-              throw { type: 'classes', error: err }; 
-            }),
-            
-          api.get(endpoints[2])
-            .then(res => {
-              console.log(`Successfully loaded ${endpoints[2]} in ${Date.now() - startTime}ms`);
-              return res;
-            })
-            .catch(err => { 
-              console.error(`Error in ${endpoints[2]}:`, err.response || err);
-              throw { type: 'subjects', error: err };
-            }),
-            
-          api.get(endpoints[3])
-            .then(res => {
-              console.log(`Successfully loaded ${endpoints[3]} in ${Date.now() - startTime}ms`);
-              return res;
-            })
-            .catch(err => { 
-              console.error(`Error in ${endpoints[3]}:`, err.response || err);
-              throw { type: 'assignments', error: err };
-            }),
-            
-          api.get(endpoints[4])
-            .then(res => {
-              console.log(`Successfully loaded ${endpoints[4]} in ${Date.now() - startTime}ms`);
-              return res;
-            })
-            .catch(err => { 
-              console.error(`Error in ${endpoints[4]}:`, err.response || err);
-              // Add more detailed error info for debugging
-              if (err.response) {
-                console.error('Response data:', err.response.data);
-                console.error('Response status:', err.response.status);
-                console.error('Response headers:', err.response.headers);
-              } else if (err.request) {
-                console.error('No response received:', err.request);
-              } else {
-                console.error('Error message:', err.message);
-              }
-              throw { type: 'exams', error: err }; 
-            })
-        ]);
+    return () => {
+      // Cleanup function to set isMounted to false when component unmounts
+      isMounted.current = false;
+    };
+  }, []);
 
-        // Process each response with more detailed error info
-        const processResponse = (response, type) => {
-          if (response.status === 'fulfilled') {
-            console.log(`Successfully processed ${type} data`);
-            return response.value.data;
-          } else {
-            const error = response.reason?.error || {};
-            const status = error.response?.status || 'No status';
-            const message = error.response?.data?.message || error.message || 'Unknown error';
-            
-            console.error(`Error loading ${type}:`, {
-              status,
-              message
-            });
-            return [];
-          }
-        };
-        
-        const usersData = processResponse(usersRes, 'users');
-        const classesData = processResponse(classesRes, 'classes');
-        const subjectsData = processResponse(subjectsRes, 'subjects');
-        const assignmentsData = processResponse(assignmentsRes, 'assignments');
-        const examsData = processResponse(examsRes, 'exams');
-        
-        // Update state with the fetched data
+  // Function to load all data
+  const loadAllData = React.useCallback(async () => {
+    if (!isMounted.current) return;
+    
+    setIsLoading(true);
+    const startTime = Date.now();
+    console.log('[AdminPanel] Starting to load admin data...');
+    
+    try {
+      // Log which endpoints we're trying to fetch
+      const endpoints = [
+        '/admin/users', 
+        '/admin/classes', 
+        '/admin/subjects', 
+        '/admin/teacher-assignments', 
+        '/admin/exams'
+      ];
+      
+      console.log('[AdminPanel] Fetching endpoints:', endpoints);
+      
+      // Add timestamp to prevent caching
+      const timestamp = new Date().getTime();
+      
+      // Process each response with more detailed error info
+      const processResponse = (response, type) => {
+        if (response.status === 'fulfilled') {
+          console.log(`[AdminPanel] Successfully processed ${type} data`);
+          return response.value.data;
+        } else {
+          const error = response.reason?.error || {};
+          const status = error.response?.status || 'No status';
+          const message = error.response?.data?.message || error.message || 'Unknown error';
+          
+          console.error(`[AdminPanel] Error loading ${type}:`, {
+            status,
+            message
+          });
+          return [];
+        }
+      };
+      
+      // Load all data in parallel with individual error handling
+      const [usersRes, classesRes, subjectsRes, assignmentsRes, examsRes] = await Promise.allSettled([
+        api.get(endpoints[0], { params: { _t: timestamp } })
+          .catch(err => { 
+            console.error(`[AdminPanel] Error in ${endpoints[0]}:`, err.response || err);
+            throw { type: 'users', error: err }; 
+          }),
+          
+        api.get(endpoints[1], { params: { _t: timestamp } })
+          .catch(err => { 
+            console.error(`[AdminPanel] Error in ${endpoints[1]}:`, err.response || err);
+            throw { type: 'classes', error: err }; 
+          }),
+          
+        api.get(endpoints[2], { params: { _t: timestamp } })
+          .catch(err => { 
+            console.error(`[AdminPanel] Error in ${endpoints[2]}:`, err.response || err);
+            throw { type: 'subjects', error: err }; 
+          }),
+          
+        api.get(endpoints[3], { params: { _t: timestamp } })
+          .catch(err => { 
+            console.error(`[AdminPanel] Error in ${endpoints[3]}:`, err.response || err);
+            throw { type: 'assignments', error: err }; 
+          }),
+          
+        api.get(endpoints[4], { params: { _t: timestamp } })
+          .catch(err => { 
+            console.error(`[AdminPanel] Error in ${endpoints[4]}:`, err.response || err);
+            throw { type: 'exams', error: err }; 
+          })
+      ]);
+      
+      // Process responses
+      const usersData = processResponse(usersRes, 'users');
+      const classesData = processResponse(classesRes, 'classes');
+      const subjectsData = processResponse(subjectsRes, 'subjects');
+      const assignmentsData = processResponse(assignmentsRes, 'assignments');
+      const examsData = processResponse(examsRes, 'exams');
+      
+      // Update state with the fetched data if component is still mounted
+      if (isMounted.current) {
         setUsers(usersData);
         setClasses(classesData);
         setSubjects(subjectsData);
         setTeacherAssignments(assignmentsData);
         setExams(examsData);
         
-        console.log('Successfully processed users data');
-        console.log('Successfully processed classes data');
-        console.log('Successfully processed subjects data');
-        console.log('Successfully processed teacher assignments data');
-        console.log('Successfully processed exams data');
-        
-      } catch (error) {
-        console.error('Unexpected error in loadData:', {
-          error,
-          stack: error.stack,
-          response: error.response?.data
-        });
-        
+        console.log(`[AdminPanel] Finished loading all data in ${Date.now() - startTime}ms`);
+      }
+      
+    } catch (error) {
+      console.error('[AdminPanel] Error loading data:', {
+        error,
+        message: error.message,
+        stack: error.stack,
+        response: error.response?.data
+      });
+      
+      if (isMounted.current) {
         setSnack({
           open: true,
-          message: 'Failed to load data. Please check console for details and try again.',
+          message: `Error loading ${error.type || 'data'}. Please try again.`,
           severity: 'error',
           autoHideDuration: 10000
         });
-      } finally {
+      }
+    } finally {
+      if (isMounted.current) {
         setIsLoading(false);
       }
-    };
-    
-    loadData();
-    
-    // Cleanup function
-    return () => {
-      console.log('Cleaning up AdminPanel data loading');
-    };
-  }, [navigate]);
+    }
+  }, []);
+  
+  // Load data on component mount and when the tab changes
+  useEffect(() => {
+    loadAllData();
+  }, [loadAllData]);
+  
+  // Add a refresh button handler
+  const handleRefresh = () => {
+    console.log('[AdminPanel] Manual refresh triggered');
+    loadAllData();
+  };
 
   // Handle tab change
   const handleTabChange = (event, newValue) => {

@@ -256,14 +256,50 @@ exports.deleteSubject = async (req, res) => {
 };
 
 exports.listTeacherAssignments = async (req, res) => {
-  const assignments = await TeacherClassSubject.findAll({
-    include: [
-      { model: User, as: 'teacher', attributes: ['id', 'username', 'name'] },
-      { model: Class, attributes: ['id', 'name'] },
-      { model: Subject, attributes: ['id', 'name'] },
-    ],
-  });
-  res.json(assignments);
+  try {
+    console.log('Fetching teacher assignments...');
+    
+    const assignments = await TeacherClassSubject.findAll({
+      include: [
+        { 
+          model: User, 
+          as: 'teacher', 
+          attributes: ['id', 'username', 'name'] 
+        },
+        { 
+          model: Class, 
+          as: 'class', 
+          attributes: ['id', 'name'] 
+        },
+        { 
+          model: Subject, 
+          as: 'subject', 
+          attributes: ['id', 'name'] 
+        },
+      ],
+    });
+    
+    console.log('Successfully fetched teacher assignments:', assignments.length);
+    res.json(assignments);
+  } catch (error) {
+    console.error('Error in listTeacherAssignments:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name,
+      code: error.parent?.code,
+      sql: error.parent?.sql,
+      parameters: error.parent?.parameters,
+    });
+    
+    res.status(500).json({ 
+      error: 'Failed to fetch teacher assignments',
+      message: error.message,
+      ...(process.env.NODE_ENV === 'development' && {
+        stack: error.stack,
+        details: error.parent?.message || error.details
+      })
+    });
+  }
 };
 exports.assignTeacher = async (req, res) => {
   const { teacherId, classId, subjectId } = req.body;
