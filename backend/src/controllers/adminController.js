@@ -114,21 +114,71 @@ exports.exportExamResults = async (req, res) => {
 
 // Create user (admin only)
 exports.createUser = async (req, res) => {
-  const { username, password, role, name, email, classId, telegramId: telegram_id } = req.body;
-  if (!['student', 'teacher', 'admin', 'invigilator'].includes(role)) return res.status(400).json({ error: 'Invalid role' });
-  if (!username || !password || !name) return res.status(400).json({ error: 'Username, password, and name are required' });
-  if (role === 'student' && !classId) return res.status(400).json({ error: 'Student must be assigned to a class' });
-  // Password must be at least 5 characters
-  if (password.length < 5) return res.status(400).json({ error: 'Password must be at least 5 characters long' });
-  // Username must be unique across all users (all roles)
-  const exists = await User.findOne({ where: { username } });
-  if (exists) return res.status(400).json({ error: 'Username already exists' });
-  const bcrypt = require('bcrypt');
-  const password_hash = await bcrypt.hash(password, 10);
-  const userData = { username, password_hash, role, name, email, telegram_id };
-  if (role === 'student') userData.ClassId = classId;
-  const user = await User.create(userData);
-  res.json({ ok: true, user });
+  const { email, password, role, name, classId, telegramId: telegram_id } = req.body;
+  
+  // Input validation
+  if (!['student', 'teacher', 'admin', 'invigilator'].includes(role)) {
+    return res.status(400).json({ error: 'Invalid role' });
+  }
+  
+  if (!email || !password || !name) {
+    return res.status(400).json({ error: 'Email, password, and name are required' });
+  }
+  
+  if (role === 'student' && !classId) {
+    return res.status(400).json({ error: 'Student must be assigned to a class' });
+  }
+  
+  // Password validation
+  if (password.length < 5) {
+    return res.status(400).json({ error: 'Password must be at least 5 characters long' });
+  }
+  
+  // Check if email already exists
+  const existingUser = await User.findOne({ where: { email } });
+  if (existingUser) {
+    return res.status(400).json({ error: 'Email already exists' });
+  }
+  
+  try {
+    // Hash password
+    const bcrypt = require('bcrypt');
+    const password_hash = await bcrypt.hash(password, 10);
+    
+    // Prepare user data
+    const userData = { 
+      email, 
+      password_hash, 
+      role, 
+      name, 
+      telegram_id,
+      active: true // Set new users as active by default
+    };
+    
+    // Add class association for students
+    if (role === 'student') {
+      userData.classId = classId;
+    }
+    
+    // Create the user
+    const user = await User.create(userData);
+    
+    // Return success response without sensitive data
+    const userResponse = user.toJSON();
+    delete userResponse.password_hash;
+    
+    res.status(201).json({ 
+      ok: true, 
+      user: userResponse 
+    });
+    
+  } catch (error) {
+    console.error('Error creating user:', error);
+    res.status(500).json({ 
+      error: 'Failed to create user',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
 };
 
 // Delete user (admin only)
