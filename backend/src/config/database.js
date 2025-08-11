@@ -116,9 +116,6 @@ const createDefaultAdmin = async (User) => {
 
 const initDatabase = async () => {
   try {
-    // Import models after sequelize is initialized
-    const { User } = require('../models');
-    
     // Test the connection with retry logic
     const maxRetries = 5;
     let retryCount = 0;
@@ -146,16 +143,18 @@ const initDatabase = async () => {
 
     // Import models - this will automatically initialize them
     const models = require('../models');
+    const { User } = models;
     
-    // The models are already initialized when required, but we need to ensure associations are set up
-    // The associations are already set up in models/index.js
+    // Sync all models (without altering tables)
+    await sequelize.sync();
     
-    // Sync all models
-    await sequelize.sync({ alter: process.env.NODE_ENV !== 'production' });
-    console.log('✅ Database synchronized');
-
+    // Run migrations
+    const { runMigrations } = require('../utils/migrate');
+    const migrationsPath = path.join(__dirname, '../../migrations');
+    await runMigrations(sequelize, migrationsPath);
+    
     // Create default admin if not exists
-    await createDefaultAdmin(models.User);
+    await createDefaultAdmin(User);
     
     return { sequelize, User };
 
