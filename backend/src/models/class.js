@@ -15,6 +15,14 @@ module.exports = (sequelize, DataTypes) => {
     timestamps: true
   });
 
+  // Add virtual field for student count
+  Class.prototype.getStudentCount = async function() {
+    if (this.students) {
+      return this.students.length;
+    }
+    return await this.countStudents();
+  };
+
   Class.associate = function(models) {
     // A Class can have many Exams
     Class.hasMany(models.Exam, {

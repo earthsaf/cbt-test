@@ -7,8 +7,38 @@ exports.manageUsers = async (req, res) => {
   res.json(users);
 };
 exports.manageClasses = async (req, res) => {
-  const classes = await Class.findAll();
-  res.json(classes);
+  try {
+    const classes = await Class.findAll({
+      include: [
+        {
+          model: User,
+          as: 'students',
+          attributes: [],
+          where: { role: 'student' },
+          required: false
+        }
+      ],
+      attributes: [
+        'id',
+        'name',
+        'createdAt',
+        'updatedAt',
+        [sequelize.fn('COUNT', sequelize.col('students.id')), 'studentCount']
+      ],
+      group: ['Class.id']
+    });
+    
+    // Convert to plain objects and ensure studentCount is a number
+    const formattedClasses = classes.map(cls => ({
+      ...cls.get({ plain: true }),
+      studentCount: parseInt(cls.getDataValue('studentCount') || 0, 10)
+    }));
+    
+    res.json(formattedClasses);
+  } catch (error) {
+    console.error('Error fetching classes:', error);
+    res.status(500).json({ error: 'Failed to fetch classes' });
+  }
 };
 exports.manageExams = async (req, res) => {
   const exams = await Exam.findAll({ include: Class });
