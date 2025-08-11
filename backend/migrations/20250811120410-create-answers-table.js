@@ -22,9 +22,10 @@ module.exports = {
         allowNull: false,
         defaultValue: false
       },
-      exam_id: {
+      examId: {
         type: Sequelize.INTEGER,
         allowNull: false,
+        field: 'examId',
         references: {
           model: 'Exams',
           key: 'id'
@@ -32,9 +33,10 @@ module.exports = {
         onUpdate: 'CASCADE',
         onDelete: 'CASCADE'
       },
-      question_id: {
+      questionId: {
         type: Sequelize.INTEGER,
         allowNull: false,
+        field: 'questionId',
         references: {
           model: 'Questions',
           key: 'id'
@@ -42,9 +44,10 @@ module.exports = {
         onUpdate: 'CASCADE',
         onDelete: 'CASCADE'
       },
-      user_id: {
+      userId: {
         type: Sequelize.UUID,
         allowNull: false,
+        field: 'userId',
         references: {
           model: 'Users',
           key: 'id'
@@ -65,9 +68,9 @@ module.exports = {
     });
 
     // Add indexes for better query performance
-    await queryInterface.addIndex('Answers', ['exam_id']);
-    await queryInterface.addIndex('Answers', ['question_id']);
-    await queryInterface.addIndex('Answers', ['user_id']);
+    await queryInterface.addIndex('Answers', ['examId']);
+    await queryInterface.addIndex('Answers', ['questionId']);
+    await queryInterface.addIndex('Answers', ['userId']);
   },
 
   down: async (queryInterface, Sequelize) => {
