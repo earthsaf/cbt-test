@@ -191,7 +191,8 @@ io.on('connection', (socket) => {
   });
 });
 
-setupBot(io);
+// Initialize Telegram Bot if configured
+initTelegramBot();
 
 // Global error handling
 app.use((err, req, res, next) => {
