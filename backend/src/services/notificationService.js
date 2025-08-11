@@ -1,5 +1,24 @@
 const { User } = require('../models');
-const logger = require('../utils/logger');
+const { Op } = require('sequelize');
+
+// Try to require logger, but don't fail if it doesn't exist
+let logger = {
+  info: console.log,
+  warn: console.warn,
+  error: console.error,
+  debug: console.debug
+};
+
+try {
+  // Try to use the winston logger if available
+  const winstonLogger = require('../utils/logger');
+  if (winstonLogger) {
+    logger = winstonLogger;
+  }
+} catch (e) {
+  // Fallback to console if logger is not available
+  console.warn('Using console as fallback logger. For production, please install winston and ensure proper logger configuration.');
+}
 
 // This will be set by the bot initialization
 let botInstance = null;
@@ -10,6 +29,7 @@ let botInstance = null;
  */
 function setBotInstance(bot) {
   botInstance = bot;
+  logger.info('Telegram bot instance set for notifications');
 }
 
 /**
@@ -21,7 +41,13 @@ function setBotInstance(bot) {
 async function notifyTeacher(teacherId, message) {
   try {
     if (!botInstance) {
-      logger.warn('Telegram bot instance not initialized. Cannot send notification.');
+      const errorMsg = 'Telegram bot instance not initialized. Cannot send notification.';
+      logger.warn(errorMsg);
+      return false;
+    }
+
+    if (!teacherId || !message) {
+      logger.warn('Missing required parameters for notifyTeacher');
       return false;
     }
 
@@ -30,9 +56,10 @@ async function notifyTeacher(teacherId, message) {
       where: { 
         id: teacherId, 
         role: 'teacher',
-        telegram_id: { [Sequelize.Op.ne]: null } // Only if they have a Telegram ID
+        telegram_id: { [Op.ne]: null } // Only if they have a Telegram ID
       },
-      attributes: ['id', 'name', 'telegram_id']
+      attributes: ['id', 'name', 'telegram_id'],
+      raw: true
     });
 
     if (!teacher || !teacher.telegram_id) {
