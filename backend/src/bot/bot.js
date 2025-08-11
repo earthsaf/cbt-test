@@ -1,6 +1,5 @@
 const TelegramBot = require('node-telegram-bot-api');
 const { User, TeacherClassSubject, Class, Subject, Exam, Question, Session } = require('../models');
-const notificationService = require('../services/notificationService');
 const mammoth = require('mammoth');
 const fs = require('fs');
 const path = require('path');
@@ -58,9 +57,6 @@ function setupBot(io) {
   if (bot) return;
   bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
   
-  // Set up the bot instance in the notification service
-  notificationService.setBotInstance(bot);
-
   bot.onText(/\/start/, (msg) => {
     const welcomeMessage = `🎉 Welcome to the CBT System Bot!
 
