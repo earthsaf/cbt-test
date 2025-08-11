@@ -9,7 +9,7 @@ const cors = require('cors');
 // Import configuration and middleware
 const { initDatabase } = require('./config/database');
 const routes = require('./routes');
-const { setupBot } = require('./bot/bot');
+const { initTelegramBot } = require('./bot');
 const socketService = require('./services/socket');
 const securityHeaders = require('./middlewares/securityHeaders');
 const { corsMiddleware } = require('./middlewares/corsConfig');

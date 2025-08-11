@@ -134,15 +134,6 @@ class User extends Model {
           isEmail: true
         }
       },
-      telegramId: {
-        type: DataTypes.STRING,
-        allowNull: true,
-        unique: true,
-        field: 'telegram_id',
-        validate: {
-          isNumeric: true
-        }
-      },
       password: {
         type: DataTypes.VIRTUAL,
         set(value) {
