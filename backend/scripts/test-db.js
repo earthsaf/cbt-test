@@ -1,5 +1,5 @@
 const { initDatabase, sequelize } = require('../src/config/database');
-const User = require('../src/models/user')(sequelize);
+const User = require('../src/models/User')(sequelize);
 
 async function testDatabase() {
   try {

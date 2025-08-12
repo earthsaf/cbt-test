@@ -148,11 +148,6 @@ const initDatabase = async () => {
     // Sync all models (without altering tables)
     await sequelize.sync();
     
-    // Run migrations
-    const { runMigrations } = require('../utils/migrate');
-    const migrationsPath = path.join(__dirname, '../../migrations');
-    await runMigrations(sequelize, migrationsPath);
-    
     // Create default admin if not exists
     await createDefaultAdmin(User);
     
