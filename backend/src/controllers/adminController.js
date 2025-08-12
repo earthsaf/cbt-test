@@ -344,7 +344,7 @@ exports.listTeacherAssignments = async (req, res) => {
         { 
           model: User, 
           as: 'teacher', 
-          attributes: ['id', 'username', 'name'] 
+          attributes: ['id', 'email', 'name'] 
         },
         { 
           model: Class, 
