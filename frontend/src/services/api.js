@@ -37,9 +37,32 @@ api.interceptors.request.use(
 
 // Response interceptor
 api.interceptors.response.use(
-  response => response,
+  response => {
+    // Log successful responses for debugging
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('API Response:', {
+        url: response.config.url,
+        status: response.status,
+        data: response.data
+      });
+    }
+    return response;
+  },
   error => {
     const originalRequest = error.config;
+    
+    // Log detailed error information
+    console.error('API Error:', {
+      url: originalRequest?.url,
+      method: originalRequest?.method,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      config: {
+        withCredentials: originalRequest?.withCredentials,
+        headers: originalRequest?.headers
+      }
+    });
     
     // Handle network errors
     if (error.code === 'ERR_NETWORK') {
@@ -50,14 +73,33 @@ api.interceptors.response.use(
       });
     }
     
-    // Handle 401 Unauthorized - only redirect if not already on login page
+    // Handle 401 Unauthorized
     if (error.response?.status === 401) {
-      const isLoginPage = window.location.pathname.includes('login');
-      if (!isLoginPage) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        window.location.href = '/staff-login';
+      // Special case: Don't redirect for specific endpoints that might return 401 normally
+      const publicEndpoints = ['/auth/test', '/auth/session'];
+      const isPublicEndpoint = publicEndpoints.some(endpoint => 
+        originalRequest.url.includes(endpoint)
+      );
+      
+      if (isPublicEndpoint) {
+        return Promise.reject(error);
       }
+      
+      // If we get a 401 and this isn't a retry, try to refresh the token
+      if (!originalRequest._retry) {
+        originalRequest._retry = true;
+        
+        // Clear any existing auth data
+        localStorage.removeItem('token');
+        
+        // Only redirect if we're not already on the login page
+        if (!window.location.pathname.includes('login')) {
+          console.log('Session expired, redirecting to login');
+          window.location.href = '/';
+        }
+      }
+      
+      return Promise.reject(error);
     }
     
     // Return error to be handled by the calling component

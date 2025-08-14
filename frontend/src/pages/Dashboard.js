@@ -28,31 +28,79 @@ function Dashboard() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check if user is authenticated via backend (cookie-based session)
-    api.get('/auth/test')
-      .then(res => {
-        // Optionally, set user info from res.data.user
-        setRole(res.data.user.role || 'student');
-        // Optionally, redirect if not student
-        if (res.data.user.role === 'admin') navigate('/admin');
-        if (res.data.user.role === 'teacher') navigate('/teacher');
-        if (res.data.user.role === 'invigilator') navigate('/proctor');
-      })
-      .catch(() => {
-        // Not authenticated, redirect to login
-        navigate('/');
-      });
+    let isMounted = true;
+    
+    const checkAuth = async () => {
+      try {
+        console.log('Checking authentication status...');
+        const res = await api.get('/auth/test');
+        
+        if (!isMounted) return;
+        
+        console.log('Auth test response:', res.data);
+        const userRole = res.data.user?.role || 'student';
+        setRole(userRole);
+        
+        // Only redirect if not a student
+        if (userRole === 'admin') {
+          console.log('Redirecting to admin dashboard');
+          navigate('/admin');
+        } else if (userRole === 'teacher') {
+          console.log('Redirecting to teacher dashboard');
+          navigate('/teacher');
+        } else if (userRole === 'invigilator') {
+          console.log('Redirecting to proctor dashboard');
+          navigate('/proctor');
+        } else {
+          console.log('User is a student, loading dashboard');
+        }
+      } catch (error) {
+        console.error('Authentication check failed:', error);
+        if (isMounted && !window.location.pathname.includes('login')) {
+          console.log('Redirecting to login');
+          navigate('/');
+        }
+      }
+    };
+    
+    checkAuth();
+    
+    return () => {
+      isMounted = false;
+    };
     // Only fetch data if user is authenticated (handled above)
-    api.get(`/exams?t=${Date.now()}`)
-      .then(res => {
-        // Ensure response is an array, handle fallback structures
-        const payload = res.data;
+    const fetchData = async () => {
+      try {
+        // Fetch exams
+        const examsRes = await api.get(`/exams?t=${Date.now()}`);
+        const payload = examsRes.data;
         const list = Array.isArray(payload) ? payload : (Array.isArray(payload?.exams) ? payload.exams : []);
         setExams(list);
-      })
-      .catch(() => setExams([]));
-    api.get('/exams/history').then(res => setHistory(res.data)).catch(() => setHistory([]));
-    api.get('/student/notifications').then(res => setNotifications(res.data)).catch(() => setNotifications([]));
+      } catch (error) {
+        console.error('Error fetching exams:', error);
+        setExams([]);
+      }
+
+      try {
+        // Fetch exam history
+        const historyRes = await api.get('/exams/history');
+        setHistory(historyRes.data || []);
+      } catch (error) {
+        console.error('Error fetching exam history:', error);
+        setHistory([]);
+      }
+
+      try {
+        // Fetch notifications
+        const notifRes = await api.get('/student/notifications');
+        setNotifications(notifRes.data || []);
+      } catch (error) {
+        console.error('Error fetching notifications:', error);
+        setNotifications([]);
+      }
+    };
+
+    fetchData();
     if (tab === 4) { // Corrected index for Profile tab
       setProfileLoading(true);
       api.get('/student/profile')
