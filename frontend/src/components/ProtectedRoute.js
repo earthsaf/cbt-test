@@ -175,17 +175,22 @@ export const ProtectedRoute = ({ children, requiredRole = null }) => {
   // If a specific role is required and the user doesn't have it
   if (requiredRole && user.role !== requiredRole) {
     // If trying to access admin area without admin role
-    if (location.pathname.startsWith('/admin') && user.role !== 'admin') {
+    if ((location.pathname.startsWith('/admin') || requiredRole === 'admin') && user.role !== 'admin') {
       return <Navigate to="/" state={{ from: location }} replace />;
     }
     
     // If trying to access student area without student role
-    if (location.pathname.startsWith('/student') && user.role !== 'student') {
+    if ((location.pathname.startsWith('/student') || requiredRole === 'student') && user.role !== 'student') {
       return <Navigate to="/" state={{ from: location }} replace />;
     }
     
     // For other role mismatches
     return <Navigate to="/" state={{ from: location }} replace />;
+  }
+  
+  // Special case for dashboard - allow both students and teachers to access
+  if (location.pathname === '/dashboard' && (user.role === 'student' || user.role === 'teacher')) {
+    return children;
   }
 
   // If everything checks out, render the protected content
