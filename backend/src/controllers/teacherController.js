@@ -825,6 +825,133 @@ exports.deleteAllQuestionsForAssignment = async (req, res) => {
 };
 
 /**
+ * Get all questions for an exam in a class/subject the teacher is assigned to
+ */
+exports.getQuestions = async (req, res) => {
+  const { assignmentId } = req.params;
+  const teacherId = req.user.id;
+
+  if (!assignmentId) {
+    return res.status(400).json({
+      success: false,
+      error: 'Assignment ID is required'
+    });
+  }
+
+  const t = await Question.sequelize.transaction();
+  
+  try {
+    console.log(`Fetching questions for assignment ${assignmentId} by teacher ${teacherId}`);
+
+    // Verify the teacher is assigned to this class and subject (using either new or legacy ID)
+    const assignment = await TeacherClassSubject.findOne({
+      where: {
+        id: assignmentId,
+        [Op.or]: [
+          { teacherIdNew: teacherId },
+          { teacherId: teacherId }
+        ]
+      },
+      attributes: ['id', 'classId', 'subjectId'],
+      transaction: t,
+      lock: t.LOCK.SHARE
+    });
+
+    if (!assignment) {
+      await t.rollback();
+      console.warn(`Teacher ${teacherId} not authorized to view assignment ${assignmentId}`);
+      return res.status(403).json({
+        success: false,
+        error: 'You are not authorized to view questions for this assignment.'
+      });
+    }
+
+    // Find the most recent exam for this assignment
+    const exam = await Exam.findOne({
+      where: {
+        classId: assignment.classId,
+        subjectId: assignment.subjectId,
+        createdBy: teacherId
+      },
+      order: [['createdAt', 'DESC']],
+      transaction: t
+    });
+
+    if (!exam) {
+      await t.rollback();
+      return res.status(200).json({
+        success: true,
+        data: [],
+        message: 'No exam found for this assignment.'
+      });
+    }
+
+    // Get all questions for this exam
+    const questions = await Question.findAll({
+      where: { examId: exam.id },
+      attributes: [
+        'id',
+        'questionText',
+        'options',
+        'correctAnswer',
+        'marks',
+        'questionType',
+        'difficulty',
+        'category',
+        'createdAt',
+        'updatedAt'
+      ],
+      order: [['createdAt', 'ASC']],
+      transaction: t
+    });
+
+    // Format the response
+    const formattedQuestions = questions.map(question => ({
+      id: question.id,
+      examId: question.examId,
+      questionText: question.questionText,
+      options: question.options,
+      correctAnswer: question.correctAnswer,
+      marks: question.marks,
+      questionType: question.questionType,
+      difficulty: question.difficulty,
+      category: question.category,
+      createdAt: question.createdAt,
+      updatedAt: question.updatedAt
+    }));
+
+    // Commit the transaction
+    await t.commit();
+
+    res.json({
+      success: true,
+      data: {
+        exam: {
+          id: exam.id,
+          title: exam.title,
+          status: exam.status,
+          totalMarks: exam.totalMarks,
+          questionCount: formattedQuestions.length
+        },
+        questions: formattedQuestions
+      },
+      count: formattedQuestions.length
+    });
+  } catch (error) {
+    // If we reach here, rollback the transaction
+    await t.rollback();
+    
+    console.error(`Error fetching questions for assignment ${assignmentId}:`, error);
+    
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch questions',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+/**
  * Get all exams for classes and subjects the teacher is assigned to
  * Supports filtering, sorting, and pagination
  */
