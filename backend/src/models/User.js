@@ -10,6 +10,7 @@ const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@
 class User extends Model {
   // Instance method to verify password
   async verifyPassword(plainPassword) {
+    if (!plainPassword || !this.password_hash) return false;
     return await bcrypt.compare(plainPassword, this.password_hash);
   }
 
@@ -23,6 +24,7 @@ class User extends Model {
 
   // Static method to hash password
   static async hashPassword(password) {
+    if (!password) throw new Error('Password is required');
     const salt = await bcrypt.genSalt(10);
     return await bcrypt.hash(password, salt);
   }
@@ -39,9 +41,17 @@ class User extends Model {
     };
   }
 
-  // Static method to find user by email
-  static async findByEmail(email) {
-    return await this.findOne({ where: { email } });
+  // Static method to find user by email or username
+  static async findByEmailOrUsername(identifier) {
+    if (!identifier) return null;
+    return await this.findOne({
+      where: {
+        [Op.or]: [
+          { email: identifier },
+          { username: identifier }
+        ]
+      }
+    });
   }
 
   // Static method for validation rules (legacy support)
@@ -51,16 +61,33 @@ class User extends Model {
 
   // Define model associations
   static associate(models) {
-    // A User (teacher) can have many TeacherClassSubject assignments
+    // A User (teacher) can have many TeacherClassSubject assignments - using new UUID field
+    User.hasMany(models.TeacherClassSubject, {
+      foreignKey: 'teacherIdNew',
+      as: 'teacherAssignments',
+      constraints: false // Temporary during migration
+    });
+    
+    // Legacy association (will be removed after migration)
     User.hasMany(models.TeacherClassSubject, {
       foreignKey: 'teacherId',
-      as: 'teacherAssignments'
+      as: 'legacyTeacherAssignments',
+      constraints: false // Temporary during migration
     });
     
     // A User can belong to a Class (for students)
     User.belongsTo(models.Class, {
       foreignKey: 'classId',
       as: 'class'
+    });
+    
+    // A User can be assigned to many subjects through TeacherClassSubject
+    User.belongsToMany(models.Subject, {
+      through: 'TeacherClassSubject',
+      foreignKey: 'teacherIdNew',
+      otherKey: 'subjectId',
+      as: 'subjects',
+      constraints: false // Temporary during migration
     });
   }
 
@@ -132,6 +159,15 @@ class User extends Model {
         unique: true,
         validate: {
           isEmail: true
+        }
+      },
+      telegramId: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        unique: true,
+        field: 'telegram_id',
+        validate: {
+          isNumeric: true
         }
       },
       password: {

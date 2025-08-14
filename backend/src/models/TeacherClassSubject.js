@@ -7,7 +7,17 @@ module.exports = (sequelize, DataTypes) => {
     },
     teacherId: {
       type: DataTypes.INTEGER,
-      allowNull: false,
+      allowNull: true, // Will be made required after migration
+      field: 'teacher_id', // Explicitly map to snake_case column
+      references: {
+        model: 'Users',
+        key: 'id'
+      }
+    },
+    teacherIdNew: {
+      type: DataTypes.UUID,
+      allowNull: true, // Will be made required after migration
+      field: 'teacher_id_new', // Explicitly map to snake_case column
       references: {
         model: 'Users',
         key: 'id'
@@ -16,6 +26,7 @@ module.exports = (sequelize, DataTypes) => {
     classId: {
       type: DataTypes.INTEGER,
       allowNull: false,
+      field: 'class_id',
       references: {
         model: 'Classes',
         key: 'id'
@@ -24,38 +35,65 @@ module.exports = (sequelize, DataTypes) => {
     subjectId: {
       type: DataTypes.INTEGER,
       allowNull: false,
+      field: 'subject_id',
       references: {
         model: 'Subjects',
         key: 'id'
       }
+    },
+    // Virtual field for backward compatibility during transition
+    teacherUuid: {
+      type: DataTypes.VIRTUAL,
+      get() {
+        return this.teacherIdNew || this.teacherId;
+      },
+      set(value) {
+        this.setDataValue('teacherIdNew', value);
+      }
     }
   }, {
     tableName: 'TeacherClassSubjects',
-    timestamps: true
+    timestamps: true,
+    // Enable optimistic locking to prevent concurrent updates during migration
+    version: true
   });
 
   // Define associations
   TeacherClassSubject.associate = function(models) {
-    // A TeacherClassSubject belongs to a User (teacher)
+    // Association with User (teacher) - using the new UUID field
     TeacherClassSubject.belongsTo(models.User, {
-      foreignKey: 'teacherId',
+      foreignKey: 'teacherIdNew',
       as: 'teacher',
-      onDelete: 'CASCADE'
+      onDelete: 'CASCADE',
+      constraints: false // Temporary until migration is complete
     });
     
-    // A TeacherClassSubject belongs to a Class
+    // Legacy association (will be removed after migration)
+    TeacherClassSubject.belongsTo(models.User, {
+      foreignKey: 'teacherId',
+      as: 'legacyTeacher',
+      onDelete: 'CASCADE',
+      constraints: false // Temporary until migration is complete
+    });
+    
+    // Class association
     TeacherClassSubject.belongsTo(models.Class, {
       foreignKey: 'classId',
       as: 'class',
       onDelete: 'CASCADE'
     });
     
-    // A TeacherClassSubject belongs to a Subject
+    // Subject association
     TeacherClassSubject.belongsTo(models.Subject, {
       foreignKey: 'subjectId',
       as: 'subject',
       onDelete: 'CASCADE'
     });
+  };
+
+  // Add a method to safely get the teacher ID regardless of migration state
+  TeacherClassSubject.prototype.getTeacherId = function() {
+    return this.teacherIdNew || this.teacherId;
   };
   
   return TeacherClassSubject;
