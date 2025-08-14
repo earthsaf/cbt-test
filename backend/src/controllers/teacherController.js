@@ -236,8 +236,17 @@ exports.deleteAllQuestionsForAssignment = async (req, res) => {
 exports.getProfile = async (req, res) => {
   try {
     const teacher = await User.findByPk(req.user.id, {
-      attributes: ['id', 'name', 'email', 'username', 'role', 'telegram_id', 'class_id'],
+      attributes: ['id', 'name', 'email', 'username', 'role', 'telegram_id', 'classId'],
+      include: [
+        {
+          model: Class,
+          as: 'class',
+          attributes: ['id', 'name'],
+          required: false
+        }
+      ]
     });
+    
     if (!teacher) {
       return res.status(404).json({ error: 'Teacher not found.' });
     }
@@ -250,7 +259,8 @@ exports.getProfile = async (req, res) => {
       username: teacher.username,
       role: teacher.role,
       telegramId: teacher.telegram_id,
-      classId: teacher.class_id
+      classId: teacher.classId,
+      className: teacher.class ? teacher.class.name : null
     };
     
     res.json(profile);
