@@ -176,6 +176,7 @@ const login = async (req, res) => {
           // Log cookie options for debugging
           console.log('Setting cookie with options:', JSON.stringify(cookieOptions, null, 2));
           
+          // Set the cookie once with the correct options
           res.cookie('token', token, cookieOptions);
           
           console.log(`Cookie set in ${Date.now() - cookieStart}ms`);
@@ -191,14 +192,6 @@ const login = async (req, res) => {
             role: user.role,
             name: user.name || user.email.split('@')[0] // Fallback to email prefix if name not set
           };
-          
-          // Set token in cookie
-          res.cookie('token', token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
-            maxAge: 8 * 60 * 60 * 1000 // 8 hours
-          });
           
           // Send response with user data and token
           res.status(200).json({
