@@ -1175,23 +1175,52 @@ exports.getExams = async (req, res) => {
 
 exports.getProfile = async (req, res) => {
   try {
+    // Get the teacher's basic info
     const teacher = await User.findByPk(req.user.id, {
       attributes: ['id', 'name', 'email', 'username', 'role', 'telegram_id', 'classId'],
-      include: [
-        {
-          model: Class,
-          as: 'class',
-          attributes: ['id', 'name'],
-          required: false
-        }
-      ]
+      raw: true
     });
     
     if (!teacher) {
       return res.status(404).json({ error: 'Teacher not found.' });
     }
+
+    // Get the teacher's class assignment from TeacherClassSubjects if classId is missing
+    let classId = teacher.classId;
+    let className = null;
     
-    // Format the response to match the frontend's expected format
+    if (!classId) {
+      const assignment = await TeacherClassSubject.findOne({
+        where: {
+          [Op.or]: [
+            { teacher_id: teacher.id },
+            { teacher_id_new: teacher.id }
+          ]
+        },
+        attributes: ['classId'],
+        raw: true
+      });
+
+      if (assignment) {
+        classId = assignment.classId;
+        // Update the user's classId to keep data consistent
+        await User.update(
+          { classId },
+          { where: { id: teacher.id } }
+        );
+      }
+    }
+
+    // Get class name if we have a classId
+    if (classId) {
+      const classInfo = await Class.findByPk(classId, {
+        attributes: ['name'],
+        raw: true
+      });
+      className = classInfo ? classInfo.name : null;
+    }
+
+    // Format the response
     const profile = {
       id: teacher.id,
       name: teacher.name,
