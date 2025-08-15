@@ -1,18 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Box, AppBar, Tabs, Tab, Typography, CircularProgress, Dialog, DialogTitle, 
-  DialogContent, DialogActions, Button, Snackbar, Alert, useTheme, Toolbar, IconButton
+  DialogContent, DialogActions, Button, Snackbar, Alert, useTheme, Toolbar, 
+  IconButton, DialogContentText, TextField, InputAdornment
 } from '@mui/material';
-import { 
-  Assignment, People, BarChart, AccountCircle, Logout 
-} from '@mui/icons-material';
+import { Assignment, People, BarChart, AccountCircle, Logout, Add as AddIcon } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { toast } from 'react-toastify';
-import api from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 import AssignmentCard from '../components/teacher/AssignmentCard';
 import StudentList from '../components/teacher/StudentList';
-import AnalyticsChart from '../components/teacher/AnalyticsChart';
-import ProfileCard from '../components/common/ProfileCard';
+import QuestionList from '../components/teacher/QuestionList';
+import api from '../services/api';
+import { toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import QuestionForm from '../components/teacher/QuestionForm';
 
 function TeacherPanel() {
@@ -33,10 +33,14 @@ function TeacherPanel() {
   const [analytics, setAnalytics] = useState([]);
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'info' });
   const [selectedAssignment, setSelectedAssignment] = useState(null);
+  const [selectedAssignmentId, setSelectedAssignmentId] = useState(null);
   const [file, setFile] = useState(null);
   const [openUploadModal, setOpenUploadModal] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState(null);
   const [currentQuestion, setCurrentQuestion] = useState({ text: '', options: ['', '', '', ''], answer: '' });
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const tabs = [
     { id: 'assignments', label: 'Assignments & Questions', icon: <Assignment /> },
@@ -51,10 +55,15 @@ function TeacherPanel() {
       console.log('Fetching teacher assignments...');
       const res = await api.get('/teacher/assignments');
       console.log('Assignments response:', res.data);
-      // Handle both array and object with data property
-      const assignmentsData = Array.isArray(res.data) 
-        ? res.data 
-        : (res.data?.data || []);
+      
+      // Transform the data to match the expected format
+      const assignmentsData = (Array.isArray(res.data) ? res.data : (res.data?.data || [])).map(assignment => ({
+        ...assignment,
+        // Ensure we have the nested class and subject objects
+        class: assignment.class || { id: assignment.classId, name: 'Unknown Class' },
+        subject: assignment.subject || { id: assignment.subjectId, name: 'Unknown Subject' }
+      }));
+      
       console.log('Processed assignments:', assignmentsData);
       setAssignments(assignmentsData);
     } catch (error) {
@@ -129,26 +138,56 @@ function TeacherPanel() {
     }
   }, []);
 
-  const handleUpload = async () => {
-    if (!file || !selectedAssignment) return;
+  const handleDelete = async (id) => {
+    try {
+      await api.delete(`/teacher/assignments/${id}`);
+      setAssignments(assignments.filter(a => a.id !== id));
+      setSnack({ open: true, message: 'Assignment deleted successfully', severity: 'success' });
+    } catch (error) {
+      console.error('Error deleting assignment:', error);
+      setSnack({ open: true, message: 'Failed to delete assignment', severity: 'error' });
+    }
+  };
+
+  const handleUploadQuestions = (assignment) => {
+    setSelectedAssignment(assignment);
+    setUploadDialogOpen(true);
+  };
+
+  const handleFileChange = (event) => {
+    setSelectedFile(event.target.files[0]);
+  };
+
+  const handleUploadSubmit = async () => {
+    if (!selectedFile || !selectedAssignment) return;
+    
+    const formData = new FormData();
+    formData.append('file', selectedFile);
     
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      
-      await api.post(`/teacher/assignments/${selectedAssignment}/questions/upload`, formData, {
+      setIsUploading(true);
+      await api.post(`/teacher/assignments/${selectedAssignment.id}/questions/upload`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
       
-      toast.success('Questions uploaded successfully!');
-      fetchQuestions(selectedAssignment);
-      setOpenUploadModal(false);
-      setFile(null);
+      setSnack({ open: true, message: 'Questions uploaded successfully', severity: 'success' });
+      setUploadDialogOpen(false);
+      setSelectedFile(null);
+      // Refresh questions if we're viewing them
+      if (selectedAssignment.id === selectedAssignmentId) {
+        fetchQuestions(selectedAssignmentId);
+      }
     } catch (error) {
       console.error('Error uploading questions:', error);
-      toast.error('Failed to upload questions.');
+      setSnack({ 
+        open: true, 
+        message: error.response?.data?.message || 'Failed to upload questions', 
+        severity: 'error' 
+      });
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -164,20 +203,20 @@ function TeacherPanel() {
       await api.put(`/teacher/questions/${editingQuestion}`, currentQuestion);
       toast.success('Question updated successfully!');
       setEditingQuestion(null);
-      fetchQuestions(selectedAssignment);
+      fetchQuestions(selectedAssignmentId);
     } catch (error) {
       console.error('Error updating question:', error);
       toast.error('Failed to update question.');
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleDeleteQuestion = async (id) => {
     if (!window.confirm('Are you sure you want to delete this question?')) return;
     
     try {
       await api.delete(`/teacher/questions/${id}`);
       toast.success('Question deleted successfully!');
-      fetchQuestions(selectedAssignment);
+      fetchQuestions(selectedAssignmentId);
     } catch (error) {
       console.error('Error deleting question:', error);
       toast.error('Failed to delete question.');
@@ -189,7 +228,7 @@ function TeacherPanel() {
     if (!window.confirm('Are you sure you want to delete all questions for this assignment?')) return;
     
     try {
-      await api.delete(`/teacher/assignments/${selectedAssignment}/questions`);
+      await api.delete(`/teacher/assignments/${selectedAssignment.id}/questions`);
       toast.success('All questions deleted successfully!');
       setQuestions([]);
     } catch (error) {
@@ -273,18 +312,31 @@ function TeacherPanel() {
         </Toolbar>
       </AppBar>
 
-      <Box>
+      <Box sx={{ p: 2 }}>
         {activeTab === 'assignments' && (
           <Box>
-            {assignments.map((assignment) => (
-              <AssignmentCard 
-                key={assignment.id} 
-                assignment={assignment} 
-                onDelete={handleDelete}
-                onEdit={handleEdit}
-                onViewQuestions={() => setSelectedAssignment(assignment.id)}
-              />
-            ))}
+            {loading.assignments ? (
+              <Box display="flex" justifyContent="center" p={3}>
+                <CircularProgress />
+              </Box>
+            ) : assignments.length === 0 ? (
+              <Box textAlign="center" p={3}>
+                <Typography variant="body1" color="textSecondary">
+                  No assignments found. Please contact your administrator to be assigned to classes and subjects.
+                </Typography>
+              </Box>
+            ) : (
+              assignments.map((assignment) => (
+                <Box key={assignment.id} mb={2}>
+                  <AssignmentCard 
+                    assignment={assignment}
+                    onDelete={handleDelete}
+                    onViewQuestions={() => setSelectedAssignment(assignment)}
+                    onUploadQuestions={() => handleUploadQuestions(assignment)}
+                  />
+                </Box>
+              ))
+            )}
           </Box>
         )}
         {activeTab === 'students' && <StudentList students={students} loading={loading.students} />}
