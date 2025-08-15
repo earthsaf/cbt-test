@@ -16,8 +16,8 @@ exports.getAssignments = async (req, res) => {
     const assignments = await TeacherClassSubject.findAll({
       where: {
         [Op.or]: [
-          { teacher_id_new: teacherId },
-          { teacher_id: teacherId } // Fallback to legacy ID if needed
+          { teacherIdNew: teacherId }, // Match the model field name
+          { teacherId: teacherId } // Fallback to legacy ID if needed (matching model field name)
         ]
       },
       include: [
