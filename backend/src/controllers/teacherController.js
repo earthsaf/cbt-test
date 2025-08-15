@@ -1175,9 +1175,9 @@ exports.getExams = async (req, res) => {
 
 exports.getProfile = async (req, res) => {
   try {
-    // Get the teacher's basic info
+    // Get the teacher's basic info with only existing columns
     const teacher = await User.findByPk(req.user.id, {
-      attributes: ['id', 'name', 'email', 'username', 'role', 'telegram_id', 'classId'],
+      attributes: ['id', 'name', 'email', 'role', 'telegram_id', 'classId'], // Removed username
       raw: true
     });
     
@@ -1220,16 +1220,15 @@ exports.getProfile = async (req, res) => {
       className = classInfo ? classInfo.name : null;
     }
 
-    // Format the response
+    // Format the response with only existing fields
     const profile = {
       id: teacher.id,
       name: teacher.name,
       email: teacher.email,
-      username: teacher.username,
       role: teacher.role,
       telegramId: teacher.telegram_id,
-      classId: teacher.classId,
-      className: teacher.class ? teacher.class.name : null
+      classId: classId,
+      className: className
     };
     
     res.json(profile);
