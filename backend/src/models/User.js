@@ -165,9 +165,17 @@ class User extends Model {
         type: DataTypes.STRING,
         allowNull: true,
         unique: true,
-        field: 'telegram_id',
+        field: 'telegram_id', // Explicitly map to the database column
         validate: {
           isNumeric: true
+        },
+        // Add getter to ensure consistent field name in API responses
+        get() {
+          return this.getDataValue('telegramId');
+        },
+        // Add setter to ensure consistent field name in API requests
+        set(value) {
+          this.setDataValue('telegramId', value);
         }
       },
       password: {
