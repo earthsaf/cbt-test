@@ -51,7 +51,12 @@ function TeacherPanel() {
       console.log('Fetching teacher assignments...');
       const res = await api.get('/teacher/assignments');
       console.log('Assignments response:', res.data);
-      setAssignments(res.data || []);
+      // Handle both array and object with data property
+      const assignmentsData = Array.isArray(res.data) 
+        ? res.data 
+        : (res.data?.data || []);
+      console.log('Processed assignments:', assignmentsData);
+      setAssignments(assignmentsData);
     } catch (error) {
       console.error('Error fetching assignments:', {
         message: error.message,
