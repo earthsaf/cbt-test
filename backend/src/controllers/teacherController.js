@@ -10,14 +10,33 @@ const MAX_BATCH_SIZE = 500;
 exports.getAssignments = async (req, res) => {
   try {
     const teacherId = req.user.id;
-    console.log(`Fetching assignments for teacher: ${teacherId}`);
+    console.log(`[DEBUG] Fetching assignments for teacher:`, {
+      teacherId,
+      user: req.user
+    });
+
+    // First, verify the teacher exists
+    const teacher = await User.findByPk(teacherId);
+    if (!teacher) {
+      console.error(`[ERROR] Teacher not found with ID: ${teacherId}`);
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Teacher not found' 
+      });
+    }
+
+    console.log(`[DEBUG] Teacher found:`, {
+      id: teacher.id,
+      email: teacher.email,
+      role: teacher.role
+    });
 
     // Try to find assignments using the new UUID field first
-    const assignments = await TeacherClassSubject.findAll({
+    const queryOptions = {
       where: {
         [Op.or]: [
-          { teacherIdNew: teacherId }, // Match the model field name
-          { teacherId: teacherId } // Fallback to legacy ID if needed (matching model field name)
+          { teacher_id_new: teacherId },
+          { teacher_id: teacherId }
         ]
       },
       include: [
@@ -32,28 +51,34 @@ exports.getAssignments = async (req, res) => {
           as: 'subject',
           attributes: ['id', 'name'],
           required: false 
-        },
+        }
       ],
       attributes: {
         include: [
-          // Use the new UUID field if available, otherwise fall back to the legacy ID
           [
             Sequelize.fn('COALESCE', 
-              Sequelize.col('teacherIdNew'),
-              Sequelize.col('teacherId')
+              Sequelize.col('teacher_id_new'),
+              Sequelize.col('teacher_id')
             ),
             'teacherId'
           ]
         ]
       },
       raw: false
-    });
+    };
+
+    console.log('[DEBUG] Executing query with options:', JSON.stringify(queryOptions, null, 2));
+    
+    const assignments = await TeacherClassSubject.findAll(queryOptions);
+    
+    console.log(`[DEBUG] Found ${assignments.length} assignments for teacher ${teacherId}`);
 
     if (!assignments || assignments.length === 0) {
-      console.warn(`No assignments found for teacher: ${teacherId}`);
-      return res.status(404).json({ 
-        success: false, 
-        error: 'No class or subject assignments found for this teacher' 
+      console.warn(`[WARN] No assignments found for teacher: ${teacherId}`);
+      return res.status(200).json({ 
+        success: true, 
+        data: [],
+        message: 'No class or subject assignments found for this teacher' 
       });
     }
 
@@ -80,12 +105,56 @@ exports.getAssignments = async (req, res) => {
       data: formattedAssignments
     });
   } catch (error) {
-    console.error('Error fetching teacher assignments:', error);
-    res.status(500).json({ 
+    // Log detailed error information
+    const errorDetails = {
+      timestamp: new Date().toISOString(),
+      teacherId,
+      error: {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+        code: error.code,
+        sql: error.sql,
+        sqlMessage: error.original?.sqlMessage,
+        sqlState: error.original?.sqlState,
+        sqlCode: error.original?.code,
+        sqlParameters: error.parameters
+      },
+      request: {
+        method: req.method,
+        url: req.originalUrl,
+        params: req.params,
+        query: req.query,
+        user: req.user ? {
+          id: req.user.id,
+          role: req.user.role,
+          email: req.user.email
+        } : null
+      }
+    };
+
+    console.error('Error in getAssignments:', JSON.stringify(errorDetails, null, 2));
+    
+    // Send detailed error response in development, generic in production
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    const errorResponse = {
       success: false,
       error: 'Failed to fetch teacher assignments',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
+      message: isDevelopment ? error.message : 'An error occurred while processing your request',
+      ...(isDevelopment && {
+        details: {
+          error: error.name,
+          message: error.message,
+          ...(error.original && { sqlError: error.original.message })
+        },
+        debug: {
+          timestamp: errorDetails.timestamp,
+          teacherId: errorDetails.teacherId
+        }
+      })
+    };
+    
+    res.status(500).json(errorResponse);
   }
 };
 

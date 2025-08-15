@@ -48,11 +48,23 @@ function TeacherPanel() {
   const fetchAssignments = useCallback(async () => {
     try {
       setLoading(prev => ({ ...prev, assignments: true }));
+      console.log('Fetching teacher assignments...');
       const res = await api.get('/teacher/assignments');
+      console.log('Assignments response:', res.data);
       setAssignments(res.data || []);
     } catch (error) {
-      console.error('Error fetching assignments:', error);
-      toast.error('Failed to load assignments.');
+      console.error('Error fetching assignments:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        config: {
+          url: error.config?.url,
+          method: error.config?.method,
+          headers: error.config?.headers
+        },
+        stack: error.stack
+      });
+      toast.error('Failed to load assignments. Please try again later.');
     } finally {
       setLoading(prev => ({ ...prev, assignments: false }));
     }

@@ -22,15 +22,31 @@ const api = axios.create({
 // Request interceptor
 api.interceptors.request.use(
   config => {
+    const requestId = Math.random().toString(36).substring(2, 9);
+    config.metadata = { startTime: new Date(), requestId };
+    
+    // Log request details
+    console.log(`[API Request ${requestId}] ${config.method?.toUpperCase()} ${config.url}`, {
+      baseURL: config.baseURL,
+      headers: config.headers,
+      params: config.params,
+      data: config.data
+    });
+    
     // Add auth token if exists
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    
     return config;
   },
   error => {
-    console.error('Request error:', error);
+    console.error('[API Request Error]', {
+      message: error.message,
+      config: error.config,
+      stack: error.stack
+    });
     return Promise.reject(error);
   }
 );
@@ -38,39 +54,61 @@ api.interceptors.request.use(
 // Response interceptor
 api.interceptors.response.use(
   response => {
-    // Log successful responses for debugging
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('API Response:', {
-        url: response.config.url,
-        status: response.status,
-        data: response.data
-      });
-    }
+    const { config, status, data } = response;
+    const { requestId, startTime } = config.metadata || {};
+    const duration = startTime ? new Date() - startTime : 'N/A';
+    
+    // Log successful responses
+    console.log(`[API Response ${requestId || '?'}] ${status} ${config.method?.toUpperCase()} ${config.url} (${duration}ms)`, {
+      status,
+      data,
+      headers: response.headers,
+      config: {
+        baseURL: config.baseURL,
+        params: config.params
+      }
+    });
+    
     return response;
   },
   error => {
-    const originalRequest = error.config;
+    const originalRequest = error.config || {};
+    const { requestId, startTime } = originalRequest.metadata || {};
+    const duration = startTime ? new Date() - startTime : 'N/A';
     
     // Log detailed error information
-    console.error('API Error:', {
+    const errorDetails = {
+      requestId,
+      duration: duration + 'ms',
       url: originalRequest?.url,
       method: originalRequest?.method,
       status: error.response?.status,
       statusText: error.response?.statusText,
-      data: error.response?.data,
+      responseData: error.response?.data,
+      error: {
+        name: error.name,
+        message: error.message,
+        code: error.code,
+        ...(error.response?.data?.error && { serverError: error.response.data.error })
+      },
       config: {
+        baseURL: originalRequest?.baseURL,
         withCredentials: originalRequest?.withCredentials,
         headers: originalRequest?.headers
       }
-    });
+    };
+    
+    console.error(`[API Error ${requestId || '?'}] ${errorDetails.status || 'NO_STATUS'} ${errorDetails.method} ${errorDetails.url}`, errorDetails);
     
     // Handle network errors
     if (error.code === 'ERR_NETWORK') {
-      console.error('Network error - please check your internet connection');
-      return Promise.reject({
+      const networkError = {
         ...error,
+        isNetworkError: true,
         message: 'Unable to connect to the server. Please check your internet connection.'
-      });
+      };
+      console.error('Network error:', networkError);
+      return Promise.reject(networkError);
     }
     
     // Handle 401 Unauthorized
@@ -78,7 +116,7 @@ api.interceptors.response.use(
       // Special case: Don't redirect for specific endpoints that might return 401 normally
       const publicEndpoints = ['/auth/test', '/auth/session'];
       const isPublicEndpoint = publicEndpoints.some(endpoint => 
-        originalRequest.url.includes(endpoint)
+        originalRequest.url?.includes(endpoint)
       );
       
       if (isPublicEndpoint) {
@@ -94,7 +132,7 @@ api.interceptors.response.use(
         
         // Only redirect if we're not already on the login page
         if (!window.location.pathname.includes('login')) {
-          console.log('Session expired, redirecting to login');
+          console.log(`[Auth] Session expired, redirecting to login (requestId: ${requestId})`);
           window.location.href = '/';
         }
       }
