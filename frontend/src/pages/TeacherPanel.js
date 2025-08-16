@@ -1,15 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
-  Box, AppBar, Tabs, Tab, Typography, CircularProgress, Dialog, DialogTitle, 
-  DialogContent, DialogActions, Button, Snackbar, Alert, useTheme, Toolbar, 
-  IconButton, DialogContentText, TextField, InputAdornment
+  Box, Typography, CircularProgress, Dialog, DialogTitle, 
+  DialogContent, DialogActions, Button, Snackbar, Alert, 
+  Paper, TextField, MenuItem, Divider, IconButton, Tooltip
 } from '@mui/material';
-import { Assignment, People, BarChart, AccountCircle, Logout, Add as AddIcon } from '@mui/icons-material';
+import { Logout, Add as AddIcon, CloudUpload as UploadIcon, List as ListIcon } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import AssignmentCard from '../components/teacher/AssignmentCard';
-import StudentList from '../components/teacher/StudentList';
 import QuestionList from '../components/teacher/QuestionList';
+import QuestionForm from '../components/teacher/QuestionForm';
 import api from '../services/api';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -17,55 +16,53 @@ import QuestionForm from '../components/teacher/QuestionForm';
 
 function TeacherPanel() {
   const navigate = useNavigate();
-  const theme = useTheme();
-  const [activeTab, setActiveTab] = useState(() => localStorage.getItem('teacherActiveTab') || 'assignments');
+  const { currentUser } = useAuth();
+  
+  // State for assignments and questions
   const [assignments, setAssignments] = useState([]);
-  const [students, setStudents] = useState([]);
+  const [selectedAssignment, setSelectedAssignment] = useState(null);
   const [questions, setQuestions] = useState([]);
-  const [profile, setProfile] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [currentQuestion, setCurrentQuestion] = useState({ 
+    text: '', 
+    options: ['', '', '', ''], 
+    answer: '',
+    type: 'mcq',
+    marks: 1
+  });
+  
+  // UI State
   const [loading, setLoading] = useState({
     assignments: false,
-    students: false,
     questions: false,
-    profile: false,
+    submitting: false
   });
-  const [loadingAnalytics, setLoadingAnalytics] = useState(false);
-  const [analytics, setAnalytics] = useState([]);
-  const [snack, setSnack] = useState({ open: false, message: '', severity: 'info' });
-  const [selectedAssignment, setSelectedAssignment] = useState(null);
-  const [selectedAssignmentId, setSelectedAssignmentId] = useState(null);
-  const [file, setFile] = useState(null);
-  const [openUploadModal, setOpenUploadModal] = useState(false);
-  const [editingQuestion, setEditingQuestion] = useState(null);
-  const [currentQuestion, setCurrentQuestion] = useState({ text: '', options: ['', '', '', ''], answer: '' });
+  const [snack, setSnack] = useState({ 
+    open: false, 
+    message: '', 
+    severity: 'info' 
+  });
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
-  const [isUploading, setIsUploading] = useState(false);
 
-  const tabs = [
-    { id: 'assignments', label: 'Assignments & Questions', icon: <Assignment /> },
-    { id: 'students', label: 'My Students', icon: <People /> },
-    { id: 'analytics', label: 'Exam Analytics', icon: <BarChart /> },
-    { id: 'profile', label: 'My Profile', icon: <AccountCircle /> },
-  ];
-
+  // Fetch teacher's assignments
   const fetchAssignments = useCallback(async () => {
     try {
       setLoading(prev => ({ ...prev, assignments: true }));
-      console.log('Fetching teacher assignments...');
       const res = await api.get('/teacher/assignments');
-      console.log('Assignments response:', res.data);
       
-      // Transform the data to match the expected format
       const assignmentsData = (Array.isArray(res.data) ? res.data : (res.data?.data || [])).map(assignment => ({
         ...assignment,
-        // Ensure we have the nested class and subject objects
-        class: assignment.class || { id: assignment.classId, name: 'Unknown Class' },
-        subject: assignment.subject || { id: assignment.subjectId, name: 'Unknown Subject' }
+        class: assignment.class || { id: assignment.classId, name: 'Class ' + assignment.classId },
+        subject: assignment.subject || { id: assignment.subjectId, name: 'Subject ' + assignment.subjectId }
       }));
       
-      console.log('Processed assignments:', assignmentsData);
       setAssignments(assignmentsData);
+      
+      // If there's only one assignment, select it by default
+      if (assignmentsData.length === 1) {
+        handleAssignmentSelect(assignmentsData[0]);
+      }
     } catch (error) {
       console.error('Error fetching assignments:', {
         message: error.message,
@@ -275,124 +272,336 @@ function TeacherPanel() {
     fetchProfile();
   }, [fetchAssignments, fetchProfile]);
 
-  useEffect(() => {
-    if (selectedAssignment) {
-      fetchQuestions(selectedAssignment);
+  // Handle assignment selection
+  const handleAssignmentSelect = (assignment) => {
+    setSelectedAssignment(assignment);
+    fetchQuestions(assignment.id);
+  };
+
+  // Fetch questions for the selected assignment
+  const fetchQuestions = async (assignmentId) => {
+    if (!assignmentId) return;
+    
+    try {
+      setLoading(prev => ({ ...prev, questions: true }));
+      const res = await api.get(`/teacher/assignments/${assignmentId}/questions`);
+      setQuestions(Array.isArray(res.data) ? res.data : (res.data?.data || []));
+    } catch (error) {
+      console.error('Error fetching questions:', error);
+      setSnack({
+        open: true,
+        message: 'Failed to load questions',
+        severity: 'error'
+      });
+    } finally {
+      setLoading(prev => ({ ...prev, questions: false }));
     }
-  }, [selectedAssignment, fetchQuestions]);
+  };
+
+  // Handle question form submission
+  const handleQuestionSubmit = async (e) => {
+    e.preventDefault();
+    if (!selectedAssignment) return;
+    
+    try {
+      setLoading(prev => ({ ...prev, submitting: true }));
+      
+      if (isEditing) {
+        await api.put(`/teacher/questions/${currentQuestion.id}`, {
+          ...currentQuestion,
+          assignmentId: selectedAssignment.id
+        });
+        setSnack({ open: true, message: 'Question updated successfully', severity: 'success' });
+      } else {
+        await api.post('/teacher/questions', {
+          ...currentQuestion,
+          assignmentId: selectedAssignment.id
+        });
+        setSnack({ open: true, message: 'Question added successfully', severity: 'success' });
+      }
+      
+      // Refresh questions
+      fetchQuestions(selectedAssignment.id);
+      // Reset form
+      setCurrentQuestion({ 
+        text: '', 
+        options: ['', '', '', ''], 
+        answer: '',
+        type: 'mcq',
+        marks: 1
+      });
+      setIsEditing(false);
+      
+    } catch (error) {
+      console.error('Error saving question:', error);
+      setSnack({
+        open: true,
+        message: error.response?.data?.message || 'Failed to save question',
+        severity: 'error'
+      });
+    } finally {
+      setLoading(prev => ({ ...prev, submitting: false }));
+    }
+  };
+
+  // Handle file upload for questions
+  const handleFileChange = (e) => {
+    setSelectedFile(e.target.files?.[0]);
+  };
+
+  const handleUploadSubmit = async () => {
+    if (!selectedFile || !selectedAssignment) return;
+    
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+    
+    try {
+      setLoading(prev => ({ ...prev, submitting: true }));
+      
+      await api.post(`/teacher/assignments/${selectedAssignment.id}/questions/upload`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      
+      setSnack({ open: true, message: 'Questions uploaded successfully', severity: 'success' });
+      setUploadDialogOpen(false);
+      setSelectedFile(null);
+      fetchQuestions(selectedAssignment.id);
+      
+    } catch (error) {
+      console.error('Error uploading questions:', error);
+      setSnack({
+        open: true,
+        message: error.response?.data?.message || 'Failed to upload questions',
+        severity: 'error'
+      });
+    } finally {
+      setLoading(prev => ({ ...prev, submitting: false }));
+    }
+  };
+
+  // Handle logout
+  const handleLogout = async () => {
+    try {
+      await api.post('/auth/logout');
+      navigate('/login');
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  };
+
+  // Fetch assignments on component mount
+  useEffect(() => {
+    fetchAssignments();
+  }, []);
 
   return (
-    <Box sx={{ flexGrow: 1, p: 3, backgroundColor: theme.palette.background.default, minHeight: '100vh' }}>
-      <AppBar position="static" color="default" sx={{ mb: 3, borderRadius: 1 }}>
-        <Toolbar>
-          <Tabs
-            value={activeTab}
-            onChange={(event, newValue) => {
-              setActiveTab(newValue);
-              localStorage.setItem('teacherActiveTab', newValue);
-            }}
-            indicatorColor="primary"
-            textColor="primary"
-            variant="scrollable"
-            scrollButtons="auto"
-            sx={{ flexGrow: 1 }}
-          >
-            {tabs.map((tab) => (
-              <Tab key={tab.id} value={tab.id} label={tab.label} icon={tab.icon} iconPosition="start" />
-            ))}
-          </Tabs>
-          <IconButton 
-            color="inherit" 
-            onClick={handleLogout}
-            aria-label="logout"
-            sx={{ ml: 2 }}
-          >
-            <Logout />
-          </IconButton>
-        </Toolbar>
-      </AppBar>
+    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+      {/* Header */}
+      <Paper elevation={3} sx={{ p: 2, mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Typography variant="h5" component="h1">
+          Teacher Dashboard
+        </Typography>
+        <Box>
+          <Tooltip title="Logout">
+            <IconButton onClick={handleLogout} color="inherit">
+              <Logout />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      </Paper>
 
-      <Box sx={{ p: 2 }}>
-        {activeTab === 'assignments' && (
-          <Box>
+      <Box sx={{ p: 2, maxWidth: 1200, margin: '0 auto', width: '100%' }}>
+        {/* Assignment Selection */}
+        {!selectedAssignment ? (
+          <Paper sx={{ p: 3, mb: 3 }}>
+            <Typography variant="h6" gutterBottom>
+              Select an Assignment
+            </Typography>
             {loading.assignments ? (
               <Box display="flex" justifyContent="center" p={3}>
                 <CircularProgress />
               </Box>
             ) : assignments.length === 0 ? (
-              <Box textAlign="center" p={3}>
-                <Typography variant="body1" color="textSecondary">
-                  No assignments found. Please contact your administrator to be assigned to classes and subjects.
-                </Typography>
-              </Box>
+              <Typography color="textSecondary">
+                No assignments found. Please contact your administrator.
+              </Typography>
             ) : (
-              assignments.map((assignment) => (
-                <Box key={assignment.id} mb={2}>
-                  <AssignmentCard 
-                    assignment={assignment}
-                    onDelete={handleDelete}
-                    onViewQuestions={() => setSelectedAssignment(assignment)}
-                    onUploadQuestions={() => handleUploadQuestions(assignment)}
-                  />
-                </Box>
-              ))
+              <Box sx={{ '& > *': { mb: 1 } }}>
+                {assignments.map((assignment) => (
+                  <Button
+                    key={assignment.id}
+                    variant="outlined"
+                    fullWidth
+                    onClick={() => handleAssignmentSelect(assignment)}
+                    sx={{ 
+                      p: 2,
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      textTransform: 'none',
+                      textAlign: 'left'
+                    }}
+                  >
+                    <Box>
+                      <Typography variant="subtitle1">
+                        {assignment.class?.name} - {assignment.subject?.name}
+                      </Typography>
+                      <Typography variant="body2" color="textSecondary">
+                        Manage questions for this class/subject
+                      </Typography>
+                    </Box>
+                    <ListIcon />
+                  </Button>
+                ))}
+              </Box>
             )}
-          </Box>
-        )}
-        {activeTab === 'students' && <StudentList students={students} loading={loading.students} />}
-        {activeTab === 'analytics' && <AnalyticsChart data={analytics} loading={loadingAnalytics} onFetch={fetchAnalytics} assignments={assignments} />}
-        {activeTab === 'profile' && (
-          loading.profile ? <CircularProgress /> : 
-          profile ? <ProfileCard user={profile} onUpdate={handleProfileUpdate} /> : <Typography>Could not load profile.</Typography>
+          </Paper>
+        ) : (
+          <>
+            {/* Assignment Header */}
+            <Paper sx={{ p: 2, mb: 3 }}>
+              <Box display="flex" justifyContent="space-between" alignItems="center">
+                <Box>
+                  <Typography variant="h6">
+                    {selectedAssignment.class?.name} - {selectedAssignment.subject?.name}
+                  </Typography>
+                  <Typography variant="body2" color="textSecondary">
+                    Manage questions for this assignment
+                  </Typography>
+                </Box>
+                <Button 
+                  variant="outlined" 
+                  onClick={() => setSelectedAssignment(null)}
+                >
+                  Change Assignment
+                </Button>
+              </Box>
+            </Paper>
+
+            {/* Question Form */}
+            <Paper sx={{ p: 3, mb: 3 }}>
+              <Typography variant="h6" gutterBottom>
+                {isEditing ? 'Edit Question' : 'Add New Question'}
+              </Typography>
+              <QuestionForm
+                question={currentQuestion}
+                onChange={setCurrentQuestion}
+                onSubmit={handleQuestionSubmit}
+                onCancel={() => {
+                  setIsEditing(false);
+                  setCurrentQuestion({ 
+                    text: '', 
+                    options: ['', '', '', ''], 
+                    answer: '',
+                    type: 'mcq',
+                    marks: 1
+                  });
+                }}
+                loading={loading.submitting}
+              />
+            </Paper>
+
+            {/* Question List */}
+            <Paper sx={{ p: 3 }}>
+              <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                <Typography variant="h6">Questions</Typography>
+                <Button
+                  variant="contained"
+                  startIcon={<UploadIcon />}
+                  onClick={() => setUploadDialogOpen(true)}
+                >
+                  Upload Questions
+                </Button>
+              </Box>
+              
+              <QuestionList
+                questions={questions}
+                loading={loading.questions}
+                onEdit={(question) => {
+                  setCurrentQuestion(question);
+                  setIsEditing(true);
+                }}
+                onDelete={async (id) => {
+                  try {
+                    await api.delete(`/teacher/questions/${id}`);
+                    setSnack({ open: true, message: 'Question deleted', severity: 'success' });
+                    fetchQuestions(selectedAssignment.id);
+                  } catch (error) {
+                    console.error('Error deleting question:', error);
+                    setSnack({
+                      open: true,
+                      message: 'Failed to delete question',
+                      severity: 'error'
+                    });
+                  }
+                }}
+              />
+            </Paper>
+          </>
         )}
       </Box>
 
-      <Dialog open={!!editingQuestion} onClose={() => setEditingQuestion(null)} fullWidth maxWidth="md">
-        <DialogTitle>Edit Question</DialogTitle>
-        <DialogContent>
-          <QuestionForm 
-            question={currentQuestion} 
-            setQuestion={setCurrentQuestion}
-            onSave={handleEditSave} 
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setEditingQuestion(null)}>Cancel</Button>
-          <Button onClick={handleEditSave} variant="contained">Save</Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog open={openUploadModal} onClose={() => setOpenUploadModal(false)} fullWidth maxWidth="sm">
+      {/* Upload Questions Dialog */}
+      <Dialog open={uploadDialogOpen} onClose={() => setUploadDialogOpen(false)}>
         <DialogTitle>Upload Questions</DialogTitle>
         <DialogContent>
-          <input
-            type="file"
-            accept=".csv,.xlsx,.xls"
-            onChange={handleFileChange}
-            style={{ margin: '20px 0' }}
-          />
+          <Typography variant="body1" gutterBottom>
+            Upload a CSV or Excel file with questions for {selectedAssignment?.class?.name} - {selectedAssignment?.subject?.name}.
+          </Typography>
+          <Box mt={2}>
+            <input
+              accept=".csv,.xlsx,.xls"
+              style={{ display: 'none' }}
+              id="questions-file-upload"
+              type="file"
+              onChange={handleFileChange}
+            />
+            <label htmlFor="questions-file-upload">
+              <Button
+                variant="outlined"
+                component="span"
+                startIcon={<UploadIcon />}
+                fullWidth
+              >
+                {selectedFile ? selectedFile.name : 'Select File'}
+              </Button>
+            </label>
+            {selectedFile && (
+              <Typography variant="caption" display="block" color="textSecondary" sx={{ mt: 1 }}>
+                {selectedFile.name} ({(selectedFile.size / 1024).toFixed(2)} KB)
+              </Typography>
+            )}
+          </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenUploadModal(false)}>Cancel</Button>
+          <Button 
+            onClick={() => {
+              setUploadDialogOpen(false);
+              setSelectedFile(null);
+            }}
+            disabled={loading.submitting}
+          >
+            Cancel
+          </Button>
           <Button 
             onClick={handleUploadSubmit} 
-            variant="contained" 
-            disabled={!selectedFile || isUploading}
+            variant="contained"
+            disabled={!selectedFile || loading.submitting}
           >
-            {isUploading ? 'Uploading...' : 'Upload'}
+            {loading.submitting ? 'Uploading...' : 'Upload'}
           </Button>
         </DialogActions>
       </Dialog>
 
+      {/* Snackbar for notifications */}
       <Snackbar
         open={snack.open}
         autoHideDuration={6000}
-        onClose={() => setSnack({ ...snack, open: false })}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        onClose={() => setSnack(prev => ({ ...prev, open: false }))}
       >
         <Alert 
-          onClose={() => setSnack({ ...snack, open: false })} 
+          onClose={() => setSnack(prev => ({ ...prev, open: false }))} 
           severity={snack.severity}
+          sx={{ width: '100%' }}
           variant="filled"
         >
           {snack.message}
