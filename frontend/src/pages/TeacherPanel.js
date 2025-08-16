@@ -368,18 +368,18 @@ function TeacherPanel() {
           <input
             type="file"
             accept=".csv,.xlsx,.xls"
-            onChange={(e) => setFile(e.target.files?.[0])}
+            onChange={handleFileChange}
             style={{ margin: '20px 0' }}
           />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenUploadModal(false)}>Cancel</Button>
           <Button 
-            onClick={handleUpload} 
+            onClick={handleUploadSubmit} 
             variant="contained" 
-            disabled={!file}
+            disabled={!selectedFile || isUploading}
           >
-            Upload
+            {isUploading ? 'Uploading...' : 'Upload'}
           </Button>
         </DialogActions>
       </Dialog>
