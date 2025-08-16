@@ -4,11 +4,10 @@ import {
   DialogContent, DialogActions, Button, Snackbar, Alert, 
   Paper, TextField, MenuItem, Divider, IconButton, Tooltip
 } from '@mui/material';
-import { Logout, Add as AddIcon, CloudUpload as UploadIcon, List as ListIcon } from '@mui/icons-material';
+import { Logout, Add as AddIcon, List as ListIcon } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import QuestionList from '../components/teacher/QuestionList';
-import QuestionForm from '../components/teacher/QuestionForm';
 import api from '../services/api';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -42,8 +41,6 @@ function TeacherPanel() {
     message: '', 
     severity: 'info' 
   });
-  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
-  const [selectedFile, setSelectedFile] = useState(null);
 
   // Fetch teacher's assignments
   const fetchAssignments = useCallback(async () => {
@@ -344,40 +341,7 @@ function TeacherPanel() {
     }
   };
 
-  // Handle file upload for questions
-  const handleFileChange = (e) => {
-    setSelectedFile(e.target.files?.[0]);
-  };
-
-  const handleUploadSubmit = async () => {
-    if (!selectedFile || !selectedAssignment) return;
-    
-    const formData = new FormData();
-    formData.append('file', selectedFile);
-    
-    try {
-      setLoading(prev => ({ ...prev, submitting: true }));
-      
-      await api.post(`/teacher/assignments/${selectedAssignment.id}/questions/upload`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      
-      setSnack({ open: true, message: 'Questions uploaded successfully', severity: 'success' });
-      setUploadDialogOpen(false);
-      setSelectedFile(null);
-      fetchQuestions(selectedAssignment.id);
-      
-    } catch (error) {
-      console.error('Error uploading questions:', error);
-      setSnack({
-        open: true,
-        message: error.response?.data?.message || 'Failed to upload questions',
-        severity: 'error'
-      });
-    } finally {
-      setLoading(prev => ({ ...prev, submitting: false }));
-    }
-  };
+  // Removed file upload functionality as per user request
 
   // Handle logout
   const handleLogout = async () => {
@@ -502,16 +466,7 @@ function TeacherPanel() {
 
             {/* Question List */}
             <Paper sx={{ p: 3 }}>
-              <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                <Typography variant="h6">Questions</Typography>
-                <Button
-                  variant="contained"
-                  startIcon={<UploadIcon />}
-                  onClick={() => setUploadDialogOpen(true)}
-                >
-                  Upload Questions
-                </Button>
-              </Box>
+              <Typography variant="h6" gutterBottom>Questions</Typography>
               
               <QuestionList
                 questions={questions}
@@ -540,57 +495,7 @@ function TeacherPanel() {
         )}
       </Box>
 
-      {/* Upload Questions Dialog */}
-      <Dialog open={uploadDialogOpen} onClose={() => setUploadDialogOpen(false)}>
-        <DialogTitle>Upload Questions</DialogTitle>
-        <DialogContent>
-          <Typography variant="body1" gutterBottom>
-            Upload a CSV or Excel file with questions for {selectedAssignment?.class?.name} - {selectedAssignment?.subject?.name}.
-          </Typography>
-          <Box mt={2}>
-            <input
-              accept=".csv,.xlsx,.xls"
-              style={{ display: 'none' }}
-              id="questions-file-upload"
-              type="file"
-              onChange={handleFileChange}
-            />
-            <label htmlFor="questions-file-upload">
-              <Button
-                variant="outlined"
-                component="span"
-                startIcon={<UploadIcon />}
-                fullWidth
-              >
-                {selectedFile ? selectedFile.name : 'Select File'}
-              </Button>
-            </label>
-            {selectedFile && (
-              <Typography variant="caption" display="block" color="textSecondary" sx={{ mt: 1 }}>
-                {selectedFile.name} ({(selectedFile.size / 1024).toFixed(2)} KB)
-              </Typography>
-            )}
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button 
-            onClick={() => {
-              setUploadDialogOpen(false);
-              setSelectedFile(null);
-            }}
-            disabled={loading.submitting}
-          >
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleUploadSubmit} 
-            variant="contained"
-            disabled={!selectedFile || loading.submitting}
-          >
-            {loading.submitting ? 'Uploading...' : 'Upload'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {/* File upload functionality removed as per user request */}
 
       {/* Snackbar for notifications */}
       <Snackbar
