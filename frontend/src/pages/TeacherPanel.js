@@ -91,20 +91,6 @@ function TeacherPanel() {
     }
   }, []);
 
-  const fetchQuestions = useCallback(async (assignmentId) => {
-    if (!assignmentId) return;
-    try {
-      setLoading(prev => ({ ...prev, questions: true }));
-      const res = await api.get(`/teacher/assignments/${assignmentId}/questions`);
-      setQuestions(res.data || []);
-    } catch (error) {
-      console.error('Error fetching questions:', error);
-      toast.error('Failed to load questions.');
-    } finally {
-      setLoading(prev => ({ ...prev, questions: false }));
-    }
-  }, []);
-
   const fetchProfile = useCallback(async () => {
     try {
       setLoading(prev => ({ ...prev, profile: true }));
@@ -275,26 +261,6 @@ function TeacherPanel() {
     fetchQuestions(assignment.id);
   };
 
-  // Fetch questions for the selected assignment
-  const fetchQuestions = async (assignmentId) => {
-    if (!assignmentId) return;
-    
-    try {
-      setLoading(prev => ({ ...prev, questions: true }));
-      const res = await api.get(`/teacher/assignments/${assignmentId}/questions`);
-      setQuestions(Array.isArray(res.data) ? res.data : (res.data?.data || []));
-    } catch (error) {
-      console.error('Error fetching questions:', error);
-      setSnack({
-        open: true,
-        message: 'Failed to load questions',
-        severity: 'error'
-      });
-    } finally {
-      setLoading(prev => ({ ...prev, questions: false }));
-    }
-  };
-
   // Handle question form submission
   const handleQuestionSubmit = async (e) => {
     e.preventDefault();
@@ -343,15 +309,7 @@ function TeacherPanel() {
 
   // Removed file upload functionality as per user request
 
-  // Handle logout
-  const handleLogout = async () => {
-    try {
-      await api.post('/auth/logout');
-      navigate('/login');
-    } catch (error) {
-      console.error('Logout failed:', error);
-    }
-  };
+
 
   // Fetch assignments on component mount
   useEffect(() => {
